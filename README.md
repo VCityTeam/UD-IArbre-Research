@@ -2,4 +2,4 @@
 Research works related to IA.rbre Project
 
 # Internships
-- [https://github.com/VCityTeam/UD-IArbre-Research/tree/master/desealing](Data Science for Urban Desealing)
+- [Data Science for Urban Desealing]([https://github.com/VCityTeam/UD-IArbre-Research/tree/master/desealing)
