@@ -1,0 +1,27 @@
+# Template pour un fichier de configuration YAML
+# Utilisé pour le code lancé par main.py dans ce dossier
+# Remplacez les valeurs par défaut par vos propres valeurs et supprimez les commentaires inutiles
+
+method: {"casier", "ibk"} # Choisir entre "casier" ou "ibk" et retirer les accolades
+
+# Nécessaire pour les deux méthodes
+tile_path: Chemin vers le fichier de tuiles MNT 
+# Exemple : tile_path: ../donnees/mnt_villeurbanne.tif
+
+# Nécessaire pour la méthode "casier"
+imperviousness_path: Chemin vers le fichier raster d'imperméabilité 
+# Exemple : imperviousness_path: ../donnees/imperviousness_lyon.tif
+
+# Nécessaire pour la méthode "casier"
+output_path: Chemin vers le fichier de sortie 
+# Exemple : output_path: ../casier_out/casiers_infiltration.shp
+
+# Nécessaire pour la méthode "casier"
+slope: {"mean_thresholded", "best_fit_plane", "slope_std_dev", "slope_max", "slope_mean_denoised"} # Choisir entre les méthodes de pente et retirer les accolades
+# Exemple : slope: "best_fit_plane"
+
+# Nécessaire pour la méthode "casier"
+casiersize: 10 # Taille des casiers en mètres (choisir des valeurs entières)
+
+# Nécessaire pour la méthode "casier"
+imperviousness_factor: 0.4 # Facteur d'imperméabilité (valeur entre 0 et 1)
