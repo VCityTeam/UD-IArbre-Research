@@ -34,7 +34,7 @@ cd Chemin vers le dossier/desealing
 ```
 
 Ensuite, il existe deux façons de lancer le code:
- - Avec un fichier de configuration au format YAML créé au préalable
+ - Avec un fichier de configuration au format YAML créé au préalable (les informations sur l'utilité des arguments est dans le fichier configtemplate.yaml)
  - En passant tous les arguments en ligne de commande
 
 Avec un fichier de configuration, la commande à faire est:
