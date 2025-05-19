@@ -5,23 +5,31 @@
 method: {"casier", "ibk"} # Choisir entre "casier" ou "ibk" et retirer les accolades
 
 # Nécessaire pour les deux méthodes
+# Permet de choisir un fichier MNT au format raster (tuiles avec informations sur l'atimétrie de la zone)
 tile_path: Chemin vers le fichier de tuiles MNT 
 # Exemple : tile_path: "../donnees/mnt_villeurbanne.tif"
 
 # Nécessaire pour la méthode "casier"
+# Permet de choisir un fichier au format raster contenant des informations sur la perméabilité de la zone
 imperviousness_path: Chemin vers le fichier raster d'imperméabilité 
 # Exemple : imperviousness_path: "../donnees/imperviousness_lyon.tif"
 
 # Nécessaire pour la méthode "casier"
+# Pour stocker les fichiers de sortie du code, au formats .shp, .shx, .prj, .dbf, .cpg
 output_path: Chemin vers le fichier de sortie 
 # Exemple : output_path: "../casier_out/casiers_infiltration.shp"
 
 # Nécessaire pour la méthode "casier"
-slope: {"mean_thresholded", "best_fit_plane", "slope_std_dev", "slope_max", "slope_mean_denoised"} # Choisir entre les méthodes de pente et retirer les accolades
+# Permet de choisir la méthode de calcul de pente et d'aggrégation dans les casiers
+slope: {"mean_thresholded", "best_fit_plane", "slope_std_dev", "slope_max", "slope_mean_denoised"} # Retirer les accolades après avoir choisi une méthode
 # Exemple : slope: "best_fit_plane"
 
 # Nécessaire pour la méthode "casier"
-casiersize: 10 # Taille des casiers en mètres (choisir des valeurs entières)
+# Taille des casiers en mètres (choisir des valeurs entières)
+casiersize: 10
 
 # Nécessaire pour la méthode "casier"
-imperviousness_factor: 0.4 # Facteur d'imperméabilité (valeur entre 0 et 1)
+# Facteur d'imperméabilité (valeur entre 0 et 1)
+# Le score de facilité de désimperméabilisation présenté par la carte d'indice de désimperméabilisation en sortie du code est calculée; par casier, comme suis:
+# Indice_désimper = score_imper * imperviousness_factor + score_pente * slope_factor, avec slope_factor = 1 - imperviousness_factor
+imperviousness_factor: 0.4 
