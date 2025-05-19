@@ -6,15 +6,15 @@ method: {"casier", "ibk"} # Choisir entre "casier" ou "ibk" et retirer les accol
 
 # Nécessaire pour les deux méthodes
 tile_path: Chemin vers le fichier de tuiles MNT 
-# Exemple : tile_path: ../donnees/mnt_villeurbanne.tif
+# Exemple : tile_path: "../donnees/mnt_villeurbanne.tif"
 
 # Nécessaire pour la méthode "casier"
 imperviousness_path: Chemin vers le fichier raster d'imperméabilité 
-# Exemple : imperviousness_path: ../donnees/imperviousness_lyon.tif
+# Exemple : imperviousness_path: "../donnees/imperviousness_lyon.tif"
 
 # Nécessaire pour la méthode "casier"
 output_path: Chemin vers le fichier de sortie 
-# Exemple : output_path: ../casier_out/casiers_infiltration.shp
+# Exemple : output_path: "../casier_out/casiers_infiltration.shp"
 
 # Nécessaire pour la méthode "casier"
 slope: {"mean_thresholded", "best_fit_plane", "slope_std_dev", "slope_max", "slope_mean_denoised"} # Choisir entre les méthodes de pente et retirer les accolades
