@@ -4,8 +4,8 @@ import methodes
 import visualisation
 import configargparse
 
+# Création/Configuration des arguments recevable dans le fichier de configuration .yaml ou bien en ligne de commande
 parser = configargparse.ArgumentParser() 
-
 
 parser.add_argument(
     "-c",
@@ -86,7 +86,7 @@ parser.add_argument(
 args = parser.parse_args()
 print(args)
 
-# Lecture des données
+# Lecture des arguments
 mnt_path = args.tile_path
 imperviousness_path = args.imperviousness_path
 output_path = args.output_path
@@ -97,7 +97,7 @@ imperviousness_factor = args.imperviousness_factor
 slope_factor =  1 - imperviousness_factor # Seulement deux parametres de pondération, pas besoin de deux arguments
 
 
-# Lecture du MNT
+# Lancement du code selon la méthode choisie dans les arguments
 match method:
     case "casier":
         mnt_data, bounds, crs, mnt_transform = lecture.load_single_tile(mnt_path)
