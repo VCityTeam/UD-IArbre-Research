@@ -1,6 +1,7 @@
 # Template pour un fichier de configuration YAML
 # Utilisé pour le code lancé par main.py dans ce dossier
 # Remplacez les valeurs par défaut par vos propres valeurs et supprimez les commentaires inutiles
+# Si vous utilisez la méthode IBK, vous pouvez soit supprimer les lignes des arguments non utilisés, ou les laisser (ils seront lus dans le code mais jamais utilisés)
 
 method: {"casier", "ibk"} # Choisir entre "casier" ou "ibk" et retirer les accolades
 
