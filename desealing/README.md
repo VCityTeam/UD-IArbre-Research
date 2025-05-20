@@ -42,7 +42,16 @@ Avec un fichier de configuration, la commande à faire est:
 python main.py -c nom_du_fichier_de_configuration.yaml
 ```
 
-Un fichier configtemplate.yaml est disponible avec tous les arguments existants et leur entrées nécessaires, ainsi qu'une précision sur la nécessité ou non des ceertains paramètres en fonction de la méthode utilisée.
+Un fichier configtemplate.yaml est disponible avec tous les arguments existants et leur entrées nécessaires, ainsi qu'une précision sur la nécessité ou non des certains paramètres en fonction de la méthode utilisée.
+
+Les arguments sont:
+-m/--method: Permet de choisir la méthode, et par conséquent le code à lancer
+-t/--tile_path: Permet de choisir un fichier MNT au format raster (tuiles avec informations sur l'atimétrie de la zone)
+-i/--imperviousness_path: Permet de choisir un fichier au format raster contenant des informations sur la perméabilité de la zone
+-out/--output_path: Pour stocker les fichiers de sortie du code, au formats .shp, .shx, .prj, .dbf, .cpg
+-slope/--slope: Permet de choisir la méthode de calcul de pente et d'aggrégation dans les casiers
+-cs/--casiersize: Taille des casiers en mètres (choisir des valeurs entières)
+-if/--imperviousness_factor: Poids du score d'imperméabilité. On a Indice_désimper = score_imper * imperviousness_factor + score_pente * slope_factor, avec slope_factor = 1 - imperviousness_factor
 
 Si vous préferez passer tous les arguments en ligne de commande, la commande est plus complexe: 
 ```bash
