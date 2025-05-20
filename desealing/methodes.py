@@ -26,6 +26,9 @@ def slope(mnt_data, resolution=1):
 def best_fit_plane_slope(mnt_data, mask, mnt_transform):
     """
     Fonction pour calculer la pente moyenne d'un plan ajusté aux points d'un MNT.
+    Ici, l'objectif est de trouver la pente "moyenne" sur le casier qui s'adapte le mieux à tous les points de l'aire d'étude.
+    On ne prend pas en compte les points qui sont en dehors du casier (si le masque est correctement appliqué).
+    On ne tiens pas compte non plus de la possible inclinaison du plan, seulement sa valeur (ex:8°)
 
     Paramètres :
     - mnt_data : numpy.ndarray, données du MNT.
@@ -37,12 +40,12 @@ def best_fit_plane_slope(mnt_data, mask, mnt_transform):
     """
     best_fit_plane = []
     rows, cols = np.where(mask)
-    zs = mnt_data[rows, cols]
-    xs = rasterio.transform.xy(mnt_transform, rows, cols, offset='center')[0]
-    ys = rasterio.transform.xy(mnt_transform, rows, cols, offset='center')[1]
+    zs = mnt_data[rows, cols] # Prend les valeurs de z (altitude) des pixels sur les lignes "rows" et colonnes "cols"
+    xs = rasterio.transform.xy(mnt_transform, rows, cols, offset='center')[0] # Prend les coordonnées x et y des pixels sur les lignes "rows" et colonnes "cols", [0] pour x
+    ys = rasterio.transform.xy(mnt_transform, rows, cols, offset='center')[1] # Prend les coordonnées x et y des pixels sur les lignes "rows" et colonnes "cols", [1] pour y
 
-    if len(zs) >= 3:
-        A = np.c_[xs, ys]
+    if len(zs) >= 3: # Taille de matrice de 3x3, standard pour des calcul des pentes ou de plans
+        A = np.c_[xs, ys] # Transforme les slice en matrice 2D (en concaténant  sur la 2ème dimension)
         model = LinearRegression().fit(A, zs)
         dzdx, dzdy = model.coef_
         plane_slope_rad = np.arctan(np.sqrt(dzdx**2 + dzdy**2))
