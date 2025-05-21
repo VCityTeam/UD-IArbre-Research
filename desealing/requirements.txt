@@ -6,3 +6,4 @@ pandas==2.2.3
 rasterio==1.4.3
 rasterstats==0.20.0
 scikit-learn==1.6.1
+mapclassify==2.8.0
