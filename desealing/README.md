@@ -2,72 +2,113 @@
 
 ## Description
 
-Ce projet a pour objectif de fournir un outil permettant de traiter et d'analyser des données géospatiales pour générer des fichiers Shapefile (.shp) exploitables en utilisant la méthode des casiers ou la méthode de l'indice de Beven-Kirkby (IBK). 
+This project aims to provide a tool for processing and analyzing geospatial data to generate usable Shapefile (.shp) files using either the "casier" (grid) method or the Beven-Kirkby Index (IBK) / Topographical Wetness Index (TWI) method.
 
-Voici un aperçu des fonctionnalités principales :
+Here is an overview of the main features:
 
-- **lecture.py** : Ce fichier contient les fonctions nécessaires pour lire et interpréter les données d'entrée, telles que les fichiers MNT (Modèle Numérique de Terrain) et le fichier d'imperméabilité, tout deux des fichiers raster au format .tif.
+- **lecture.py**: This file contains the necessary functions to read and interpret input data, such as DEM (Digital Elevation Model) files and the imperviousness file, both of which are raster files in .tif format.
 
-- **methode.py** : Ce fichier implémente les différentes méthodes de calcul utilisées pour analyser les données, notamment les algorithmes de segmentation en casiers et les calculs de pente.
+- **methode.py**: This file implements the various calculation methods used to analyze the data, including grid segmentation algorithms and slope calculations.
 
-- **visualisation.py** : Ce fichier propose des outils pour visualiser les résultats intermédiaires ou finaux, facilitant ainsi l'interprétation des données traitées.
+- **visualisation.py**: This file provides functions to visualize intermediate and final results, making it easier to interpret the processed data.
 
-- **main.py** : Ce fichier est le point d'entrée principal du projet. Il orchestre l'exécution des différentes étapes en fonction des paramètres fournis par l'utilisateur.
+- **main.py**: This file is the main entry point of the project. It orchestrates the execution of the different steps based on the parameters provided by the user.
 
+## Installation
 
-## Prérequis
+To run the code, make sure you have the following installed:
+- Python 3.8 or higher
 
-Pour exécuter le code, assurez-vous d'avoir les éléments suivants installés :
-- Python 3.8 ou plus
-- Bibliothèques Python requises (voir `requirements.txt`)
+To run the following commands (and this program), first navigate to the `desealing` directory using the following **bash** command:
+```bash
+cd Path/to/the/desealing/folder
+```
 
-Installez les dépendances avec la commande suivante :
+It is recommended to create a Python virtual environment before installing the dependencies if you are not already in one. To do this, run in **bash**:
+```bash
+python3 -m venv venv_name
+```
+
+To activate the virtual environment:
+
+- **On macOS/Linux:**
+    ```bash
+    source .venv/bin/activate
+    ```
+- **On Windows:**
+    ```cmd
+    .venv\Scripts\activate
+    ```
+
+Then, install the dependencies with the following **bash** command:
 ```bash
 pip install -r requirements.txt
 ```
 
-## Utilisation
+## Prerequisites
 
-Pour pouvoir executer ce code, pensez d'abord à vous mettre dans le repertoire `desealing` avec la commande:
+This program requires a number of input data files to perform the desired analyses:
+ - A Digital Elevation Model (DEM) in GeoTIFF raster format (.tif)
+    - [RGE ALTI (1m or 5m)]([https://geoservices.ign.fr/bdalti](https://geoservices.ign.fr/rgealti))
+ - The soil imperviousness map in GeoTIFF raster format (.tif), only for the grid method
+    - [Imperviousness Density 2018 (raster 10 m and 100 m), Europe, 3-yearly](https://land.copernicus.eu/en/products/high-resolution-layer-imperviousness/imperviousness-density-2018#download)
+
+After downloading the data for the area you want to analyze, make sure the DEM area to be analyzed is ***entirely*** included within the imperviousness map area as shown:
+![alt text](img/image.png)
+
+## Harmonizing raster data with QGIS
+
+To ensure your downloaded data have the same coordinate reference system (CRS) and can be used together, follow these steps in QGIS:
+
+1. **Check the CRS of rasters**  
+    - Right-click each raster layer in QGIS, then select **Properties** > **Information** to check the CRS (e.g., EPSG:2154 or EPSG:4326).
+
+2. **Reproject a raster (Warp)**  
+    - If the CRS are different, go to **Raster** > **Projections** > **Warp (Reproject)**.
+    - Select the raster to reproject, choose the target CRS (the same as the other raster), then run the process.
+
+3. **Clip a raster (Clip by Extent)**  
+    - To ensure both rasters cover exactly the same area, use **Raster** > **Extraction** > **Clip by Extent**.
+    - Select the raster to clip and define the extent from the other raster or a vector layer.
+
+4. **Check alignment**  
+    - Add both rasters to QGIS. They should now display superimposed and aligned on the same coordinates.
+
+This way, your two maps will have the same CRS and extent, ensuring their compatibility for analysis.
+
+## Usage
+
+There are two ways to run the code:
+ - With a pre-created YAML configuration file
+ - By passing all arguments via the command line
+
+With a configuration file, use the following command:
 ```bash
-cd Chemin vers le dossier/desealing
+python main.py -c config_file_name.yaml
 ```
 
-Ensuite, il existe deux façons de lancer le code:
- - Avec un fichier de configuration au format YAML créé au préalable (les informations sur l'utilité des arguments est dans le fichier configtemplate.yaml)
- - En passant tous les arguments en ligne de commande
+A configtemplate.yaml file is available with all existing arguments and their required inputs, as well as notes on whether certain parameters are needed depending on the method used.
+The arguments are:
+- **-c, --config**: Path to the YAML configuration file. Allows you to specify all parameters in a single file (optional).
+- **-t, --tile_path**: Path to the DEM (.tif) file. Required.
+- **-i, --imperviousness_path**: Path to the imperviousness file (.tif). Optional, but recommended for some methods.
+- **-m, --method**: Calculation method to use for infiltration. Possible choices: `casier` or `ibk`. Required.
+- **-cs, --casiersize**: Grid size in meters (used only with the `casier` method). Optional.
+- **-slope, --slope**: Slope calculation method. Possible choices: `mean_thresholded`, `best_fit_plane`, `slope_std_dev`, `slope_max`, `slope_mean_denoised`. Optional.
+- **-if, --imperviousness_factor**: Imperviousness factor (value between 0 and 1) used in infiltration calculation. Optional.
+- **-out, --output_path**: Path to the output (.shp) file where results will be saved. Optional.
 
-Avec un fichier de configuration, la commande à faire est:
+If you prefer to pass all arguments via the command line, the command is more complex:
 ```bash
-python main.py -c nom_du_fichier_de_configuration.yaml
+python main.py -t "path to DEM file" -i "path to imperviousness file" -m "method" -cs "grid size in meters" -slope "slope calculation method" -if "factor between 0 and 1 for imperviousness weight" -out "path to the folder to save the resulting .shp file"
 ```
 
-Un fichier configtemplate.yaml est disponible avec tous les arguments existants et leur entrées nécessaires, ainsi qu'une précision sur la nécessité ou non des certains paramètres en fonction de la méthode utilisée.
-
-Les arguments sont:
--m/--method: Permet de choisir la méthode, et par conséquent le code à lancer
--t/--tile_path: Permet de choisir un fichier MNT au format raster (tuiles avec informations sur l'atimétrie de la zone)
--i/--imperviousness_path: Permet de choisir un fichier au format raster contenant des informations sur la perméabilité de la zone
--out/--output_path: Pour stocker les fichiers de sortie du code, au formats .shp, .shx, .prj, .dbf, .cpg
--slope/--slope: Permet de choisir la méthode de calcul de pente et d'aggrégation dans les casiers
--cs/--casiersize: Taille des casiers en mètres (choisir des valeurs entières)
--if/--imperviousness_factor: Poids du score d'imperméabilité. On a Indice_désimper = score_imper * imperviousness_factor + score_pente * slope_factor, avec slope_factor = 1 - imperviousness_factor
-
-Si vous préferez passer tous les arguments en ligne de commande, la commande est plus complexe: 
-```bash
-python main.py -t "chemin vers le fichier MNT" -i "chemin vers le fichier d'imperméabilité" -m "methode" -cs "taille de casier en mètre" -slope "méthode de calcul de pentes" -if "facteur entre 0 et 1 pour poids de l'imperméabilité" -out "chemin vers le dossier où mettre le fichier .shp résultant"
-```
-
-Exemple: 
+Example:
 ```bash
 python main.py -t "data/mnt.tif" -i "data/imperviousness.tif" -m "casier" -cs 10 -slope "best_fit_plane" -if 0.4 -out "./output"
 ```
 
+## Results
 
-## Résultats
-
-Les résultats de ce code sont stockés dans le répertoire `output/`. Ces résultats sont au format Shapefile (.shp)
-
-## Licence
-
-Ce projet est sous licence LGPL.
+The results of the methods are displayed in figures generated using the matplotlib library for Python.
+Results for the casier method are also stored in the `output` directory. These results are in Shapefile (.shp) format.
