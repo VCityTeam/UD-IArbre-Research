@@ -6,15 +6,15 @@ method: {"casier", "ibk"} # Choose between "casier" or "ibk" and remove brackets
 
 # Necessary for both methods
 tile_path: "Path to DEM file in GeoTIFF format"
-# Exemple : tile_path: ../donnees/mnt_villeurbanne.tif
+# Exemple : tile_path: "../donnees/mnt_villeurbanne.tif"
 
 # Necessary for "casier" method
 imperviousness_path: "Path to imperviousness density file"
-# Exemple : imperviousness_path: ../donnees/imperviousness_lyon.tif
+# Exemple : imperviousness_path: "../donnees/imperviousness_lyon.tif"
 
 # Necessary for "casier" method
 output_path: "Path to output folder"
-# Exemple : output_path: ../casier_out
+# Exemple : output_path: "../casier_out"
 
 # Necessary for "casier" method
 slope: {"mean_thresholded", "best_fit_plane", "slope_std_dev", "slope_max", "slope_mean_denoised"} # Choose between slope computing methods and remove brackets
