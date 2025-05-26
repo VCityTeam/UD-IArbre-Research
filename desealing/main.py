@@ -4,8 +4,8 @@ import methodes
 import visualisation
 import configargparse
 
-# Création/Configuration des arguments recevable dans le fichier de configuration .yaml ou bien en ligne de commande
-parser = configargparse.ArgumentParser()
+parser = configargparse.ArgumentParser() 
+
 
 parser.add_argument(
     "-c",
@@ -86,41 +86,40 @@ parser.add_argument(
 args = parser.parse_args()
 print(args)
 
-# Lecture des arguments (de la ligne de commande ou du fichier de configuration
+# Assigning arguments to variables
 mnt_path = args.tile_path
 imperviousness_path = args.imperviousness_path
 output_path = args.output_path
 casiersize = args.casiersize
 method = args.method
 slope_method = args.slope
-imperviousness_factor = args.imperviousness_factor # Seulement deux parametres de pondération, pas besoin de deux arguments
-slope_factor =  1 - imperviousness_factor 
+imperviousness_factor = args.imperviousness_factor
+slope_factor =  1 - imperviousness_factor # Only two weighting parameters, no need for two arguments
 
 
-# Lancement du code selon la méthode choisie dans les arguments
+# Main execution based on the method specified
 match method:
     case "casier":
-        mnt_data, bounds, crs, mnt_transform = lecture.load_single_tile(mnt_path) # Chargement d'une tuile MNT
-        imperviousness_data, _, _, _ = lecture.load_single_tile(imperviousness_path) # Chargement d'une tuile de la carte d'imperméabilité
-        casiers = methodes.create_grid(bounds, crs, casier_size=casiersize) # Création des casiers
-        slope_dict = methodes.calculate_slope(mnt_data, mnt_transform, casiers, method=slope_method) # Calcul des pentes selon la méthode choisie
+        mnt_data, bounds, crs, mnt_transform = lecture.load_single_tile(mnt_path)
+        imperviousness_data, _, _, _ = lecture.load_single_tile(imperviousness_path)
+        casiers = methodes.create_grid(bounds, crs, casier_size=casiersize)
+        slope_dict = methodes.calculate_slope(mnt_data, mnt_transform, casiers, method=slope_method)
 
-        for key in slope_dict: 
-            slope_dict[key] = np.array(slope_dict[key]) # Simple changement de format de liste à np.array pour le code d'en dessous
+        for key in slope_dict: # Convert lists to numpy arrays to make sure they are compatible with GeoDataFrame
+            slope_dict[key] = np.array(slope_dict[key])
 
-        casiers["slope"] = slope_dict["slope"].flatten()[:len(casiers)] # Permet d'assigner les valeurs de pentes aux casiers
+        casiers["slope"] = slope_dict["slope"].flatten()[:len(casiers)]
 
-        # Calcul du score d'infiltration dans les casiers
+        # Infiltration index calculation
         casiers = methodes.compute_infiltration_score(casiers, imperviousness_path, imperviousness_factor, slope_factor)
 
         visualisation.plot_tiles_casier(casiers)
 
-        casiers.to_file(output_path) # Crée les fichiers .shp, .shx etc... 
+        casiers.to_file(output_path)
 
     case "ibk":
-        mnt_data, _, _, mnt_transform = lecture.load_single_tile(mnt_path) # Chargement d'une tuile MNT
-        
-        # Calcul de l'IBK
+        mnt_data, _, _, mnt_transform = lecture.load_single_tile(mnt_path)
+        # IBK / TWI calculation
         ibk, slope_percent, drainage_area = methodes.calculate_ibk(mnt_data)
         visualisation.plot_tiles_ibk(ibk, slope_percent, drainage_area)
 

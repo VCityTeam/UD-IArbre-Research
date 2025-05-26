@@ -1,36 +1,27 @@
-# Template pour un fichier de configuration YAML
-# Utilisé pour le code lancé par main.py dans ce dossier
-# Remplacez les valeurs par défaut par vos propres valeurs et supprimez les commentaires inutiles
-# Si vous utilisez la méthode IBK, vous pouvez soit supprimer les lignes des arguments non utilisés, ou les laisser (ils seront lus dans le code mais jamais utilisés)
+# Template for YAML configuration file
+# This file is used by the main.py script in this folder
+# Replace default values with your own values and remove unnecessary comments
 
-method: {"casier", "ibk"} # Choisir entre "casier" ou "ibk" et retirer les accolades
+method: {"casier", "ibk"} # Choose between "casier" or "ibk" and remove brackets
 
-# Nécessaire pour les deux méthodes
-# Permet de choisir un fichier MNT au format raster (tuiles avec informations sur l'atimétrie de la zone)
-tile_path: Chemin vers le fichier de tuiles MNT 
-# Exemple : tile_path: "../donnees/mnt_villeurbanne.tif"
+# Necessary for both methods
+tile_path: "Path to DEM file in GeoTIFF format"
+# Exemple : tile_path: ../donnees/mnt_villeurbanne.tif
 
-# Nécessaire pour la méthode "casier"
-# Permet de choisir un fichier au format raster contenant des informations sur la perméabilité de la zone
-imperviousness_path: Chemin vers le fichier raster d'imperméabilité 
-# Exemple : imperviousness_path: "../donnees/imperviousness_lyon.tif"
+# Necessary for "casier" method
+imperviousness_path: "Path to imperviousness density file"
+# Exemple : imperviousness_path: ../donnees/imperviousness_lyon.tif
 
-# Nécessaire pour la méthode "casier"
-# Pour stocker les fichiers de sortie du code, au formats .shp, .shx, .prj, .dbf, .cpg
-output_path: Chemin vers le fichier de sortie 
-# Exemple : output_path: "../casier_out/casiers_infiltration.shp"
+# Necessary for "casier" method
+output_path: "Path to output folder"
+# Exemple : output_path: ../casier_out
 
-# Nécessaire pour la méthode "casier"
-# Permet de choisir la méthode de calcul de pente et d'aggrégation dans les casiers
-slope: {"mean_thresholded", "best_fit_plane", "slope_std_dev", "slope_max", "slope_mean_denoised"} # Retirer les accolades après avoir choisi une méthode
+# Necessary for "casier" method
+slope: {"mean_thresholded", "best_fit_plane", "slope_std_dev", "slope_max", "slope_mean_denoised"} # Choose between slope computing methods and remove brackets
 # Exemple : slope: "best_fit_plane"
 
-# Nécessaire pour la méthode "casier"
-# Taille des casiers en mètres (choisir des valeurs entières)
-casiersize: 10
+# Necessary for "casier" method
+casiersize: 10 # Size of the casier in meters
 
-# Nécessaire pour la méthode "casier"
-# Facteur d'imperméabilité (valeur entre 0 et 1)
-# Le score de facilité de désimperméabilisation présenté par la carte d'indice de désimperméabilisation en sortie du code est calculée; par casier, comme suis:
-# Indice_désimper = score_imper * imperviousness_factor + score_pente * slope_factor, avec slope_factor = 1 - imperviousness_factor
-imperviousness_factor: 0.4 
+# Necessary for "casier" method
+imperviousness_factor: 0.4 # Imperviousness weight for the casier method, between 0 and 1

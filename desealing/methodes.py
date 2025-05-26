@@ -4,17 +4,19 @@ from rasterstats import zonal_stats
 from sklearn.linear_model import LinearRegression
 import rasterio
 
+# DEM is the english equivalent for MNT (Modèle Numérique de Terrain)
+
 def slope(mnt_data, resolution=1):
     """
-    Fonction pour calculer les pente locale à partir d'un MNT (Modèle Numérique de Terrain).
+    Function to calculate local slopes from a Digital Elevation Model (DEM).
 
-    Paramètres :
-    - mnt_data : numpy.ndarray, données du MNT.
-    - resolution : int, résolution spatiale du MNT en mètre (par défaut 1 mètre).
+    Parameters :
+    - mnt_data : numpy.ndarray, DEM data as a 2D array.
+    - resolution : int, spatial resolution of the DEM (default is 1 meter).
 
-    Retourne :
-    - slope_rad : numpy.ndarray, pente en radians.
-    - slope_angle : numpy.ndarray, pente en degrés.
+    Returns :
+    - slope_rad : numpy.ndarray, slope in radians.
+    - slope_angle : numpy.ndarray, slope in degrees.
     """
     x, y = np.gradient(mnt_data, resolution)
     slope = np.sqrt(x**2 + y**2)
@@ -25,27 +27,30 @@ def slope(mnt_data, resolution=1):
 
 def best_fit_plane_slope(mnt_data, mask, mnt_transform):
     """
-    Fonction pour calculer la pente moyenne d'un plan ajusté aux points d'un MNT.
-    Ici, l'objectif est de trouver la pente "moyenne" sur le casier qui s'adapte le mieux à tous les points de l'aire d'étude.
-    On ne prend pas en compte les points qui sont en dehors du casier (si le masque est correctement appliqué).
-    On ne tiens pas compte non plus de la possible inclinaison du plan, seulement sa valeur (ex:8°)
+    Function to compute the average slope of a best-fit plane to the points in a DEM.
+    This function aims to find the "average" slope over the grid cell that best fits all points in the study area.
+    It does not consider points outside the grid cell (if the mask is applied correctly).
+    It also does not take into account the possible tilt of the plane, only its value (e.g., 8°).
 
-    Paramètres :
-    - mnt_data : numpy.ndarray, données du MNT.
-    - mask : numpy.ndarray, masque binaire pour sélectionner les points d'intérêt.
-    - mnt_transform : Affine, transformation affine du MNT.
+    Parameters :
+    - mnt_data : numpy.ndarray, DEM data as a 2D array.
+    - mask : numpy.ndarray, boolean mask indicating the area of interest (True for pixels to consider).
+    - mnt_transform : affine.Affine, affine transformation of the DEM.
 
-    Retourne :
-    - best_fit_plane : list, pente moyenne en degrés pour le plan ajusté.
+    Returns :
+    - best_fit_plane : list, list containing the average slope of the best-fit plane in degrees.
     """
     best_fit_plane = []
     rows, cols = np.where(mask)
-    zs = mnt_data[rows, cols] # Prend les valeurs de z (altitude) des pixels sur les lignes "rows" et colonnes "cols"
-    xs = rasterio.transform.xy(mnt_transform, rows, cols, offset='center')[0] # Prend les coordonnées x et y des pixels sur les lignes "rows" et colonnes "cols", [0] pour x
-    ys = rasterio.transform.xy(mnt_transform, rows, cols, offset='center')[1] # Prend les coordonnées x et y des pixels sur les lignes "rows" et colonnes "cols", [1] pour y
+    zs = mnt_data[rows, cols] # Takes the z values (altitude) of the pixels on the "rows" and "cols" lines
+    xs = rasterio.transform.xy(mnt_transform, rows, cols, offset='center')[0] # Takes the x and y coordinates of the pixels on the "rows" and "cols" lines, [0] for x, [1] for y
+    ys = rasterio.transform.xy(mnt_transform, rows, cols, offset='center')[1]
 
-    if len(zs) >= 3: # Taille de matrice de 3x3, standard pour des calcul des pentes ou de plans
-        A = np.c_[xs, ys] # Transforme les slice en matrice 2D (en concaténant  sur la 2ème dimension)
+    if len(zs) >= 3: # At least 3 points are needed to fit a plane, otherwise the slope is 0
+        # Fit a plane to the points (xs, ys, zs) using linear regression
+        # The plane is defined by the equation z = ax + by + c, where a and b are the slopes in x and y directions
+        # We use the LinearRegression model from sklearn to find the best fit plane
+        A = np.c_[xs, ys] # Combines xs and ys into a 2D array where each row is a point (x, y)
         model = LinearRegression().fit(A, zs)
         dzdx, dzdy = model.coef_
         plane_slope_rad = np.arctan(np.sqrt(dzdx**2 + dzdy**2))
@@ -58,36 +63,41 @@ def best_fit_plane_slope(mnt_data, mask, mnt_transform):
 
 def calculate_slope(mnt_data, mnt_transform, casiers, resolution=1, method="mean_thresholded"):
     """
-    Fonction pour calculer la pente pour chaque casier selon différentes méthodes.
+    Function to calculate the slope for each grid cell in a GeoDataFrame of casiers (grid cells) depending on the chosen configuration.
 
-    Paramètres :
-    - mnt_data : numpy.ndarray, données du MNT.
-    - mnt_transform : Affine, transformation affine du MNT.
-    - casiers : GeoDataFrame, grille de casiers.
-    - resolution : int, résolution spatiale du MNT (par défaut 1 mètre).
-    - method : str, méthode de calcul de la pente ("mean_thresholded", "slope_std_dev", etc.).
+    Parameters :
+    - mnt_data : numpy.ndarray, DEM data as a 2D array.
+    - mnt_transform : affine.Affine, affine transformation of the DEM.
+    - casiers : GeoDataFrame, grid cells (casiers) for which to calculate the slope.
+    - resolution : int, spatial resolution of the DEM (default is 1 meter).
+    - method : str, method to use for slope calculation. Options are:
+        - "mean_thresholded": Mean slope between 5° and 50°. For not hardcoded values, the threshold can be adjusted.
+        - "slope_std_dev": Standard deviation of the slope.
+        - "slope_max": Maximum slope.
+        - "slope_mean_denoised": Mean slope after denoising.
+        - "best_fit_plane": Slope of the best-fit plane.
 
-    Retourne :
-    - slope_dict : dict, dictionnaire contenant les pentes calculées pour chaque casier.
+    Returns :
+    - slope_dict : dict, dictionary containing the slope values for each grid cell in the GeoDataFrame.
     """
     slope_rad, slope_angle = slope(mnt_data, resolution)
     slope_dict = {"slope": []}
 
     for geom in casiers.geometry:
         mask = rasterio.features.geometry_mask([geom], transform=mnt_transform, invert=True, out_shape=mnt_data.shape)
-        slope_vals = slope_angle[mask]
+        slope_values = slope_angle[mask]
 
         match method:
             case "mean_thresholded":
-                filtered = slope_vals[(slope_vals >= 5) & (slope_vals <= 50)]
+                filtered = slope_values[(slope_values >= 5) & (slope_values <= 50)]
                 slope_dict["slope"].append(filtered.mean() if filtered.size > 0 else 0)
             case "slope_std_dev":
-                slope_dict["slope"].append(np.std(slope_vals) if slope_vals.size > 0 else 0)
+                slope_dict["slope"].append(np.std(slope_values) if slope_values.size > 0 else 0)
             case "slope_max":
-                slope_dict["slope"].append(np.max(slope_vals) if slope_vals.size > 0 else 0)
+                slope_dict["slope"].append(np.max(slope_values) if slope_values.size > 0 else 0)
             case "slope_mean_denoised":
-                slope_vals_denoised = slope_rad[mask]
-                slope_dict["slope"].append(np.mean(slope_vals_denoised) if slope_vals_denoised.size > 0 else 0)
+                slope_values_denoised = slope_rad[mask]
+                slope_dict["slope"].append(np.mean(slope_values_denoised) if slope_values_denoised.size > 0 else 0)
             case "best_fit_plane":
                 slope_dict["slope"].append(best_fit_plane_slope(mnt_data, mask, mnt_transform))
 
@@ -95,34 +105,42 @@ def calculate_slope(mnt_data, mnt_transform, casiers, resolution=1, method="mean
 
 def compute_infiltration_score(casiers, imperviousness_path, imperviousness_factor, slope_factor):
     """
-    Fonction pour calculer l'indice d'infiltration pour chaque casier.
+    Function to compute the infiltration index for each grid cell (casiers) based on imperviousness and slope.
 
-    Paramètres :
-    - casiers : GeoDataFrame, grille de casiers.
-    - imperviousness_path : str, chemin vers le raster d'imperméabilité.
-    - imperviousness_factor : float, facteur de pondération pour l'imperméabilité.
-    - slope_factor : float, facteur de pondération pour la pente.
+    Parameters :
+    - casiers : GeoDataFrame, grid cells (casiers) for which to compute the infiltration index.
+    - imperviousness_path : str, path to the imperviousness raster file (in .tif format).
+    - imperviousness_factor : float, weighting factor for imperviousness.
+    - slope_factor : float, weighting factor for slope.
 
-    Retourne :
-    - casiers : GeoDataFrame, grille de casiers avec l'indice d'infiltration ajouté.
+    Returns :
+    - casiers : GeoDataFrame, grid cells with the computed infiltration index added as a new column.
     """
     imperviousness_stats = zonal_stats(casiers, imperviousness_path, stats=["mean"], nodata=0)
-    casiers["impermeabilite"] = [s["mean"]/100 if s["mean"] is not None else 0 for s in imperviousness_stats]
-    casiers["pente_norm"] = (casiers["slope"] - casiers["slope"].min()) / (casiers["slope"].max() - casiers["slope"].min())
-    casiers["indice_infiltration"] = (1-casiers["impermeabilite"]) * imperviousness_factor + (1 - casiers["pente_norm"]) * slope_factor
+    casiers["imperviousness"] = [s["mean"]/100 if s["mean"] is not None else 0 for s in imperviousness_stats]
+    casiers["normalized_slope"] = (casiers["slope"] - casiers["slope"].min()) / (casiers["slope"].max() - casiers["slope"].min())
+    casiers["infiltration_index"] = (1-casiers["imperviousness"]) * imperviousness_factor + (1 - casiers["normalized_slope"]) * slope_factor
     return casiers
+
 
 def calculate_ibk(mnt):
     """
-    Fonction pour calculer l'Indice de Beven Kirkby (IBK) à partir d'un MNT.
+    Function to calculate the Beven Kirkby Index (IBK/TWI) from a Digital Elevation Model (DEM).
+    This function computes the IBK using the formula:
+    IBK = log(A / tan(slope_rad) + 1e-6)
 
-    Paramètres :
-    - mnt : numpy.ndarray, données du MNT.
+    where:
+    - A is the drainage area (simplified as a count of pixels in this case).
+    - slope_rad is the slope in radians.
+    - 1e-6 is a small constant to avoid division by zero.
+    
+    Parameters :
+    - mnt : numpy.ndarray, DEM data as a 2D array.
 
-    Retourne :
-    - ibk : numpy.ndarray, indice IBK.
-    - slope_rad : numpy.ndarray, pente en radians.
-    - drainage_area : numpy.ndarray, surface drainée.
+    Returns :
+    - ibk : numpy.ndarray, Beven Kirkby Index (IBK) values.
+    - slope_rad : numpy.ndarray, slope in radians.
+    - drainage_area : numpy.ndarray, simplified drainage area.
     """
     slope_rad, slope_angle = slope(mnt)
     drainage_area = calculate_drainage_area(mnt)
@@ -133,15 +151,15 @@ def calculate_ibk(mnt):
 
 def create_grid(bounds, crs, casier_size=10):
     """
-    Fonction pour créer une grille de casiers réguliers à partir des limites spatiales.
+    Function to create a grid of regular casiers (grid cells) from spatial bounds.
 
-    Paramètres :
-    - bounds : shapely.bounds, limites spatiales (left, bottom, right, top).
-    - crs : str ou CRS, système de coordonnées de référence.
-    - casier_size : int, taille des casiers en unités spatiales (par défaut 10).
+    Parameters :
+    - bounds : shapely.bounds, spatial bounds (left, bottom, right, top).
+    - crs : str, coordinate reference system of the grid (e.g., "EPSG:4326").
+    - casier_size : int, size of each casier in meters (default is 10 meters).
 
-    Retourne :
-    - grid_gdf : GeoDataFrame, grille de casiers.
+    Returns :
+    - grid_gdf : GeoDataFrame, grid of casiers with the specified size and coordinate reference system.
     """
     from shapely.geometry import box
     cols = int((bounds.right - bounds.left) // casier_size)
@@ -162,13 +180,13 @@ def create_grid(bounds, crs, casier_size=10):
 
 def calculate_drainage_area(mnt):
     """
-    Fonction pour calculer une surface drainée simplifiée à partir d'un MNT.
+    Function to calculate a simplified drainage area from a Digital Elevation Model (DEM).
 
-    Paramètres :
-    - mnt : numpy.ndarray, données du MNT.
+    Parameters :
+    - mnt : numpy.ndarray, DEM data as a 2D array.
 
-    Retourne :
-    - drainage_area : numpy.ndarray, surface drainée.
+    Returns :
+    - drainage_area : numpy.ndarray, simplified drainage area as a 2D array.
     """
     drainage_area = np.ones_like(mnt)
     for i in range(1, mnt.shape[0] - 1):

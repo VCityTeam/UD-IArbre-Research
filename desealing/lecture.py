@@ -6,15 +6,15 @@ import glob
 
 def load_multiple_tiles_and_merge(folder_path, nodata_value=-9999):
     """
-    Fonction pour charger plusieurs tuiles raster et les fusionner en une seule.
+    Function to load multiple raster tiles and merge them into a single one.
 
-    Paramètres :
-    - folder_path : str, chemin du dossier contenant les fichiers raster au format .tif.
-    - nodata_value : int ou float, valeur représentant les données manquantes dans les fichiers raster (par défaut : -9999).
+    parameters :
+    - folder_path : String, path to the folder containing the raster files (in .tif format).
+    - nodata_value : int or float, value representing no data in the raster files (default is -9999).
 
-    Retourne :
-    - merged_data : numpy.ndarray, tableau 2D contenant les données fusionnées.
-    - merged_transform : Affine, transformation affine associée aux données fusionnées.
+    Returns :
+    - merged_data : numpy.ndarray, 2D array containing the merged raster data.
+    - merged_transform : affine.Affine, affine transformation associated with the merged raster data.
     """
     asc_files = glob.glob(f"{folder_path}/*.tif")
     datasets = [rasterio.open(file) for file in asc_files]
@@ -31,16 +31,16 @@ def load_multiple_tiles_and_merge(folder_path, nodata_value=-9999):
 
 def load_single_tile(tile_path):
     """
-    Fonction pour charger une seule tuile raster et extraire ses métadonnées.
+    Function to load a single raster tile and extract its metadata.
 
-    Paramètres :
-    - tile_path : str, chemin du fichier raster au format .tif .
+    parameters :
+    - tile_path : String, path to the raster tile file (in .tif format).
 
     Retourne :
-    - tile_data : numpy.ndarray, tableau 2D contenant les données raster.
-    - bounds : tuple, limites géographiques (xmin, ymin, xmax, ymax) de la tuile.
-    - crs : CRS, système de coordonnées de référence de la tuile.
-    - tile_transform : Affine, transformation affine associée aux données raster.
+    - tile_data : numpy.ndarray, 2D array containing the raster data of the tile.
+    - bounds : tuple, bounds of the tile in the format (minx, miny, maxx, maxy).
+    - crs : rasterio.crs.CRS, coordinate reference system of the tile.
+    - tile_transform : affine.Affine, affine transformation associated with the raster data.
     """
     with rasterio.open(tile_path) as src:
         bounds = src.bounds
