@@ -17,14 +17,17 @@ Here is an overview of the main features:
 ## Installation
 
 To run the code, make sure you have the following installed:
+
 - Python 3.8 or higher
 
 To run the following commands (and this program), first navigate to the `desealing` directory using the following **bash** command:
+
 ```bash
 cd Path/to/the/desealing/folder
 ```
 
 It is recommended to create a Python virtual environment before installing the dependencies if you are not already in one. To do this, run in **bash**:
+
 ```bash
 python3 -m venv venv_name
 ```
@@ -32,15 +35,19 @@ python3 -m venv venv_name
 To activate the virtual environment:
 
 - **On macOS/Linux:**
+
     ```bash
     source .venv/bin/activate
     ```
+
 - **On Windows:**
+
     ```cmd
     .venv\Scripts\activate
     ```
 
 Then, install the dependencies with the following **bash** command:
+
 ```bash
 pip install -r requirements.txt
 ```
@@ -48,10 +55,11 @@ pip install -r requirements.txt
 ## Prerequisites
 
 This program requires a number of input data files to perform the desired analyses:
- - A Digital Elevation Model (DEM) in GeoTIFF raster format (.tif)
-    - [RGE ALTI (1m or 5m)]([https://geoservices.ign.fr/bdalti](https://geoservices.ign.fr/rgealti))
- - The soil imperviousness map in GeoTIFF raster format (.tif), only for the grid method
-    - [Imperviousness Density 2018 (raster 10 m and 100 m), Europe, 3-yearly](https://land.copernicus.eu/en/products/high-resolution-layer-imperviousness/imperviousness-density-2018#download)
+
+- A Digital Elevation Model (DEM) in GeoTIFF raster format (.tif)
+  - [RGE ALTI (1m or 5m)]([https://geoservices.ign.fr/bdalti](https://geoservices.ign.fr/rgealti))
+- The soil imperviousness map in GeoTIFF raster format (.tif), only for the grid method
+  - [Imperviousness Density 2018 (raster 10 m and 100 m), Europe, 3-yearly](https://land.copernicus.eu/en/products/high-resolution-layer-imperviousness/imperviousness-density-2018#download)
 
 After downloading the data for the area you want to analyze, make sure the DEM area to be analyzed is ***entirely*** included within the imperviousness map area as shown:
 ![alt text](img/image.png)
@@ -79,16 +87,19 @@ This way, your two maps will have the same CRS and extent, ensuring their compat
 ## Usage
 
 There are two ways to run the code:
- - With a pre-created YAML configuration file
- - By passing all arguments via the command line
+
+- With a pre-created YAML configuration file
+- By passing all arguments via the command line
 
 With a configuration file, use the following command:
+
 ```bash
 python main.py -c config_file_name.yaml
 ```
 
 A configtemplate.yaml file is available with all existing arguments and their required inputs, as well as notes on whether certain parameters are needed depending on the method used.
 The arguments are:
+
 - **-c, --config**: Path to the YAML configuration file. Allows you to specify all parameters in a single file (optional).
 - **-t, --tile_path**: Path to the DEM (.tif) file. Required.
 - **-i, --imperviousness_path**: Path to the imperviousness file (.tif). Optional, but recommended for some methods.
@@ -99,11 +110,13 @@ The arguments are:
 - **-out, --output_path**: Path to the output (.shp) file where results will be saved. Optional.
 
 If you prefer to pass all arguments via the command line, the command is more complex:
+
 ```bash
 python main.py -t "path to DEM file" -i "path to imperviousness file" -m "method" -cs "grid size in meters" -slope "slope calculation method" -if "factor between 0 and 1 for imperviousness weight" -out "path to the folder to save the resulting .shp file"
 ```
 
 Example:
+
 ```bash
 python main.py -t "data/mnt.tif" -i "data/imperviousness.tif" -m "casier" -cs 10 -slope "best_fit_plane" -if 0.4 -out "./output"
 ```
