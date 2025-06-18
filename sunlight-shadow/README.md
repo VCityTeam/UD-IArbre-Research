@@ -46,3 +46,5 @@ Here is a full list of all options available :
 | --start-year, -s      | Start year of sun position computation                                                                                | -s 1975                                   |
 | --end-year, -e        | End year of sun position computation                                                                                  | -e 2075                                   |
 | --filename, -f        | Path to CSV file where you want the results to be stored                                                              | -f sunpath.csv                            |
+
+Elevation data from [geoservice.ign.fr](https://geoservices.ign.fr/rgealti#telechargement1m).
