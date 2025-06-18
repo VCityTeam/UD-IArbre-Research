@@ -391,33 +391,33 @@ Dans un projet comme IA.rbre, où les sources de données sont nombreuses, où l
 En résumé, versionner, ce n’est pas juste garder des fichiers : c’est organiser la mémoire du projet, pour que chaque étape reste compréhensible, réutilisable et réplicable.
 ## Références
 
-### A Comparison of Spatiotemporal Visualizations for 3D Urban Analytics [PDF](https://www.evl.uic.edu/documents/3d_urban_analytics_ieeevis22.pdf)
+1. Mota, R., Ferreira, N., Silva, J. D., Horga, M., Lage, M., Ceferino, L., ... & Miranda, F. (2022). **A comparison of spatiotemporal visualizations for 3D urban analytics.** IEEE transactions on visualization and computer graphics, 29(1), 1277-1287. [PDF](https://www.evl.uic.edu/documents/3d_urban_analytics_ieeevis22.pdf)
 
-### The State of the Art in Visual Analytics for 3D Urban Data [PDF](https://filipbiljecki.com/publications/2024_cgf_star_3dviz.pdf)
+2. Miranda, F., Ortner, T., Moreira, G., Hosseini, M., Vuckovic, M., Biljecki, F., ... & Ferreira, N. (2024, June). **The state of the art in visual analytics for 3D urban data.** In Computer Graphics Forum (Vol. 43, No. 3, p. e15112). [PDF](https://filipbiljecki.com/publications/2024_cgf_star_3dviz.pdf)
 
-### 3D Urban Landscape Visualization [PDF](https://ep.liu.se/ecp/034/020/ecp083420.pdf)
+3. Veide, Z., Strozheva, V., & Dobelis, M. (2008, November). **3D Urban Landscape Visualization.** In SIGRAD 2008. The Annual SIGRAD Conference Special Theme: Interaction; November 27-28; 2008 Stockholm; Sweden (No. 034, pp. 83-84). Linköping University Electronic Press. [PDF](https://ep.liu.se/ecp/034/020/ecp083420.pdf)
 
-### Standardised Versioning of Datasets: a FAIR–compliant Proposal [PDF](https://www.nature.com/articles/s41597-024-03153-y)
+4. González–Cebrián, A., Bradford, M., Chis, A. E., & González–Vélez, H. (2024). **Standardised versioning of datasets: a FAIR–compliant proposal.** Scientific Data, 11(1), 358. [PDF](https://www.nature.com/articles/s41597-024-03153-y)
 
-### Towards Creative Version Control [PDF]([https://ssterman.web.illinois.edu/assets/pdfs/towards_creative_version_control.pdf](https://ssterman.web.illinois.edu/assets/pdfs/towards_creative_version_control.pdf))
+5. Sterman, S., Nicholas, M. J., & Paulos, E. (2022). **Towards Creative Version Control.** Proceedings of the ACM on Human-Computer Interaction, 6(CSCW2), 1-25. [PDF]([https://ssterman.web.illinois.edu/assets/pdfs/towards_creative_version_control.pdf](https://ssterman.web.illinois.edu/assets/pdfs/towards_creative_version_control.pdf))
 
-### Versioning Data Is About More than Revisions: A Conceptual Framework and Proposed Principles [PDF](https://datascience.codata.org/articles/10.5334/dsj-2021-012)
+6. Klump, J., Wyborn, L., Wu, M., Martin, J., Downs, R. R., & Asmi, A. (2021). **Versioning data is about more than revisions: A conceptual framework and proposed principles.** Data Science Journal, 20(1), 12. [PDF](https://datascience.codata.org/articles/10.5334/dsj-2021-012)
 
-### Managing Versions and History Within Semantic 3D City Models for the Next Generation of CityGML. [PDF](https://hal.science/hal-01386247/document) 
+7. Chaturvedi, K., Smyth, C. S., Gesquière, G., Kutzner, T., & Kolbe, T. H. (2017). **Managing versions and history within semantic 3D city models for the next generation of CityGML.** Advances in 3D geoinformation, 191-206. [PDF](https://hal.science/hal-01386247/document) 
 
-### UrbanCo2Fab: Comprehension of Concurrent Viewpoints of Urban Fabric Based on Git. [PDF](https://isprs-annals.copernicus.org/articles/IV-4-W6/65/2018/isprs-annals-IV-4-W6-65-2018.pdf) 
+8. Samuel, J., Servigne, S., & Gesquiere, G. (2018). **UrbanCo2Fab: Comprehension of concurrent viewpoints of urban fabric based on GIT.** ISPRS Annals of the Photogrammetry, Remote Sensing and Spatial Information Sciences, 4, 65-72. [PDF](https://isprs-annals.copernicus.org/articles/IV-4-W6/65/2018/isprs-annals-IV-4-W6-65-2018.pdf) 
 
-### Representation of Concurrent Points of View of Urban Changes for City Models. [PDF](https://hal.science/hal-02454953/document) 
+9. Samuel, J., Servigne, S., & Gesquière, G. (2020). **Representation of concurrent points of view of urban changes for city models.** Journal of Geographical Systems, 22(3), 335-359. [PDF](https://hal.science/hal-02454953/document) 
 
-### Versionnement de graphe pour des données urbaines évolutives. [PDF](https://hal.science/hal-04257528/document)
+10. GIL, J. P., Coquery, E., Samuel, J., & Gesquière, G. (2023, October). **Versionnement de graphe pour des données urbaines évolutives.** In BDA 2023. [PDF](https://hal.science/hal-04257528/document)
 
-### ConVer-G:Concurrent versioning of knowledge graphs [PDF](https://hal.science/hal-04690144/document) 
+11. Gil, J. P., Coquery, E., Samuel, J., & Gesquière, G. (2024). **ConVer-G: Concurrent versioning of knowledge graphs.** arXiv preprint arXiv:2409.04499. [PDF](https://hal.science/hal-04690144/document) 
 
-### Decentralized collaborative knowledge management using git [PDF](https://arxiv.org/pdf/1805.03721)
+12. Arndt, N., & Martin, M. (2019, May). **Decentralized collaborative knowledge management using git.** In Companion Proceedings of The 2019 World Wide Web Conference (pp. 952-953). [PDF](https://arxiv.org/pdf/1805.03721)
 
-### Unsupervised Change Detection in Satellite ImagesUsing Principal Component Analysis and k-Means Clustering [PDF](https://d1wqtxts1xzle7.cloudfront.net/88046593/lgrs.2009.202505920220628-1-1fs6yld-libre.pdf?1656411525=&response-content-disposition=inline%3B+filename%3DUnsupervised_Change_Detection_in_Satelli.pdf&Expires=1748254957&Signature=RZfcTPP4ja5kzV3hVlL7oMT-oIx~JEoZsKfQWT57FCVoEtOfmFAccOJT6a1hDQJGTzvuBQan3kEqWfllJ5wfUgw8K2qgIQEONwl4EYyr6-TrcgZJW-sujgmo5jDuobSFnC4K5dmJ1ISNd0tmSJndm7ydJY4-QKxvLCKhXWYU3Vl4M2ICTYKB0A5JpHG2YwJMDRTOqsaXzgaGbFRHymS5fHCNGb9PM4uA6lUYg-2q2tTgQQjY7trjTdMRfXFSY1qSzhqo1cyJFK-D7ylqV9iy3EHQjrKcCS9gSexgjxPsnnEFLs3qbF3kM4g4V057BaIwi2yOBXxk46o1J6CN8gGCRA__&Key-Pair-Id=APKAJLOHF5GGSLRBV4ZA)
+13. Celik, T. (2009). **Unsupervised change detection in satellite images using principal component analysis and $ k $-means clustering.** IEEE geoscience and remote sensing letters, 6(4), 772-776. [PDF](https://d1wqtxts1xzle7.cloudfront.net/88046593/lgrs.2009.202505920220628-1-1fs6yld-libre.pdf?1656411525=&response-content-disposition=inline%3B+filename%3DUnsupervised_Change_Detection_in_Satelli.pdf&Expires=1750262357&Signature=L~SW2pACKvVADKoMaj8t~qq9Trg-ibHKzf0lNTMzeqHtPBNpN~ZCjwWq9rvCwgNlot4dIZ7j3AbAK7QYMdfyCp1FO9pDIC8YpPyJIFYQsm8s3N35Ea34M6MaVl-rbWtemWSulsQ1vdrjIxviuskfGNeV9KDsm3eNFJInXeOrPziLM9OEGde1bK4JufEojeFwEJFH4KX4fjAoJ4n2I3AMYtuiwFnXZummO~daSZh-LEdhacl4u1~1jtVQGoTMTNihIaZNAE9XTcdFiQSknb-uM1qacOtENKYme14S~LEPz-awcrigIdPCokQRL20TWuRHMC5tVE6WqHqvaImjTUYVAw__&Key-Pair-Id=APKAJLOHF5GGSLRBV4ZA)
 
-### A Version Control System for Point Clouds [PDF](https://www.mdpi.com/2072-4292/15/18/4635)
+14. Ogayar-Anguita, C. J., López-Ruiz, A., Segura-Sánchez, R. J., & Rueda-Ruiz, A. J. (2023). **A version control system for point clouds.** Remote Sensing, 15(18), 4635. [PDF](https://www.mdpi.com/2072-4292/15/18/4635)
 
 ## Blogs
 - [Data Versioning Explained: Guide, Examples & Best Practices](https://lakefs.io/blog/data-versioning/)
