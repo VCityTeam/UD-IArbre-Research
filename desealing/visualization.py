@@ -66,6 +66,7 @@ def plot_tiles_casier(data_to_plot: gpd.GeoDataFrame):
         [axes[0, 0], axes[0, 1], axes[1, 0]],
         ["infiltration_index", "normalized_slope", "imperviousness"],
         ["turbo", "plasma", "turbo"] # These colormaps can be adjusted/changed as needed
+        #["grey_r", "grey_r", "grey_r"] # These colormaps can be adjusted/changed as needed
     ):
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.1)

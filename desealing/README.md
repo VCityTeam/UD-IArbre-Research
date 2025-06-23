@@ -62,7 +62,7 @@ This program requires a number of input data files to perform the desired analys
   - [Imperviousness Density 2018 (raster 10 m and 100 m), Europe, 3-yearly](https://land.copernicus.eu/en/products/high-resolution-layer-imperviousness/imperviousness-density-2018#download)
 
 After downloading the data for the area you want to analyze, make sure the DEM area to be analyzed is ***entirely*** included within the imperviousness map area as shown:
-![alt text](/img/image.png)
+![alt text](img/image.png)
 
 ## Harmonizing raster data with QGIS
 
