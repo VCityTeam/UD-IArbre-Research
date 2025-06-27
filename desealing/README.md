@@ -125,3 +125,8 @@ python main.py -t "data/mnt.tif" -i "data/imperviousness.tif" -m "casier" -cs 10
 
 The results of the methods are displayed in figures generated using the matplotlib library for Python.
 Results for the casier method are also stored in the `output` directory. These results are in Shapefile (.shp) format.
+
+## Team
+- Pierre-Antoine CHIRON
+- John SAMUEL
+- Gilles GESQUIERE
