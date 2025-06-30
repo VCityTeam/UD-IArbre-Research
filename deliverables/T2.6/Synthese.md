@@ -125,6 +125,8 @@ Les formats scientifiques tels que netCDF, HDF5 ou GeoTIFF sont optimisés pour 
 
 Pour les données spatiales ou en 3D, des formats comme GML, CityGML ou IFC permettent de décrire en détails les objets urbains. Le format CityGML, par exemple, structure les bâtiments, la végétation ou le mobilier urbain avec des propriétés détaillées, y compris des informations temporelles. Il est utilisé dans des travaux comme Managing Versions and History Within Semantic 3D City Models ou [URBANCO2FAB](https://isprs-annals.copernicus.org/articles/IV-4-W6/65/2018/isprs-annals-IV-4-W6-65-2018.pdf) (Samuel, 2018), qui ajoutent des mécanismes de version similaires à ceux de Git pour suivre l’évolution des objets 3D dans le temps.
 
+Le Shapefile, quant à lui, est un format SIG vectoriel très répandu, notamment dans les administrations publiques et les logiciels comme QGIS ou ArcGIS. Bien qu’il soit composé de plusieurs fichiers binaires (SHP, SHX, DBF…).
+
 Pour les nuages de points, issus majoritairement de capteurs LiDAR ou de photogrammétrie, des formats comme LAS et LAZ sont utilisés. Ils permettent de stocker des millions de points géoréférencés dans l’espace 3D. L’article [A Version Control System for Point Clouds](https://www.mdpi.com/2072-4292/15/18/4635) (Ogayar-Anguita, 2023) propose un système de versionnement optimisé pour ce type de données, basé sur la détection et le stockage des différences entre versions plutôt que sur la duplication complète des fichiers. Ce système améliore la gestion de l’espace et la traçabilité dans les processus de traitement.
 
 Pour les graphes de connaissances, le format RDF permet de modéliser les relations entre entités de façon claire. Les systèmes comme [ConVer-G](https://hal.science/hal-04690144/document) (Gil, J. P., 2024) et Quit Store utilisent des graphes nommés ou des bitstrings pour gérer de multiples versions.
@@ -138,6 +140,7 @@ Enfin, certains contextes mobilisent des formats de données non structurées (P
 | Scientifique          | netCDF, HDF5, GeoTIFF            | Climat, environnement, imagerie             |
 | 3D sémantique         | CityGML, IFC                     | Modélisation urbaine, architecture          |
 Nuages de points	| LAS, LAZ	| Relevés 3D, LiDAR, photogrammétrie |
+| SIG vectoriel | Shapefile, GeoPackage | Cartographie, données géospatiales |
 | Graphe de connaissance| RDF, RDF Quad, TTL               | Ontologies, données liées, SPARQL           |
 | Informel / créatif    | PDF, image, prototype physique   | Création, documentation, art/design         |
 
@@ -154,7 +157,7 @@ Dans la modélisation urbaine, les sources historiques sont essentielles : permi
 
 Les données ouvertes comme par exemple les OpenStreetMap, cadastre, ou les données publiques sont à la fois utilisées pour représenter un état courant et pour détecter des évolutions.
 
-Dans un contexte collaboratif, les données peuvent être produites par les utilisateurs avec par exempe des sondages. Dans l'article Decentralized Collaborative Knowledge Management using Git(Arndt, 2019), les auteurs montrent comment des connaissances distribuées peuvent être versionnées dans un graphe RDF.
+Dans un contexte collaboratif, les données peuvent être produites par les utilisateurs avec par exempe des sondages. Dans l'article  [Decentralized Collaborative Knowledge Management using Git](https://arxiv.org/pdf/1805.03721) (Arndt, 2019), les auteurs montrent comment des connaissances distribuées peuvent être versionnées dans un graphe RDF.
 
 
 | Type de source        | Exemples                                | Domaines concernés                  |
@@ -182,6 +185,8 @@ D’autres outils répondent à des besoins plus spécifiques. [Git LFS](https:/
 
 [DoltHub](https://www.dolthub.com/) est une plateforme web basée sur Dolt, un moteur de base de données SQL qui intègre nativement le versionnement. Chaque modification dans une base (insertions, suppressions, mises à jour, etc...) est suivie comme un commit Git. On peut y créer des branches, fusionner des changements ou comparer différentes versions d’une base SQL, avec une traçabilité fine et collaborative.
 
+Pour les jeux de données géospatiaux, des outils dérivés de Git ont été spécifiquement conçus pour gérer les particularités des formats spatiaux. [GeoGig](https://geogig.org/) applique les concepts de Git aux bases de données spatiales, en versionnant finement les objets géographiques (points, lignes, polygones) et leurs attributs, avec un support natif pour des SGBD comme PostGIS, et des opérations telles que commit, merge ou diff. [Kart](https://kartproject.org/), plus récent, reprend également les principes de Git, mais avec une interface plus moderne et une meilleure intégration aux outils SIG. Il supporte une large gamme de formats vectoriels comme Shapefile, GeoPackage, PostGIS et GeoJSON, et permet aussi d’intégrer des raster. Kart propose des diffs sémantiques entre versions, une gestion des métadonnées claire, et s’intègre dans des workflows collaboratifs via la CLI ou QGIS. Ces outils sont particulièrement adaptés aux projets de cartographie collaborative, d’aménagement ou de suivi de l’évolution spatiale.
+
 Les méthodes de calcul de dérive, telles que l’analyse en composantes principales (PCA) et les autoencodeurs, sont utilisées dans l’article [Standardised Versioning of Datasets](https://www.nature.com/articles/s41597-024-03153-y) (González–Cebrián, 2024) pour mesurer les différences entre deux versions d’un même jeu de données. Elles permettent de quantifier les changements réels dans les structures ou les valeurs des données, offrant ainsi une base objective pour justifier le passage à une nouvelle version. Ces outils sont particulièrement utiles dans un cadre FAIR (Findable, Accessible, Interoperable, Reusable), où la traçabilité et la reproductibilité sont essentielles, notamment pour les données complexes comme les séries temporelles, les jeux raster ou environnementaux.
 
 ### Approches issues de la recherche
@@ -206,6 +211,7 @@ Versionnement de nuages de points	| Version Control System for Point Clouds (Oga
 | DVC                       | Data Version Control               | Versionnement de données et modèles  | Science des données, machine learning  |
 | LakeFS                    | LakeFS                             | Contrôle de version dans les data lakes | Données massives, pipelines analytiques |
 | Dolt / DoltHub            | DoltHub                            | Versionnement de bases SQL           | Données tabulaires, data engineering   |
+| GeoGig / Kart | GeoGig, Kart | Versionnement de données géospatiales vectorielles et raster, diff | SIG, cartographie, urbanisme |
 | Analyse de dérive         | PCA                                | Détection de changement              | Science, imagerie, séries temporelles  |             
 | Requêtes SPARQL versionnées| Conver-G(Gil, J. P., 2024)                           | Interrogation multi-versions         | Données liées, graphe RDF              |
 | Ontologies et logique     | OWL, description logique           | Cohérence sémantique des versions    | Données complexes, 3D sémantique       |
@@ -281,6 +287,7 @@ Un exemple notable décrit dans l'article [Unsupervised Change Detection in Sate
 | Tableaux / SQL   | Dolt                        | Datasets tabulaires                   | Comparaison ligne/cellule, vues temporelles   |
 | Versionnement de données voluminsue et modèle de ML    | DVC, LakeFS                                  | Fichiers de données, datasets volumineux | Tableaux de bord, historique de versions, suivi des changements |
 | Visualisation 3D temporelle  | URBANCO2FAB (Samuel, 2018), CityGML extensions             | Objets urbains, modèles 3D            | Superposition, encodage couleur, timeline     |
+| Versionnement géospatial | Kart, GeoGig | Données géospatiales vectorielles et raster | Diff géométrique, historique spatial, intégration SIG |
 | Détection de changement dans une image | PCA + k-means (Celik, 2009), DiffHecer                    | Imagerie satellite multitemporelle, images simples  | Segmentation binaire, carte de changement, visualisation de différence           |
 
 <small>Ce tableau recense différents types de visualisations utilisées pour explorer et comprendre les évolutions dans le temps. Il associe à chaque type des outils ou approches courants, les types de contenus concernés et les fonctions principales</small>
