@@ -366,7 +366,8 @@ Une fois la table de correspondance en place, on peut y faire des requêtes (Que
 Dans le cadre d'IA.rbre une table de correspondance peut s'avérer utile vis à vis de l'utilisation de nombreuse données (data.grandlyon, secteru privé), de leurs différentes versions, du changement de documentation induit par la modification de code et de donnnées. 
 On peut imaginer la mise en place de la table de correspondance via un fichier JSON qui a pour chaque version générale du projet (un changement du code, des données, des meta données, de la documentation, ect...) comme une entrée dans un tableau, où chaque entrée contient les versions utilisées pour les données, le code, la documentation, voire les résultats produits.
 
-```{
+```
+{
   "correspondances": [
     {
       "id": "T1",
