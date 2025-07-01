@@ -251,6 +251,7 @@ Pour les données structurées, des outils spécialisés permettent de visualise
 - DVC (Data Version Control) et Git LFS permettent de gérer des versions volumineuses de fichiers de données, et fournissent des tableaux de bord ou des métadonnées pour retracer les changements 
 - DoltHub permet de comparer des bases de données tabulaires comme des fichiers Git, avec des vues diff et des historiques de commit 
 - LakeFS intègre des visualisations temporelles ou graphiques (heatmaps, histogrammes, timelines, etc...) pour suivre les évolutions de datasets
+- Kart ou GeoGig permette de faire des diff sur chaque commit sur les données géospatiales de la même manière que git. 
 
 Certaines plateformes combinent visualisation et exploration interactive, par exemple sous forme de notebooks Jupyter historisés ou de dashboards avec versions annotées.
 
@@ -272,6 +273,7 @@ Contrairement aux fichiers texte ou aux données tabulaires, il n’existe pas d
 - **Git** peut être utilisé pour des images légères, mais il est peu adapté aux fichiers volumineux.
 - **Git LFS (Large File Storage)** permet de suivre les changements sur des fichiers lourds, notamment des images ou des rasters.
 - **DVC (Data Version Control)** est adapté aux pipelines de données incluant des images. Il permet de versionner des datasets complets, de suivre les évolutions des fichiers et de les relier à des étapes de traitement ou de modélisation.
+- **Kart** peut être intégré à QGIS, ce qui permet une visualisation directe des différences entre versions via des styles ou des couches différentielles.
 
 Ces outils permettent de suivre les versions, mais ne proposent pas de visualisation directe des différences entre deux images.
 
@@ -322,11 +324,13 @@ La documentation pourrait être rédigée en Markdown, un format léger et aisé
 #### Données
 Pour un projet manipulant des données urbaines en grande quantité, notamment raster, vectorielles et 3D (comme en CityGML), plusieurs outils open source peuvent être mobilisés.
 
-DVC est adapté pour le versionnement de fichiers lourds (orthophotos, modèles, SIG), tout en assurant la traçabilité entre données, code et résultats. 
+DVC peut être une bonne solution si vous travaillez avec de gros fichiers comme des orthophotos, des modèles 3D ou des données SIG. Il permet de suivre les changements dans les fichiers, de relier les données aux traitements réalisés, et de garder une trace claire de l’évolution du projet.
 
-Pour les données 3D comme les modèles CityGML, des approches comme [URBANCO2FAB](https://isprs-annals.copernicus.org/articles/IV-4-W6/65/2018/isprs-annals-IV-4-W6-65-2018.pdf) (Samuel, 2018) utilisent la logique Git (branches, commits, diffs) appliquée à des objets géospatiaux. Elles permettent de suivre l’évolution d’un quartier ou d’un bâtiment dans le temps, en combinant géométrie et sémantique.
+Kart est particulièrement adapté pour les données géospatiales, qu’elles soient vectorielles ou raster. Inspiré de Git, il permet de suivre les modifications, de collaborer à plusieurs et de visualiser les différences entre versions. Il fonctionne bien avec des formats courants comme GeoPackage et peut s’utiliser directement dans des logiciels SIG comme QGIS.
 
-Enfin, LakeFS peut être une alternative si l’on travaille dans un environnement de data lake, avec de nombreux jeux de données. Il offre une gestion fine des versions mais demande une infrastructure plus complexe. Cependant l'outil peut avoir la nécéssité de prendre la version payante afin d'obtenir les fonctionalités nécessaire au projet. 
+Pour modèles 3D complexes, comme des bâtiments en CityGML, des approches comme celle du projet URBANCO2FAB, qui applique les principes de Git (commits, branches, comparaisons) à des objets géométriques et sémantiques, permet de bien visualiser comment les bâtiments ou les quartiers évoluent dans le temps.
+
+Enfin, LakeFS peut être une bonne option si vous gérez un grand nombre de jeux de données dans un environnement de type "data lake". Il permet de gérer les versions de façon fine, mais demande une installation un peu plus complexe, et certaines fonctions avancées ne sont disponibles que dans la version payante.
 
 #### Visualisation
 
@@ -391,7 +395,7 @@ On peut imaginer la mise en place de la table de correspondance via un fichier J
 ## Conclusion
 Le versionnement, c’est avant tout une manière de garder une trace claire de ce que l’on fait dans un projet. Que ce soit pour le code, les données ou la documentation, tout évolue avec le temps. Et dans un projet un peu complexe, on peut vite se perdre : quelle version de données a été utilisée avec quel script ? Est-ce que la documentation correspond vraiment à ce qui a été fait ? Est-ce qu’on peut rejouer une étape du projet des mois plus tard, sans devoir tout redécouvrir ?
 
-Dans ce document, on a exploré différentes façons de gérer ces évolutions : des outils connus (comme Git, DVC ou ReadTheDocs), des approches issues de la recherche, et surtout l’idée d’une table de correspondance. Cette table permet de faire le lien entre les versions du code, des données, des documents et des résultats. C’est un outil simple, mais puissant, pour retrouver le fil du projet, comprendre ce qui a été fait, et pouvoir le refaire si besoin.
+Dans ce document, on a exploré différentes façons de gérer ces évolutions : des outils connus (comme Git, DVC, ReadTheDocs ou Kart), des approches issues de la recherche, et surtout l’idée d’une table de correspondance. Cette table permet de faire le lien entre les versions du code, des données, des documents et des résultats. C’est un outil simple, mais puissant, pour retrouver le fil du projet, comprendre ce qui a été fait, et pouvoir le refaire si besoin.
 
 Dans un projet comme IA.rbre, où les sources de données sont nombreuses, où les traitements évoluent, et où la documentation est essentielle, cette approche peut vraiment faire la différence. Elle aide à travailler plus proprement, à mieux collaborer, et à éviter de perdre du temps à chercher ce qui a déjà été fait.
 
