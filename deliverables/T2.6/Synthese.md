@@ -109,8 +109,8 @@ Les données versionnées peuvent prendre des formes très variées selon les co
 - **Données attributaires** (ou tabulaires), comme des tableaux de mesures ou des bases de données  
 - **Données textuelles**, par exemple des descriptions, rapports ou extraits de documents   
 - **Données vectorielles** en 2D ou 3D, qui représentent des géométries précises (points, lignes, polygones, volumes), souvent utilisées pour la cartographie ou la modélisation urbaine  
-- **Données raster** (2D ou 3D), structurées en grilles de pixels ou de voxels, utilisées pour des images, des cartes ou des champs de valeurs (température, élévation, etc.)
-- **Données image**, incluant photographies, plans scannés, captures satellite ou vues d’objets  
+- **Données raster** (2D ou 3D), structurées en grilles de pixels ou de voxels, utilisées pour des images, des cartes, captures satellite ou des champs de valeurs (température, élévation, etc.)
+- **Données image**, incluant photographies, plans scannés ou vues d’objets  
 
 
 Dans le domaine géospatial, ces types peuvent être combinés : une image peut être géoréférencée (vue d’un bâtiment à une date précise), un texte peut faire référence à une zone (emprise foncière, parcelle), un permis de construire peut être lié à une géométrie vectorielle et à des documents annexes. Les données géographiques mêlent ainsi valeurs, formes et contextes, avec des liens explicites ou implicites entre les objets représentés et leur position dans l’espace ou dans le temps. Cette richesse rend le versionnement particulièrement important pour conserver les liens entre données, géométries, documents et évolutions.
