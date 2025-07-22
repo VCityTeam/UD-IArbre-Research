@@ -3,7 +3,7 @@ import geopandas as gpd
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-def plot_tiles_casier(data_to_plot: gpd.GeoDataFrame):
+def plot_tiles_casier(data_to_plot: gpd.GeoDataFrame, docker_check: bool, output_path: str):
     """
     Function to visualize several sets of vector data:
     - Infiltration index
@@ -80,7 +80,12 @@ def plot_tiles_casier(data_to_plot: gpd.GeoDataFrame):
         plt.colorbar(sm, cax=cax)
 
     plt.tight_layout()
-    plt.show()
+
+    if not docker_check:
+        plt.show()
+    else:
+        # Save the plot as an image file
+        save_plot_as_image(fig, output_path + "/casiers_infiltration")
 
 def plot_tiles_ibk(ibk, slope_percent, drainage_area):
     """

@@ -96,7 +96,13 @@ You then need to create an instance of the `configtemplate.yaml` file and modify
 With a configuration file (not running the code through a docker container), use the following command:
 
 ```bash
-python main.py -c myconfig.yaml -d False
+python main.py -c myconfig.yaml --no-docker
+```
+
+or
+
+```bash
+python main.py -c donnees/myconfig.yaml --docker
 ```
 
 A configtemplate.yaml file is available with all existing arguments and their required inputs, as well as notes on whether certain parameters are needed depending on the method used.

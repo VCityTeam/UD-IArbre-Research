@@ -25,5 +25,3 @@ casiersize: 10 # Size of the casier in meters
 
 # Necessary for "casier" method
 imperviousness_factor: 0.4 # Imperviousness weight for the casier method, between 0 and 1
-
-docker_check: False # Indicates if the script is running in a Docker container, set to true if using Docker

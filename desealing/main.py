@@ -140,14 +140,7 @@ match method:
 
         casiers.to_file(output_path + "/casiers_infiltration.shp")
 
-        print("##" + str(docker_check) + "##")
-        print(type(docker_check))
-
-        if docker_check:
-            pass 
-            #visualization.save_plot_as_image(casiers, "casiers_infiltration") bugged right now
-        else:
-            visualization.plot_tiles_casier(casiers)
+        visualization.plot_tiles_casier(casiers, docker_check, output_path=output_path)
 
     case "ibk":
         mnt_data, _, _, mnt_transform = lecture.load_single_tile(mnt_path)
@@ -158,12 +151,7 @@ match method:
         total_time = time_end - time_start
         print(f"Total execution time: {total_time:.2f} seconds")
 
-        if docker_check:
-            pass
-            #visualization.save_plot_as_image(ibk, slope_percent, drainage_area) bugged right now
-        else:
-            # Plotting the IBK, slope percentage, and drainage area
-            visualization.plot_tiles_ibk(ibk, slope_percent, drainage_area)
+        visualization.plot_tiles_ibk(ibk, slope_percent, drainage_area)
 
     case _:
         raise ValueError("Invalid method specified. Use 'casier' or 'ibk'.")
