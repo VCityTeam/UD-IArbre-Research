@@ -115,3 +115,16 @@ def plot_tiles_ibk(ibk, slope_percent, drainage_area):
 
     plt.tight_layout()
     plt.show()
+
+def save_plot_as_image(fig, filename):
+    """
+    Function to save a matplotlib figure as an image file.
+
+    Parameters:
+    - fig: The matplotlib figure to save.
+    - filename: The name of the file to save the figure as (should include the file extension, e.g., 'plot.png').
+    """
+    fig.savefig(filename, bbox_inches='tight')
+    plt.close(fig)  # Close the figure to free up memory
+    print(f"Plot saved as {filename}")
+    

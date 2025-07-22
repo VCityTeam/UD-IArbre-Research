@@ -34,7 +34,7 @@ python3 -m venv venv_name
 
 To activate the virtual environment:
 
-- **On macOS/Linux:**
+- **On macOS/Linux (Unix):**
 
     ```bash
     source .venv/bin/activate
@@ -91,10 +91,12 @@ There are two ways to run the code:
 - With a pre-created YAML configuration file
 - By passing all arguments via the command line
 
-With a configuration file, use the following command:
+You then need to create an instance of the `configtemplate.yaml` file and modify it according to your needs, name it `myconfig.yaml` and place it in the "donnees" directory.
+
+With a configuration file (not running the code through a docker container), use the following command:
 
 ```bash
-python main.py -c config_file_name.yaml
+python main.py -c myconfig.yaml -d False
 ```
 
 A configtemplate.yaml file is available with all existing arguments and their required inputs, as well as notes on whether certain parameters are needed depending on the method used.
@@ -108,20 +110,42 @@ The arguments are:
 - **-slope, --slope**: Slope calculation method. Possible choices: `mean_thresholded`, `best_fit_plane`, `slope_std_dev`, `slope_max`, `slope_mean_denoised`. Optional.
 - **-if, --imperviousness_factor**: Imperviousness factor (value between 0 and 1) used in infiltration calculation. Optional.
 - **-out, --output_path**: Path to the output (.shp) file where results will be saved. Optional.
+- **--docker** or **--no-docker**: Indicates if the script is running in a Docker container. Required
 
 If you prefer to pass all arguments via the command line, the command is more complex:
 
 ```bash
-python main.py -t "path to DEM file" -i "path to imperviousness file" -m "method" -cs "grid size in meters" -slope "slope calculation method" -if "factor between 0 and 1 for imperviousness weight" -out "path to the folder to save the resulting .shp file"
+python main.py -t "path to DEM file" -i "path to imperviousness file" -m "method" -cs "grid size in meters" -slope "slope calculation method" -if "factor between 0 and 1 for imperviousness weight" -out "path to the folder to save the resulting .shp file" -d {False, True} 
 ```
 
 Example:
 
 ```bash
-python main.py -t "data/mnt.tif" -i "data/imperviousness.tif" -m "casier" -cs 10 -slope "best_fit_plane" -if 0.4 -out "./output"
+python main.py -t "data/mnt.tif" -i "data/imperviousness.tif" -m "casier" -cs 10 -slope "best_fit_plane" -if 0.4 -out "./output" -d False
+```
+
+## Docker
+This project can also be run in a Docker container. To do this, you need to build the Docker image and then run the container with the necessary parameters.
+
+To build the Docker image, run the following command in the terminal:
+
+```bash
+docker build -t desealing .
+```
+
+To run the Docker image, run the following command in the terminal:
+
+```bash
+docker run -v "{path to data folder on your machine}:/usr/src/app/donnees" -v "{path to output folder on your machine}:/usr/src/app/data_output" desealing python -u main.py -c donnees/myconfig.yaml -d True
+```
+
+For example:
+
+```bash
+docker run -v "/Users/pierre-antoine/dev/UD-IArbre-Research/desealing/donnees:/usr/src/app/donnees" -v "/Users/pierre-antoine/dev/UD-IArbre-Research/output:/usr/src/app/data_output" desealing python -u main.py -c donnees/myconfig.yaml -d True
 ```
 
 ## Results
 
 The results of the methods are displayed in figures generated using the matplotlib library for Python.
-Results for the casier method are also stored in the `output` directory. These results are in Shapefile (.shp) format.
+Results for the casier method are also stored in the `output` directory. These results are in multiple formats, but the Shapefile (.shp) format is the primary output.

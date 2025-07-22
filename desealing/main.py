@@ -85,6 +85,21 @@ parser.add_argument(
     required=False,
 )
 
+parser.add_argument(
+    "--docker",
+    dest="docker_check",
+    action="store_true",
+    help="Indicates if the script is running in a Docker container.",
+)
+
+parser.add_argument(
+    "--no-docker",
+    dest="docker_check",
+    action="store_false",
+    help="Indicates if the script is not running in a Docker container.",
+)
+
+parser.set_defaults(docker_check=False)
 
 args = parser.parse_args()
 
@@ -97,7 +112,7 @@ method = args.method
 slope_method = args.slope
 imperviousness_factor = args.imperviousness_factor
 slope_factor =  1 - imperviousness_factor # Only two weighting parameters, no need for two arguments
-
+docker_check = args.docker_check
 
 # Main execution based on the method specified
 match method:
@@ -123,9 +138,16 @@ match method:
         if not os.path.exists(output_path):
             os.makedirs(output_path)
 
-        casiers.to_file(output_path)
+        casiers.to_file(output_path + "/casiers_infiltration.shp")
 
-       #visualization.plot_tiles_casier(casiers)
+        print("##" + str(docker_check) + "##")
+        print(type(docker_check))
+
+        if docker_check:
+            pass 
+            #visualization.save_plot_as_image(casiers, "casiers_infiltration") bugged right now
+        else:
+            visualization.plot_tiles_casier(casiers)
 
     case "ibk":
         mnt_data, _, _, mnt_transform = lecture.load_single_tile(mnt_path)
@@ -136,7 +158,12 @@ match method:
         total_time = time_end - time_start
         print(f"Total execution time: {total_time:.2f} seconds")
 
-        visualization.plot_tiles_ibk(ibk, slope_percent, drainage_area)
+        if docker_check:
+            pass
+            #visualization.save_plot_as_image(ibk, slope_percent, drainage_area) bugged right now
+        else:
+            # Plotting the IBK, slope percentage, and drainage area
+            visualization.plot_tiles_ibk(ibk, slope_percent, drainage_area)
 
     case _:
         raise ValueError("Invalid method specified. Use 'casier' or 'ibk'.")

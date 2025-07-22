@@ -12,16 +12,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /usr/src/app
 
-COPY desealing/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY desealing/main.py .
-COPY desealing/lecture.py .
-COPY desealing/methods.py .
-COPY desealing/visualization.py .
-COPY desealing/config_casier_docker.yaml .
+COPY main.py .
+COPY lecture.py .
+COPY methods.py .
+COPY visualization.py .
 
-
-COPY desealing/donnees ./donnees
 
 CMD ["python", "-u", "main.py", "-c", "config_casier_docker.yaml"]
