@@ -119,9 +119,13 @@ match method:
         total_time = time_end - time_start
         print(f"Total execution time: {total_time:.2f} seconds")
 
-        visualization.plot_tiles_casier(casiers)
+        import os
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
 
         casiers.to_file(output_path)
+
+       #visualization.plot_tiles_casier(casiers)
 
     case "ibk":
         mnt_data, _, _, mnt_transform = lecture.load_single_tile(mnt_path)
