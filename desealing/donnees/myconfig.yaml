@@ -1,0 +1,27 @@
+# Template for YAML configuration file
+# This file is used by the main.py script in this folder
+# Replace default values with your own values and remove unnecessary comments
+
+method: "casier" # Choose between "casier" or "ibk" and remove brackets
+
+# Necessary for both methods
+tile_path: "donnees/dem_default.tif"
+# Exemple : tile_path: "../donnees/mnt_villeurbanne.tif"
+
+# Necessary for "casier" method
+imperviousness_path: "donnees/imperviousness_default.tif"
+# Exemple : imperviousness_path: "../donnees/imperviousness_lyon.tif"
+
+# Necessary for "casier" method
+output_path: "casier_out"
+# Exemple : output_path: "../casier_out"
+
+# Necessary for "casier" method
+slope: "best_fit_plane" # Choose between slope computing methods and remove brackets
+# Exemple : slope: "best_fit_plane"
+
+# Necessary for "casier" method
+casiersize: 10 # Size of the casier in meters
+
+# Necessary for "casier" method
+imperviousness_factor: 0.4 # Imperviousness weight for the casier method, between 0 and 1
