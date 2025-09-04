@@ -1,0 +1,4 @@
+pysolar==0.13
+hera==5.24.0
+hera[yaml]
+hera[cli]
