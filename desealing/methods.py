@@ -1,7 +1,8 @@
 import numpy as np
 import geopandas as gpd
-from rasterstats import zonal_stats
+from exactextract import exact_extract
 from sklearn.linear_model import LinearRegression
+from rasterio import features
 import rasterio
 
 # DEM is the english equivalent for MNT (Modèle Numérique de Terrain)
@@ -30,7 +31,7 @@ def best_fit_plane_slope(mnt_data, mask, mnt_transform):
     Function to compute the average slope of a best-fit plane to the points in a DEM.
     This function aims to find the "average" slope over the grid cell that best fits all points in the study area.
     It does not consider points outside the grid cell (if the mask is applied correctly).
-    It also does not take into account the possible tilt of the plane, only its value (e.g., 8°).
+    It also does not take into account the direction of the tilt of the plane, only its value (e.g., 8°).
 
     Parameters :
     - mnt_data : numpy.ndarray, DEM data as a 2D array.
@@ -84,7 +85,7 @@ def calculate_slope(mnt_data, mnt_transform, casiers, resolution=1, method="mean
     slope_dict = {"slope": []}
 
     for geom in casiers.geometry:
-        mask = rasterio.features.geometry_mask([geom], transform=mnt_transform, invert=True, out_shape=mnt_data.shape)
+        mask = features.geometry_mask([geom], transform=mnt_transform, invert=True, out_shape=mnt_data.shape)
         slope_values = slope_angle[mask]
 
         match method:
@@ -116,11 +117,18 @@ def compute_infiltration_score(casiers, imperviousness_path, imperviousness_fact
     Returns :
     - casiers : GeoDataFrame, grid cells with the computed infiltration index added as a new column.
     """
-    imperviousness_stats = zonal_stats(casiers, imperviousness_path, stats=["mean"], nodata=0)
-    casiers["imperviousness"] = [s["mean"]/100 if s["mean"] is not None else 0 for s in imperviousness_stats]
+    # imperviousness_stats = zonal_stats(casiers, imperviousness_path, stats=["mean"], nodata=0)
+    imperviousness_stats = exact_extract(imperviousness_path, casiers, ["mean"]) # ExactExtract is more precise than zonal_stats as it uses the exact geometry of the polygons and calculates the mean value of the pixels that intersect with the polygon, even if the pixels are larger than the polygons
+
+    casiers["imperviousness"] = [
+        f["properties"]["mean"]/100 if f["properties"]["mean"] is not None else 0
+        for f in imperviousness_stats
+    ]
+
     casiers["normalized_slope"] = (casiers["slope"] - casiers["slope"].min()) / (casiers["slope"].max() - casiers["slope"].min())
-    casiers["infiltration_index"] = (1-casiers["imperviousness"]) * imperviousness_factor + (1 - casiers["normalized_slope"]) * slope_factor
-    return casiers
+    #casiers["infiltration_index"] = (1-casiers["imperviousness"]) * imperviousness_factor + (1 - casiers["normalized_slope"]) * slope_factor
+    casiers["infiltration_index"] = (1-casiers["imperviousness"]) * imperviousness_factor + (1-casiers["normalized_slope"]) * slope_factor
+    return casiers 
 
 
 def calculate_ibk(mnt):
@@ -145,7 +153,7 @@ def calculate_ibk(mnt):
     slope_rad, slope_angle = slope(mnt)
     drainage_area = calculate_drainage_area(mnt)
     slope_rad[slope_rad == 0] = 1e-6
-    ibk = np.log(drainage_area / np.tan(slope_rad) + 1e-6)
+    ibk = np.log(drainage_area / np.tan(slope_rad))
     return ibk, slope_rad, drainage_area
 
 
@@ -191,5 +199,5 @@ def calculate_drainage_area(mnt):
     drainage_area = np.ones_like(mnt)
     for i in range(1, mnt.shape[0] - 1):
         for j in range(1, mnt.shape[1] - 1):
-            drainage_area[i, j] += np.sum(mnt[i-1:i+2, j-1:j+2] < mnt[i, j])
+            drainage_area[i, j] += np.sum(mnt[i-1:i+2, j-1:j+2] < mnt[i, j]) # To multiply by the cell/pixel area to get an area in m²
     return drainage_area

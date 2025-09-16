@@ -3,7 +3,7 @@ import geopandas as gpd
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-def plot_tiles_casier(data_to_plot: gpd.GeoDataFrame):
+def plot_tiles_casier(data_to_plot: gpd.GeoDataFrame, docker_check: bool, output_path: str):
     """
     Function to visualize several sets of vector data:
     - Infiltration index
@@ -66,6 +66,7 @@ def plot_tiles_casier(data_to_plot: gpd.GeoDataFrame):
         [axes[0, 0], axes[0, 1], axes[1, 0]],
         ["infiltration_index", "normalized_slope", "imperviousness"],
         ["turbo", "plasma", "turbo"] # These colormaps can be adjusted/changed as needed
+        #["grey_r", "grey_r", "grey_r"] # These colormaps can be adjusted/changed as needed
     ):
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.1)
@@ -79,7 +80,12 @@ def plot_tiles_casier(data_to_plot: gpd.GeoDataFrame):
         plt.colorbar(sm, cax=cax)
 
     plt.tight_layout()
-    plt.show()
+
+    if not docker_check:
+        plt.show()
+    else:
+        # Save the plot as an image file
+        save_plot_as_image(fig, output_path + "/casiers_infiltration")
 
 def plot_tiles_ibk(ibk, slope_percent, drainage_area):
     """
@@ -114,3 +120,16 @@ def plot_tiles_ibk(ibk, slope_percent, drainage_area):
 
     plt.tight_layout()
     plt.show()
+
+def save_plot_as_image(fig, filename):
+    """
+    Function to save a matplotlib figure as an image file.
+
+    Parameters:
+    - fig: The matplotlib figure to save.
+    - filename: The name of the file to save the figure as (should include the file extension, e.g., 'plot.png').
+    """
+    fig.savefig(filename, bbox_inches='tight')
+    plt.close(fig)  # Close the figure to free up memory
+    print(f"Plot saved as {filename}")
+    
