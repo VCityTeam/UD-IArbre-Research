@@ -154,4 +154,10 @@ docker run -v "/Users/pierre-antoine/dev/UD-IArbre-Research/desealing/donnees:/u
 ## Results
 
 The results of the methods are displayed in figures generated using the matplotlib library for Python.
+
 Results for the casier method are also stored in the `output` directory. These results are in multiple formats, but the Shapefile (.shp) format is the primary output.
+
+## Team
+- Pierre-Antoine CHIRON
+- John SAMUEL
+- Gilles GESQUIERE
