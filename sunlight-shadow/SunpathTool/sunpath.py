@@ -1,17 +1,13 @@
 from pysolar.solar import get_altitude, get_azimuth
 import datetime, time
 import csv
-<<<<<<< HEAD
 import argparse
-=======
->>>>>>> c9dc12d (feature : sunpath calculation script)
 from calendar import monthrange
 
 def get_sun_position_csv(latitude : float, longitude : float, year : int, month : int, day : int):
     """
     This function uses pysolar to calculate and store into a csv the position of the sun for a given day
     :param latitude: a latitude in degrees
-<<<<<<< HEAD
     :type latitude: float
 
     :param longitude: a longitude in degrees datetime(year, month, day, hour, minute)
@@ -25,9 +21,7 @@ def get_sun_position_csv(latitude : float, longitude : float, year : int, month 
 
     :param day: The day for which to calculate the sunpath (ex: 01, 25, ...)
     :type day: int
-=======
     :param longitude: a longitude in degrees datetime(year, month, day, hour, minute)
->>>>>>> c9dc12d (feature : sunpath calculation script)
     """
 
     data = [['hour', 'altitude', 'azimut']]
@@ -51,11 +45,7 @@ def calculate_annual_sun_path(latitude : float, longitude : float, year: int):
     :type latitude: float
 
     :param longitude: a longitude in degrees datetime(year, month, day, hour, minute)
-<<<<<<< HEAD
     :type longitude: float
-=======
-    :type longiture: float
->>>>>>> c9dc12d (feature : sunpath calculation script)
 
     :param year: The year for which to calculate the sunpath (ex: 2025, 1979, ...)
     :type year: int
@@ -81,7 +71,6 @@ def calculate_annual_sun_path(latitude : float, longitude : float, year: int):
     
     return data
 
-<<<<<<< HEAD
 def calculate_range_sunpath(latitude : float, longitude : float, startyear : int, endyear : int, filename : str):
     """
     This function uses pysolar to calculate the sunpath for every hour of a given interval startyear and endyear included
@@ -101,9 +90,6 @@ def calculate_range_sunpath(latitude : float, longitude : float, startyear : int
     :param filename: Name of the file in wich to export the results. The file will be created if it doesn't exist or written over if it does
     :type filename: str
     """
-=======
-def calculate_range_sunpath(latitude : float, longitude : float, startyear : int, endyear : int):
->>>>>>> c9dc12d (feature : sunpath calculation script)
 
     data = [[str(latitude), str(longitude)]]
     for i in range(0, 24):
@@ -113,7 +99,6 @@ def calculate_range_sunpath(latitude : float, longitude : float, startyear : int
 
     for y in range(startyear, endyear+1):
         data.extend(calculate_annual_sun_path(latitude, longitude, y))
-<<<<<<< HEAD
         print(f"{(y - startyear) + 1}/{endyear-startyear} Finished with year {y}", end="\r")
     print("\033[92m Done !\033[00m")
 
@@ -145,21 +130,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-=======
-        print(f"{(y - start) + 1}/{end-start} Finished with year {y}", end="\r")
-    print("\033[92m Done !\033[00m")
-
-
-    with open(f"sunpath.csv", "w", newline='') as file:
-        writer = csv.writer(file, delimiter=';', lineterminator=";\r\n")
-        writer.writerows(data)
-
-start = 1975
-end = 2075
-calculate_range_sunpath(45.75, 4.85, start, end)
-
-#for y in range(start,end):
-#    calculate_annual_sun_path(45.75, 4.85, y)
-    
-#get_sun_position_csv(45.7578137, 4.8320114, 2025, 6, 10)
->>>>>>> c9dc12d (feature : sunpath calculation script)
