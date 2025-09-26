@@ -21,6 +21,7 @@ def get_sun_position_csv(latitude : float, longitude : float, year : int, month 
 
     :param day: The day for which to calculate the sunpath (ex: 01, 25, ...)
     :type day: int
+    :param longitude: a longitude in degrees datetime(year, month, day, hour, minute)
     """
 
     data = [['hour', 'altitude', 'azimut']]
