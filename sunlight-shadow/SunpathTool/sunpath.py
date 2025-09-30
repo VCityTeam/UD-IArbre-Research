@@ -1,3 +1,12 @@
+"""
+This script is meant to create sunlight compatible sun position files.
+Sunlight and pySunlight requires pre-calculated sun positions, in the csv format.
+We use pySolar to do the calculationsm based on a given latitude and longitude, and we then store it in an appropriately formated CSV file.
+A sun position file for the 1975-2075 range is already provided with pySunlight, so you only need to use this script if your data is out of this range.
+
+Written by : Marwan Ait Addi (marwan.ait.addi@univ-lyon2.fr)
+"""
+
 from pysolar.solar import get_altitude, get_azimuth
 import datetime, time
 import csv
@@ -95,7 +104,7 @@ def calculate_range_sunpath(latitude : float, longitude : float, startyear : int
     for i in range(0, 24):
         hourstring = time.strftime("%H:%M:%S", datetime.datetime(2000,month=1,day=1,hour=i).timetuple()) #Just to create the string
         data[0].append('E ' + hourstring)
-        data[0].append('A ' + hourstring)
+        data[0].append('A ' + hourstringimage)
 
     for y in range(startyear, endyear+1):
         data.extend(calculate_annual_sun_path(latitude, longitude, y))
