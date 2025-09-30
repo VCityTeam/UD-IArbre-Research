@@ -7,3 +7,6 @@
 [submodule "sunlight-shadow/pySunlight-docker"]
 	path = sunlight-shadow/pySunlight-docker
 	url = https://github.com/VCityTeam/pySunlight-docker
+[submodule "sunlight-shadow/UD-Demo-Sunlight"]
+	path = sunlight-shadow/UD-Demo-Sunlight
+	url = https://github.com/VCityTeam/UD-Demo-Sunlight.git
