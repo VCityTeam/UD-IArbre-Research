@@ -1,0 +1,12 @@
+[submodule "sunlight-shadow/Sunlight"]
+	path = sunlight-shadow/Sunlight
+	url = https://github.com/VCityTeam/Sunlight
+[submodule "sunlight-shadow/pySunlight"]
+	path = sunlight-shadow/pySunlight
+	url = https://github.com/VCityTeam/pySunlight
+[submodule "sunlight-shadow/pySunlight-docker"]
+	path = sunlight-shadow/pySunlight-docker
+	url = https://github.com/VCityTeam/pySunlight-docker
+[submodule "sunlight-shadow/UD-Demo-Sunlight"]
+	path = sunlight-shadow/UD-Demo-Sunlight
+	url = https://github.com/VCityTeam/UD-Demo-Sunlight.git
