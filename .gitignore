@@ -1,0 +1,8 @@
+
+desealing/__pycache__/
+
+*.laz
+
+*.pyc
+
+desealing/outputs/

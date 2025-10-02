@@ -7,3 +7,6 @@ rasterio==1.4.3
 scikit-learn==1.6.1
 exactextract==0.2.2
 mapclassify==2.9.0
+laspy==2.6.1
+laszip==0.2.3
+requests==2.32.5
