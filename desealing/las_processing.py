@@ -19,11 +19,10 @@ GROUND_CLASSIFICATION = 2
 
 # LIDAR data
 LIDAR_URL = (
-    "https://data.geopf.fr/telechargement/download/"
-    "LiDARHD-NUALID/NUALHD_1-0__LAZ_LAMB93_OL_2025-02-20/"
-    "LHD_FXX_0843_6522_PTS_LAMB93_IGN69.copc.laz"
+   "https://data.geopf.fr/telechargement/download/LiDARHD-NUALID/NUALHD_1-0__LAZ_LAMB93_OL_2025-02-20/LHD_FXX_0845_6520_PTS_LAMB93_IGN69.copc.laz"
 )
-FILENAME = "LHD_FXX_0843_6522_PTS_LAMB93_IGN69.copc.laz"
+FILENAME = LIDAR_URL.split("/")[-1]
+print(f"FILENAME: {FILENAME}")
 
 
 def download_and_load_lidar():

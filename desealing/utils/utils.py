@@ -24,9 +24,7 @@ def download_file(url, filename):
         return filename
 
     except requests.exceptions.RequestException as e:
-        print(f"Error downloading file: {e}")
-        return None
-
+        raise(f"Error downloading file: {e}")
 
 class Bounds:
     """Formatting for methods.create_grid function"""
