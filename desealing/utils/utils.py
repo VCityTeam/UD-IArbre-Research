@@ -1,5 +1,4 @@
 import requests
-import os
 import numpy as np
 from scipy.spatial import cKDTree
 from rasterio import transform
@@ -24,16 +23,7 @@ def download_file(url, filename):
         return filename
 
     except requests.exceptions.RequestException as e:
-        raise(f"Error downloading file: {e}")
-
-class Bounds:
-    """Formatting for methods.create_grid function"""
-
-    def __init__(self, left, bottom, right, top):
-        self.left = left
-        self.bottom = bottom
-        self.right = right
-        self.top = top
+        raise (f"Error downloading file: {e}")
 
 
 def points_to_raster(points, cell_size=2.0):

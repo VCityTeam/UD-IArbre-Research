@@ -5,12 +5,13 @@ import numpy as np
 import geopandas as gpd
 import humanize
 
-from methods import create_grid, slope
-from utils.utils import download_file, Bounds, points_to_raster, export_raster
+from methods import slope
+from utils.utils import download_file, points_to_raster, export_raster
 from utils.utils_network import (
     compute_flow_direction,
     compute_flow_accumulation,
     extract_stream_network,
+    process_hydrology_jax,
 )
 
 # Constants
@@ -20,17 +21,16 @@ CRS = "EPSG:2154"
 GROUND_CLASSIFICATION = 2
 
 # LIDAR data
-LIDAR_URL = (
-   "https://data.geopf.fr/telechargement/download/LiDARHD-NUALID/NUALHD_1-0__LAZ_LAMB93_OL_2025-02-20/LHD_FXX_0845_6520_PTS_LAMB93_IGN69.copc.laz"
-)
+LIDAR_URL = "https://data.geopf.fr/telechargement/download/LiDARHD-NUALID/NUALHD_1-0__LAZ_LAMB93_OL_2025-02-20/LHD_FXX_0844_6520_PTS_LAMB93_IGN69.copc.laz"
 FILENAME = LIDAR_URL.split("/")[-1]
 print(f"FILENAME: {FILENAME}")
 
 
 def download_and_load_lidar():
-    print(f"Downloading file from {LIDAR_URL}...")
-    downloaded_file = download_file(LIDAR_URL, FILENAME)
-    return laspy.read(f"./{FILENAME}")
+    if not os.path.exists(FILENAME):
+        print(f"Downloading file from {LIDAR_URL}...")
+        download_file(LIDAR_URL, FILENAME)
+    return laspy.read(FILENAME)
 
 
 def extract_ground_points(las):
@@ -47,7 +47,7 @@ def process_hydrology(dem, dem_transform):
 
     print("Extracting stream network...")
     stream_network, stream_mask, threshold = extract_stream_network(
-        flow_accumulation, dem, dem_transform, flow_direction
+        flow_accumulation, dem_transform, flow_direction
     )
 
     return flow_direction, flow_accumulation, stream_network, stream_mask, threshold
@@ -65,27 +65,19 @@ def export_all_rasters(
 
 def main():
     start_time = time.time()
-    
+
     las = download_and_load_lidar()
     ground_points = extract_ground_points(las)
-
-    bounds = Bounds(
-        ground_points[:, 0].min(),
-        ground_points[:, 1].min(),
-        ground_points[:, 0].max(),
-        ground_points[:, 1].max(),
-    )
-    grid_gdf = create_grid(bounds, CRS, casier_size=CASIER_SIZE)
-    print(f"Created grid with {len(grid_gdf)} cells of 1x1cm")
+    print("Ground points extracted")
 
     print("Converting points to raster DEM...")
     dem, dem_transform = points_to_raster(ground_points, cell_size=CASIER_SIZE)
 
     print("Computing slopes...")
-    slope_radians, slope_degrees = slope(dem, resolution=SLOPE_RESOLUTION)
+    _, slope_degrees = slope(dem, resolution=SLOPE_RESOLUTION)
 
-    flow_direction, flow_accumulation, stream_network, stream_mask, threshold = (
-        process_hydrology(dem, dem_transform)
+    flow_direction, flow_accumulation, stream_network, stream_mask, _ = (
+        process_hydrology_jax(dem, dem_transform)
     )
 
     if not os.path.exists("outputs"):
@@ -106,7 +98,7 @@ def main():
         slope_degrees,
         dem_transform,
     )
-    
+
     end_time = time.time()
     elapsed_time = end_time - start_time
     print(f"Processing completed in {humanize.naturaldelta(elapsed_time)}")
