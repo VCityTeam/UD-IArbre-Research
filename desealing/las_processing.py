@@ -1,7 +1,9 @@
 import os
+import time
 import laspy
 import numpy as np
 import geopandas as gpd
+import humanize
 
 from methods import create_grid, slope
 from utils.utils import download_file, Bounds, points_to_raster, export_raster
@@ -32,7 +34,6 @@ def download_and_load_lidar():
 
 
 def extract_ground_points(las):
-    print(np.unique(las.classification))
     ground_mask = las.classification == GROUND_CLASSIFICATION
     return np.column_stack([las.x[ground_mask], las.y[ground_mask], las.z[ground_mask]])
 
@@ -63,6 +64,8 @@ def export_all_rasters(
 
 
 def main():
+    start_time = time.time()
+    
     las = download_and_load_lidar()
     ground_points = extract_ground_points(las)
 
@@ -85,11 +88,6 @@ def main():
         process_hydrology(dem, dem_transform)
     )
 
-    print(
-        f"Extracted {len(stream_network)} stream lines using threshold {threshold:.1f}"
-    )
-    print(f"Stream network covers {np.sum(stream_mask)} cells")
-
     if not os.path.exists("outputs"):
         os.makedirs("outputs")
 
@@ -108,6 +106,10 @@ def main():
         slope_degrees,
         dem_transform,
     )
+    
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(f"Processing completed in {humanize.naturaldelta(elapsed_time)}")
 
 
 if __name__ == "__main__":

@@ -99,7 +99,7 @@ def compute_accumulation_threshold(flow_acc, min_accumulation=None):
 
     valid_acc = flow_acc[~np.isnan(flow_acc) & (flow_acc > 1)]
     if len(valid_acc) > 0:
-        return np.percentile(valid_acc, 95)
+        return np.percentile(valid_acc, 50)
     else:
         return 10
 

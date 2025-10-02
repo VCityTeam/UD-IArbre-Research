@@ -10,3 +10,4 @@ mapclassify==2.9.0
 laspy==2.6.1
 laszip==0.2.3
 requests==2.32.5
+humanize==4.13.0
