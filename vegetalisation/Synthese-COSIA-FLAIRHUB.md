@@ -129,7 +129,7 @@ Cette étape permettrait au modèle d’apprendre à reconstruire une carte de s
 L’apport de la hauteur Lidar est particulièrement important, car elle permet de séparer clairement les trois grandes strates de végétation : basse, moyenne et haute. C’est une information que les images seules ne peuvent pas toujours fournir. L’intégration du Lidar dans un flux de traitement futur pourrait donc renforcer fortement la fiabilité de la classification, en combinant ce que voit le modèle (texture, couleur, structure visuelle) avec une mesure physique objective (la hauteur) et la classification du Lidar de base.
 
 Le principal point à gérer est que les données Lidar et les images aériennes n’ont pas toujours été acquises au même moment. Il est donc nécessaire de prévoir un pipeline flexible : dans les zones où la hauteur Lidar n’est pas disponible, seule la version fine-tunnée du modèle serait utilisée ; dans les zones où hauteur et imagerie sont synchrones, les deux sources seraient fusionnées pour produire une classification plus robuste et plus exploitable.
-Un lien vers un document détaillé sur le traitement Lidar et sur différentes manières de classifier le Lidar vous est présenté [ici](Synthese-LidarHD-Myria3D). De plus un autre document sur le fine-tuning du modèle et de la manière d'utiliser le Lidar plus précisément vous est présenté [ici](Synthese-Amelioration-Flair) également. 
+Un lien vers un document détaillé sur le traitement Lidar et sur différentes manières de classifier le Lidar vous est présenté [ici](Synthese-LidarHD-Myria3D.md). De plus un autre document sur le fine-tuning du modèle et de la manière d'utiliser le Lidar plus précisément vous est présenté [ici](Synthese-Amelioration-Flair.md) également. 
 
 ---
 
