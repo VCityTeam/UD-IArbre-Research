@@ -2,7 +2,7 @@
 
 | FRANCE 2030 | Banque des Territoires, Groupe Caisse des Dépôts | IA.rbre | LIRIS |
 | --- | --- | --- | --- |
-| ![Logo FRANCE 2030](../Images/Logos/LogoFRANCE2030.svg) | ![Logo Banque des Territoires, Groupe Caisse des Dépôts](../Images/Logos/LogoBanquedesTerritoires.svg) | ![Logo IA.rbre](../Images/Logos/LogoIArbreWithPicto.svg) | ![Logo LIRIS](../Images/Logos/LogoLIRIS.svg) |
+| ![Logo FRANCE 2030](../assets/logos/logo-france-2030.svg) | ![Logo Banque des Territoires, Groupe Caisse des Dépôts](../assets/logos/logo-banque-des-territoires.svg) | ![Logo IA.rbre](../assets/logos/logo-iarbre-with-picto.svg) | ![Logo LIRIS](../assets/logos/logo-liris.svg) |
 
 ---
 
@@ -30,8 +30,8 @@
     - Mika Inisan
   - **Date de création** : 2025-09-24
   - **Date de dernière mise à jour** : 2025-10-01
-  - **Version** : 2.0.2
-  - **Classification documentaire** : Interne
+  - **Version** : 2.0.3
+  - **Classification documentaire** : Public
   - **Langue** : Français
   - **Statut** : Brouillon
   - **Licence** : GNU LGPL v2.1
