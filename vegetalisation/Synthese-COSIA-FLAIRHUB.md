@@ -29,11 +29,11 @@
     - John Samuel
     - Mika Inisan
   - **Date de création** : 2025-09-24
-  - **Date de dernière mise à jour** : 2025-10-01
+  - **Date de dernière mise à jour** : 2025-11-22
   - **Version** : 2.0.3
   - **Classification documentaire** : Public
   - **Langue** : Français
-  - **Statut** : Brouillon
+  - **Statut** : Final
   - **Licence** : GNU LGPL v2.1
 
 ---
