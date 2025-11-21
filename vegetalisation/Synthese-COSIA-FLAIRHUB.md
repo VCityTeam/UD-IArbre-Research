@@ -90,12 +90,8 @@ Pour comparer COSIA et un modèle avec les données d'Armature 2, nous allons pr
 
 ![Zone référence](images/ZoneRefAmarture.png)
 
-**Image 1 : zone référence de test**
-
 ![COSIA_matrice_de_confusion](images/Cosia_Flair8cm.png)
 ![FLAIR_modif_matrice_de_confusion](images/MatriceConfusionsCosiaFlair8.png)
-
-**Image 1 : zone référence de test**
 
 Les évaluations menées sur la végétation urbaine à Lyon montrent que, lorsqu’on compare les sorties de FLAIR-HUB aux données de COSIA, on retrouve globalement les mêmes difficultés sur les strates intermédiaires (végétation moyenne : buissons, broussailles, jeunes repousses). Sur ces catégories, les résultats obtenus par FLAIR-HUB sont parfois encore moins stables, ce qui complique leur utilisation pour produire un patrimoine végétal fiable.
 
