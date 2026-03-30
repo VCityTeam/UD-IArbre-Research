@@ -171,8 +171,8 @@ This writes the confusion matrix image, metrics summary JSON, and evaluation log
 --model-path                Local model path. If omitted, downloaded from Hugging Face.
 --weights-json              Optional JSON object for custom probability-band weights.
 --mapping-json              Optional JSON object for custom class remapping after reweighting.
---ortho-source-resolution   Source orthophoto pixel size in meters. Default: 0.05.
---ortho-target-resolution   Target orthophoto pixel size in meters. Default: 0.8.
+--ortho-source-resolution   Optional source orthophoto pixel size in meters. Default: inferred from raster metadata.
+--ortho-output-resolution   Output orthophoto pixel size in meters. Alias: --ortho-target-resolution. Default: 0.8.
 --use-gpu                   Ask FLAIR-HUB to run on GPU.
 --run-legacy-fusion         Also produce the legacy LiDAR vegetation and legacy LiDAR+FLAIR fusion outputs.
 --apply-lidar-correction    Correct the LiDAR MNS mosaic before the legacy branch.

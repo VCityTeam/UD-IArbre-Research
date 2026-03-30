@@ -18,8 +18,7 @@ DEFAULT_XMIN_START = 1841500
 DEFAULT_XMIN_END = 1852000
 DEFAULT_YMIN_START = 5169000
 DEFAULT_YMIN_END = 5179000
-TARGET_RESOLUTION = 1
-SOURCE_RESOLUTION = 0.05
+TARGET_RESOLUTION = 0.08
 CHUNK_SIZE = 8192
 REQUEST_TIMEOUT_SECONDS = 60
 
@@ -35,8 +34,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--xmin-end", type=int, default=DEFAULT_XMIN_END)
     parser.add_argument("--ymin-start", type=int, default=DEFAULT_YMIN_START)
     parser.add_argument("--ymin-end", type=int, default=DEFAULT_YMIN_END)
-    parser.add_argument("--source-resolution", type=float, default=SOURCE_RESOLUTION)
-    parser.add_argument("--target-resolution", type=float, default=TARGET_RESOLUTION)
+    parser.add_argument(
+        "--source-resolution",
+        type=float,
+        default=None,
+        help=(
+            "Optional source orthophoto pixel size in meters. "
+            "When omitted, the value is inferred from the input raster transform."
+        ),
+    )
+    parser.add_argument(
+        "--target-resolution",
+        "--output-resolution",
+        dest="output_resolution",
+        type=float,
+        default=TARGET_RESOLUTION,
+        help="Output orthophoto pixel size in meters.",
+    )
     return parser.parse_args()
 
 
@@ -74,17 +88,32 @@ def download_file(session: requests.Session, url: str, destination: Path) -> Non
                     handle.write(chunk)
 
 
+def infer_source_resolution(src: rasterio.io.DatasetReader) -> float:
+    x_resolution, y_resolution = src.res
+    x_resolution = abs(x_resolution)
+    y_resolution = abs(y_resolution)
+    if abs(x_resolution - y_resolution) > 1e-9:
+        raise ValueError(
+            "Input raster uses non-square pixels; please pass --source-resolution explicitly."
+        )
+    return x_resolution
+
+
 def resample_raster(
     source_path: Path,
     output_path: Path,
     *,
-    source_resolution: float,
-    target_resolution: float,
+    output_resolution: float,
+    source_resolution: float | None = None,
 ) -> None:
-    validate_positive_number(source_resolution, "source_resolution")
-    validate_positive_number(target_resolution, "target_resolution")
-    scale = target_resolution / source_resolution
+    validate_positive_number(output_resolution, "output_resolution")
+    if source_resolution is not None:
+        validate_positive_number(source_resolution, "source_resolution")
     with rasterio.open(source_path) as src:
+        effective_source_resolution = (
+            source_resolution if source_resolution is not None else infer_source_resolution(src)
+        )
+        scale = output_resolution / effective_source_resolution
         new_width = max(1, int(src.width / scale))
         new_height = max(1, int(src.height / scale))
         transform = src.transform * src.transform.scale(
@@ -105,8 +134,9 @@ def resample_raster(
 def main() -> None:
     args = parse_args()
     validate_bbox(args.xmin_start, args.xmin_end, args.ymin_start, args.ymin_end)
-    validate_positive_number(args.source_resolution, "source_resolution")
-    validate_positive_number(args.target_resolution, "target_resolution")
+    if args.source_resolution is not None:
+        validate_positive_number(args.source_resolution, "source_resolution")
+    validate_positive_number(args.output_resolution, "output_resolution")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     args.temp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -129,7 +159,7 @@ def main() -> None:
             url = tile["url"].strip()
             filename = Path(url).name
             temp_path = args.temp_dir / filename
-            suffix = f"_{str(args.target_resolution).replace('.', 'p')}m.tif"
+            suffix = f"_{str(args.output_resolution).replace('.', 'p')}m.tif"
             output_path = args.output_dir / filename.replace(".tif", suffix)
 
             if output_path.exists():
@@ -138,13 +168,13 @@ def main() -> None:
 
             print(f"Downloading: {url}")
             download_file(session, url, temp_path)
-            print(f"Resampling to {args.target_resolution} m: {output_path}")
+            print(f"Resampling to {args.output_resolution} m: {output_path}")
             try:
                 resample_raster(
                     temp_path,
                     output_path,
                     source_resolution=args.source_resolution,
-                    target_resolution=args.target_resolution,
+                    output_resolution=args.output_resolution,
                 )
             finally:
                 temp_path.unlink(missing_ok=True)

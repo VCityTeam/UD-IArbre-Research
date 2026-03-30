@@ -81,13 +81,13 @@ def test_resample_raster_writes_expected_output_shape(workspace_tmp_path) -> Non
     resample_raster(
         source_path,
         output_path,
-        source_resolution=0.05,
-        target_resolution=0.1,
+        output_resolution=0.1,
     )
 
     with rasterio.open(output_path) as src:
         assert src.width == 2
         assert src.height == 2
+        assert src.res == (0.1, 0.1)
 
 
 def test_ensure_inventory_file_keeps_existing_file(workspace_tmp_path) -> None:

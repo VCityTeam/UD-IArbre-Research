@@ -59,8 +59,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-worker", type=int, default=0)
     parser.add_argument("--img-pixels-detection", type=int, default=512)
     parser.add_argument("--margin", type=int, default=128)
-    parser.add_argument("--ortho-source-resolution", type=float, default=0.05)
-    parser.add_argument("--ortho-target-resolution", type=float, default=0.8)
+    parser.add_argument(
+        "--ortho-source-resolution",
+        type=float,
+        default=None,
+        help=(
+            "Optional source orthophoto pixel size in meters. "
+            "When omitted, ortho_extract.py infers it from the raster metadata."
+        ),
+    )
+    parser.add_argument(
+        "--ortho-target-resolution",
+        "--ortho-output-resolution",
+        dest="ortho_output_resolution",
+        type=float,
+        default=0.8,
+        help="Output orthophoto pixel size in meters.",
+    )
     parser.add_argument("--skip-download", action="store_true")
     parser.add_argument("--skip-flair", action="store_true")
     parser.add_argument("--skip-reweight", action="store_true")
@@ -253,8 +268,9 @@ def main() -> None:
     args = parse_args()
     validate_bbox(args.xmin_start, args.xmin_end, args.ymin_start, args.ymin_end)
     validate_positive_number(args.resolution, "resolution")
-    validate_positive_number(args.ortho_source_resolution, "ortho_source_resolution")
-    validate_positive_number(args.ortho_target_resolution, "ortho_target_resolution")
+    if args.ortho_source_resolution is not None:
+        validate_positive_number(args.ortho_source_resolution, "ortho_source_resolution")
+    validate_positive_number(args.ortho_output_resolution, "ortho_output_resolution")
     if args.batch_size <= 0:
         raise ValueError("batch_size must be strictly positive.")
     if args.num_worker < 0:
@@ -362,31 +378,31 @@ def main() -> None:
             cwd=code_dir,
         )
 
-        run_command(
-            [
-                sys.executable,
-                "ortho_extract.py",
-                "--json-file",
-                str(ortho_json),
-                "--output-dir",
-                str(ortho_tiles_dir),
-                "--temp-dir",
-                str(ortho_temp_dir),
-                "--xmin-start",
-                str(args.xmin_start),
-                "--xmin-end",
-                str(args.xmin_end),
-                "--ymin-start",
-                str(args.ymin_start),
-                "--ymin-end",
-                str(args.ymin_end),
-                "--source-resolution",
-                str(args.ortho_source_resolution),
-                "--target-resolution",
-                str(args.ortho_target_resolution),
-            ],
-            cwd=code_dir,
-        )
+        ortho_extract_command = [
+            sys.executable,
+            "ortho_extract.py",
+            "--json-file",
+            str(ortho_json),
+            "--output-dir",
+            str(ortho_tiles_dir),
+            "--temp-dir",
+            str(ortho_temp_dir),
+            "--xmin-start",
+            str(args.xmin_start),
+            "--xmin-end",
+            str(args.xmin_end),
+            "--ymin-start",
+            str(args.ymin_start),
+            "--ymin-end",
+            str(args.ymin_end),
+            "--output-resolution",
+            str(args.ortho_output_resolution),
+        ]
+        if args.ortho_source_resolution is not None:
+            ortho_extract_command.extend(
+                ["--source-resolution", str(args.ortho_source_resolution)]
+            )
+        run_command(ortho_extract_command, cwd=code_dir)
 
     run_command(
         [
