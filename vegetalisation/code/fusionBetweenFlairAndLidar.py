@@ -1,104 +1,85 @@
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
 import numpy as np
 import rasterio
 
-def pad_to_match(arr, target_shape):
-    """Ajuste un raster numpy (2D) pour qu'il ait la même taille que target_shape en ajoutant des NaN."""
-    diff_rows = target_shape[0] - arr.shape[0]
-    diff_cols = target_shape[1] - arr.shape[1]
+from workflow_utils import align_array_to_shape
 
-    if diff_rows < 0 or diff_cols < 0:
-        raise ValueError("Le raster à ajuster est plus grand que la forme cible.")
 
-    if diff_rows == 0 and diff_cols == 0:
-        return arr  # déjà bon format
-
-    # Ajout de NaN sur les bords bas et droite
-    padded = np.pad(
-        arr,
-        pad_width=((0, diff_rows), (0, diff_cols)),
-        mode='constant',
-        constant_values=np.nan
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Fuse LiDAR and Flair vegetation class rasters with LiDAR priority."
     )
-    return padded
-
-def pad_or_crop_to_size(arr, target_shape=(5000, 5000)):
-    """
-    Ajuste un tableau numpy pour qu'il ait exactement la taille target_shape.
-    - Tronque si trop grand
-    - Ajoute des NaN si trop petit
-    """
-    rows, cols = arr.shape
-    target_rows, target_cols = target_shape
-
-    # Si le raster est plus grand → on coupe
-    arr_cropped = arr[:target_rows, :target_cols]
-
-    # Si le raster est plus petit → on complète
-    diff_rows = target_rows - arr_cropped.shape[0]
-    diff_cols = target_cols - arr_cropped.shape[1]
-
-    if diff_rows > 0 or diff_cols > 0:
-        arr_cropped = np.pad(
-            arr_cropped,
-            pad_width=((0, max(0, diff_rows)), (0, max(0, diff_cols))),
-            mode="constant",
-            constant_values=np.nan
-        )
-
-    return arr_cropped
+    parser.add_argument("--lidar-raster", type=Path, required=True)
+    parser.add_argument("--flair-raster", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--target-size",
+        nargs=2,
+        type=int,
+        metavar=("HEIGHT", "WIDTH"),
+        help="Optional final raster size. If omitted, keep LiDAR raster size.",
+    )
+    return parser.parse_args()
 
 
-def fusion_classes(raster1_path, raster2_path, output_path):
-    """
-    Fusionne deux rasters de classes avec priorité au premier.
-    Reclassification selon la correspondance :
-        1,2 -> 1
-        3   -> 2
-        4   -> 3
-        0   -> 0
-    Le premier raster est prioritaire.
-    Si le second est plus petit, il est étendu avec des NaN.
-    """
-    with rasterio.open(raster1_path) as src1, rasterio.open(raster2_path) as src2:
-        r1 = src1.read(1).astype(float)
-        r2 = src2.read(1).astype(float)
-        profile = src1.profile
+def pad_to_match(arr: np.ndarray, target_shape: tuple[int, int]) -> np.ndarray:
+    return align_array_to_shape(arr, target_shape, fill_value=np.nan, allow_crop=False)
 
-    # Ajustement de la taille si nécessaire
-    if r1.shape != r2.shape:
-        print(f"⚠️ Dimensions différentes : {r1.shape} vs {r2.shape}.")
-        r2 = pad_to_match(r2, r1.shape)
-        print(f"✅ Raster 2 ajusté à la taille {r2.shape}")
 
-    # Reclassification du premier raster
-    r1_reclass = np.full_like(r1, np.nan)
-    r1_reclass[np.isin(r1, [1, 2])] = 1
-    r1_reclass[r1 == 3] = 2
-    r1_reclass[r1 == 4] = 3
+def pad_or_crop_to_size(arr: np.ndarray, target_shape: tuple[int, int]) -> np.ndarray:
+    return align_array_to_shape(arr, target_shape, fill_value=np.nan, allow_crop=True)
 
-    # Reclassification du second raster
-    r2_reclass = np.full_like(r2, np.nan)
-    r2_reclass[r2 == 0] = 0
-    r2_reclass[r2 == 1] = 1
-    r2_reclass[r2 == 2] = 2
-    r2_reclass[r2 == 3] = 3
 
-    # Fusion avec priorité au raster 1
-    fused = np.where(~np.isnan(r1_reclass), r1_reclass, r2_reclass)
+def fusion_classes(
+    lidar_raster_path: Path,
+    flair_raster_path: Path,
+    output_path: Path,
+    target_size: tuple[int, int] | None = None,
+) -> None:
+    with rasterio.open(lidar_raster_path) as src1, rasterio.open(flair_raster_path) as src2:
+        lidar = src1.read(1).astype(np.float32)
+        flair = src2.read(1).astype(np.float32)
+        profile = src1.profile.copy()
 
-    
-    # 🔸 Forcer la taille finale à 5000x5000
-    fused_fixed = pad_or_crop_to_size(fused, (5000, 5000))
+    if lidar.shape != flair.shape:
+        flair = pad_to_match(flair, lidar.shape)
 
-    # Profil de sortie
-    profile.update(dtype=rasterio.float32, count=1, nodata=np.nan,
-                   height=5000, width=5000)
+    lidar_reclass = np.full_like(lidar, np.nan)
+    lidar_reclass[np.isin(lidar, [1, 2])] = 1
+    lidar_reclass[lidar == 3] = 2
+    lidar_reclass[lidar == 4] = 3
 
-    # Écriture du résultat
+    flair_reclass = np.full_like(flair, np.nan)
+    flair_reclass[flair == 0] = 0
+    flair_reclass[flair == 1] = 1
+    flair_reclass[flair == 2] = 2
+    flair_reclass[flair == 3] = 3
+
+    fused = np.where(~np.isnan(lidar_reclass), lidar_reclass, flair_reclass)
+
+    if target_size is not None:
+        fused = pad_or_crop_to_size(fused, target_size)
+        profile.update(height=target_size[0], width=target_size[1])
+    else:
+        profile.update(height=fused.shape[0], width=fused.shape[1])
+
+    profile.update(dtype="float32", count=1, nodata=np.nan, compress="lzw")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     with rasterio.open(output_path, "w", **profile) as dst:
         dst.write(fused.astype(np.float32), 1)
 
-    print(f"✅ Fusion terminée et enregistrée dans : {output_path}")
+    print(f"Saved fused raster to: {output_path}")
+
+
+def main() -> None:
+    args = parse_args()
+    target_size = tuple(args.target_size) if args.target_size else None
+    fusion_classes(args.lidar_raster, args.flair_raster, args.output, target_size)
+
 
 if __name__ == "__main__":
-    fusion_classes("results/1845_5175/vegeLidarComplete.tif", "OtherData/1845_5175/RGB_2018_1845_5175_vege1m.tif", "results/1845_5175/FusionLidarFlair2018_1845_5175.tif")
+    main()

@@ -1,52 +1,83 @@
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
 import rasterio
 from rasterio.merge import merge
-from rasterio.windows import Window
-import numpy as np
-import os
 
-def rewrite_clean_tiff(input_path, output_path):
-    """Réécrit un TIFF en blocs réguliers pour éviter les erreurs de strip."""
+DEFAULT_TILES = ["HG_08m.tif", "HD_08m.tif", "BG_08m.tif", "BD_08m.tif"]
+DEFAULT_OUTPUT = Path("Flair2023_08m.tif")
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Rewrite Flair TIFF tiles with clean tiling metadata and merge them."
+    )
+    parser.add_argument(
+        "--tiles",
+        nargs="+",
+        default=DEFAULT_TILES,
+        help="List of input TIFF tiles to merge.",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=DEFAULT_OUTPUT,
+        help="Merged output TIFF path.",
+    )
+    return parser.parse_args()
+
+
+def rewrite_clean_tiff(input_path: Path, output_path: Path) -> None:
     with rasterio.open(input_path) as src:
         profile = src.profile.copy()
-        profile.update(
+        profile.update(tiled=True, blockxsize=256, blockysize=256, compress="lzw")
+
+        with rasterio.open(output_path, "w", **profile) as dst:
+            for _, window in src.block_windows(1):
+                dst.write(src.read(window=window), window=window)
+
+
+def merge_tiles(tile_paths: list[Path], output_path: Path) -> None:
+    clean_tiles: list[Path] = []
+    for tile_path in tile_paths:
+        clean_path = tile_path.with_name(f"{tile_path.stem}_clean{tile_path.suffix}")
+        rewrite_clean_tiff(tile_path, clean_path)
+        clean_tiles.append(clean_path)
+
+    datasets = [rasterio.open(path) for path in clean_tiles]
+    try:
+        mosaic, transform = merge(datasets)
+        out_meta = datasets[0].meta.copy()
+        out_meta.update(
+            height=mosaic.shape[1],
+            width=mosaic.shape[2],
+            transform=transform,
             tiled=True,
             blockxsize=256,
             blockysize=256,
-            compress="lzw"
+            compress="lzw",
         )
 
-        with rasterio.open(output_path, "w", **profile) as dst:
-            for ji, window in src.block_windows(1):
-                data = src.read(1, window=window)
-                dst.write(data, 1, window=window)
+        with rasterio.open(output_path, "w", **out_meta) as dst:
+            dst.write(mosaic)
+    finally:
+        for dataset in datasets:
+            dataset.close()
 
-# Réécriture propre des 4 TIFF
-tiles = ["HG_08m.tif", "HD_08m.tif", "BG_08m.tif", "BD_08m.tif"]
-clean_tiles = []
 
-for tif in tiles:
-    clean_name = tif.replace(".tif", "_clean.tif")
-    rewrite_clean_tiff(tif, clean_name)
-    clean_tiles.append(clean_name)
+def main() -> None:
+    args = parse_args()
+    tile_paths = [Path(tile) for tile in args.tiles]
 
-# Fusion avec rasterio.merge
-datasets = [rasterio.open(p) for p in clean_tiles]
-mosaic, transform = merge(datasets)
+    missing = [str(path) for path in tile_paths if not path.exists()]
+    if missing:
+        raise FileNotFoundError(f"Missing input tile(s): {', '.join(missing)}")
 
-out_meta = datasets[0].meta.copy()
-out_meta.update({
-    "height": mosaic.shape[1],
-    "width": mosaic.shape[2],
-    "transform": transform,
-    "tiled": True,
-    "blockxsize": 256,
-    "blockysize": 256,
-    "compress": "lzw"
-})
+    merge_tiles(tile_paths, args.output)
+    print(f"Merged raster created at: {args.output}")
 
-# Export final
-out_path = "Flair2023_08m.tif"
-with rasterio.open(out_path, "w", **out_meta) as dst:
-    dst.write(mosaic)
 
-print("✔ Fusion terminée : Flair2023.tif créé avec succès")
+if __name__ == "__main__":
+    main()

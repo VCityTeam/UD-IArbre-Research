@@ -1,43 +1,62 @@
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
 import rasterio
 from rasterio.merge import merge
-import glob
-import os
 
-INPUT_DIR = "lidar_data_processed/heights" # Dossier contenant les images 1m interpolées
-OUTPUT_FILE = "heights_08m.tif" # fichier de fusion sortie
 
-# Cherche tous les TIFF du répertoire
-tif_files = glob.glob(os.path.join(INPUT_DIR, "*.tif"))
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Merge GeoTIFF rasters from a directory into a single mosaic."
+    )
+    parser.add_argument(
+        "--input-dir",
+        type=Path,
+        default=Path("lidar_data_processed/heights"),
+        help="Directory containing TIFF files to merge.",
+    )
+    parser.add_argument(
+        "--output-file",
+        type=Path,
+        default=Path("heights_08m.tif"),
+        help="Merged GeoTIFF output path.",
+    )
+    return parser.parse_args()
 
-if len(tif_files) == 0:
-    print("Aucun fichier TIFF trouvé.")
-    exit()
 
-print(f"{len(tif_files)} images trouvées pour la mosaïque.")
-print("Fusion en cours.. (ça peut prendre du temps)\n")
+def merge_tiffs(input_dir: Path, output_file: Path) -> None:
+    tif_files = sorted(input_dir.glob("*.tif"))
+    if not tif_files:
+        raise FileNotFoundError(f"No TIFF file found in: {input_dir}")
 
-dataset = []
+    print(f"{len(tif_files)} raster(s) found for mosaicking.")
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    datasets = [rasterio.open(path) for path in tif_files]
+    try:
+        mosaic, transform = merge(datasets)
+        out_meta = datasets[0].meta.copy()
+        out_meta.update(
+            height=mosaic.shape[1],
+            width=mosaic.shape[2],
+            transform=transform,
+            compress="lzw",
+        )
 
-# Ajout des tiff dans un dataset
-for f in tif_files:
-    print(f"Ajout : {f}")
-    dataset.append(rasterio.open(f))
+        with rasterio.open(output_file, "w", **out_meta) as dst:
+            dst.write(mosaic)
+    finally:
+        for dataset in datasets:
+            dataset.close()
 
-# Fusionner avec la fonction merge de rasterio
-mosaic, out_transform = merge(dataset)
+    print(f"Mosaic created at: {output_file}")
 
-# Utiliser les métadonnées du 1er fichier comme base
-out_meta = dataset[0].meta.copy()
-out_meta.update({
-    "height": mosaic.shape[1],
-    "width": mosaic.shape[2],
-    "transform": out_transform
-})
 
-print("\n Écriture du fichier final")
+def main() -> None:
+    args = parse_args()
+    merge_tiffs(args.input_dir, args.output_file)
 
-# Écrire le fichier final
-with rasterio.open(OUTPUT_FILE, "w", **out_meta) as dest:
-    dest.write(mosaic)
 
-print(f"\n Mosaïque créée : {OUTPUT_FILE}")
+if __name__ == "__main__":
+    main()

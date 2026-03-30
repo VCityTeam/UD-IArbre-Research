@@ -1,2 +1,17 @@
 __pycache__/
 .ruff_cache/
+.pytest_cache/
+.pytest_tmp/
+.test_tmp/
+pytest-cache-files-*/
+
+# Workflow outputs, downloaded inputs/models, and bootstrapped deps
+vegetalisation/code/workdir/
+
+# Local tool clutter seen in this repo
+vegetalisation/code/.pytest_tmp/
+vegetalisation/code/.test_tmp/
+vegetalisation/code/.ruff_cache/
+vegetalisation/code/.pytest_cache/
+vegetalisation/code/__pycache__/
+vegetalisation/code/pytest-cache-files-*/

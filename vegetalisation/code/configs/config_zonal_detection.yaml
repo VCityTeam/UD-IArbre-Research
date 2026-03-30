@@ -1,24 +1,24 @@
 # ======================
 # I/O
 # ======================
-output_path: pred-prob-results/2023/RGB/
-output_name: test_zonal
+output_path: workdir/flair/probabilities
+output_name: vegetalisation_run
 
-write_dataframe: False
-output_type: class_prob  # [argmax / class_prob]
-cog_conversion: True
+write_dataframe: false
+output_type: class_prob
+cog_conversion: true
 
 # ======================
 # Model & Inference
 # ======================
-model_weights: models/FLAIR-HUB_LC-A_RGB_swinlarge-upernet.safetensors
-use_gpu: True
+model_weights: workdir/models/FLAIR-HUB_LC-A_RGB_swinlarge-upernet.safetensors
+use_gpu: false
 batch_size: 1
-num_worker: 0 # 0 on Windows OS
+num_worker: 0
 
 img_pixels_detection: 512
 margin: 128
-output_px_meters: 0.8
+output_px_meters: 1
 
 # ======================
 # Model Framework
@@ -27,80 +27,78 @@ monotemp_arch: swin_large_patch4_window12_384-upernet
 multitemp_model_ref_date: 05-15
 
 # ======================
-# Modalities (inputs used for inference)
+# Modalities
 # ======================
 modalities:
-
   inputs:
-      AERIAL_RGBI       : True
-      AERIAL-RLT_PAN    : False
-      DEM_ELEV          : False
-      SPOT_RGBI         : False
-      SENTINEL2_TS      : False 
-      SENTINEL1-ASC_TS  : False
-      SENTINEL1-DESC_TS : False
+    AERIAL_RGBI: true
+    AERIAL-RLT_PAN: false
+    DEM_ELEV: false
+    SPOT_RGBI: false
+    SENTINEL2_TS: false
+    SENTINEL1-ASC_TS: false
+    SENTINEL1-DESC_TS: false
 
   AERIAL_RGBI:
-      input_img_path: DataCity/RGB/80cm/mosaic_08mBD.tif
-      channels: [1, 2, 3]
-      normalization:
-        type: custom
-        means: [105.66, 111.35, 102.18]
-        stds:  [52.23, 45.62, 44.30]
+    input_img_path: workdir/ortho/mosaic/orthophoto_mosaic_08m.tif
+    channels: [1, 2, 3]
+    normalization:
+      type: custom
+      means: [105.66, 111.35, 102.18]
+      stds: [52.23, 45.62, 44.30]
 
   AERIAL-RLT_PAN:
-      input_img_path: /path/to/input_image.tif
-      channels: [1]
-      normalization:
-        type: custom
-        means: [125.92]
-        stds: [38.45]
+    input_img_path: /unused/panchromatic.tif
+    channels: [1]
+    normalization:
+      type: custom
+      means: [125.92]
+      stds: [38.45]
 
   DEM_ELEV:
-      input_img_path: /path/to/input_image.tif
-      channels: [1, 2, 3]
-      normalization:
-        type: custom
-        means: [1137.03, 433.26, 467.77]
-        stds: [543.11, 312.76, 284.61] 
-      calc_elevation : True
-      calc_elevation_stack_dsm : True 
+    input_img_path: /unused/dem.tif
+    channels: [1, 2, 3]
+    normalization:
+      type: custom
+      means: [1137.03, 433.26, 467.77]
+      stds: [543.11, 312.76, 284.61]
+    calc_elevation: true
+    calc_elevation_stack_dsm: true
 
   SPOT_RGBI:
-      input_img_path: /path/to/input_image.tif 
-      channels: [4, 1, 2]
-      normalization:
-        type: custom
-        means: [1137.03, 433.26, 467.77]
-        stds: [543.11, 312.76, 284.61]
+    input_img_path: /unused/spot.tif
+    channels: [4, 1, 2]
+    normalization:
+      type: custom
+      means: [1137.03, 433.26, 467.77]
+      stds: [543.11, 312.76, 284.61]
 
   SENTINEL2_TS:
-      input_img_path: /path/to/input_image.tif
-      channels: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-      dates_txt: /datesSEN2.txt
-      filter_clouds: True
-      filter_clouds_img_path: /path/to/input_image_MSK-SC.tif
-      temporal_average: False
+    input_img_path: /unused/s2.tif
+    channels: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    dates_txt: /unused/datesSEN2.txt
+    filter_clouds: true
+    filter_clouds_img_path: /unused/s2_mask.tif
+    temporal_average: false
 
   SENTINEL1-ASC_TS:
-      input_img_path: /path/to/input_image.tif
-      channels: [1, 2]
-      dates_txt: 
-      temporal_average: False
+    input_img_path: /unused/s1_asc.tif
+    channels: [1, 2]
+    dates_txt:
+    temporal_average: false
 
-  SENTINEL1-DESC_TS :
-      input_img_path: /path/to/input_image.tif
-      channels: [1, 2]
-      dates_txt: 
-      temporal_average: False
+  SENTINEL1-DESC_TS:
+    input_img_path: /unused/s1_desc.tif
+    channels: [1, 2]
+    dates_txt:
+    temporal_average: false
 
 # ======================
 # Tasks
 # ======================
 tasks:
-
   - name: AERIAL_LABEL-COSIA
-    active: True
+    active: true
     class_names:
       0: building
       1: greenhouse
@@ -123,7 +121,7 @@ tasks:
       18: undefined
 
   - name: ALL_LABEL-LPIS
-    active: False
+    active: false
     class_names:
       0: grasses
       1: wheat
@@ -148,35 +146,3 @@ tasks:
       20: other permanent crops
       21: mixed crops
       22: background
-
-train:
-  optimizer: AdamW
-  learning_rate: 5e-5
-  scheduler: one_cycle_lr
-  warmup_fraction: 0.2
-  epochs: 150
-  batch_size: 5
-  seed: 2025
-  early_stopping:
-    patience: 20
-    monitor: val_miou
-    mode: max
-
-  # Poids des classes
-  class_weights:
-    default: 1.0
-    masked_classes:
-      - building
-      - greenhouse
-      - swimming_pool
-      - impervious surface
-      - pervious surface
-      - bare soil
-      - water
-      - snow
-      - agricultural land
-      - plowed land
-      - vineyard
-      - ligneous
-      - mixed
-      - undefined

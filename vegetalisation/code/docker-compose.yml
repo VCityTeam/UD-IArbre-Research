@@ -1,0 +1,30 @@
+services:
+  vegetalisation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        FLAIR_HUB_REF: ${FLAIR_HUB_REF:-main}
+    image: ud-iarbre-vegetalisation:latest
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - ${WORKDIR_HOST:-./workdir}:/workspace/workdir
+      - hf_cache:/root/.cache/huggingface
+
+  vegetalisation-gpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        FLAIR_HUB_REF: ${FLAIR_HUB_REF:-main}
+    image: ud-iarbre-vegetalisation:latest
+    working_dir: /workspace
+    gpus: all
+    volumes:
+      - .:/workspace
+      - ${WORKDIR_HOST:-./workdir}:/workspace/workdir
+      - hf_cache:/root/.cache/huggingface
+
+volumes:
+  hf_cache:

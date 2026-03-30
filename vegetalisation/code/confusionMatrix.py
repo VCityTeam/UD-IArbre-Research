@@ -1,151 +1,191 @@
-import rasterio
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix
-import seaborn as sns
-import os
+from __future__ import annotations
 
-def load_raster(path):
-    """Charge un raster et remplace les nodata par NaN."""
+import argparse
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import rasterio
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
+
+from workflow_utils import align_array_to_shape, write_json
+
+REFERENCE_REMAP = {1: 0, 2: 1, 3: 1, 4: 2, 5: 2}
+PREDICTION_REMAP = {0: 0, 1: 1, 2: 2, 3: 2}
+CLASS_NAMES = {0: "Pelouse", 1: "Buisson_Arbuste", 2: "Arbre", 3: "Autre"}
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Compute a confusion matrix and summary metrics between a reference raster and a predicted raster."
+    )
+    parser.add_argument("--reference", type=Path, required=True)
+    parser.add_argument("--prediction", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--plot-name", default="confusion_matrix_percent.png")
+    parser.add_argument("--metrics-name", default="metrics_summary.json")
+    parser.add_argument("--log-name", default="metrics_log.txt")
+    return parser.parse_args()
+
+
+def load_raster(path: Path) -> np.ndarray:
     with rasterio.open(path) as src:
-        data = src.read(1).astype(float)
+        data = src.read(1).astype(np.float32)
         if src.nodata is not None:
             data[data == src.nodata] = np.nan
     return data
 
-def remap_reference_classes_bellec(array):
-    """
-    Remappe les classes du raster référence (1–5) en classes finales 0–3 :
-      1 -> 0 (Pelouse)
-      2 -> 1 (Buisson / Arbuste)
-      3 -> 1 (Buisson / Arbuste)
-      4 -> 2 (Arbre)
-      5 -> 2 (arbre)
-    NaN reste NaN pour l'instant.
-    """
-    remap = {1: 0, 2: 1, 3: 1, 4: 2, 5: 2}
-    result = np.full_like(array, np.nan, dtype=float)
-    for k, v in remap.items():
-        result[array == k] = v
+
+def remap_classes(array: np.ndarray, mapping: dict[int, int]) -> np.ndarray:
+    result = np.full_like(array, np.nan, dtype=np.float32)
+    for source_class, target_class in mapping.items():
+        result[array == source_class] = target_class
     return result
 
-def remap_reference_classes_LidarFlair(array):
-    """
-    Remappe les classes du raster référence (1–5) en classes finales 0–3 :
-      1 -> 0 (Pelouse)
-      2 -> 1 (Buisson / Arbuste)
-      3 -> 1 (Buisson / Arbuste)
-      4 -> 2 (Arbre)
-      5 -> 2 (arbre)
-    NaN reste NaN pour l'instant.
-    """
-    remap = {0: 0, 1: 1, 2: 2, 3: 2}
-    result = np.full_like(array, np.nan, dtype=float)
-    for k, v in remap.items():
-        result[array == k] = v
-    return result
 
-def compute_confusion_percent_with_empty(raster_ref_path, raster_compare_path):
-    # Charger les rasters
-    r1 = load_raster(raster_ref_path)      # Référence 1–5
-    r2 = load_raster(raster_compare_path)  # Comparé 0–3
+def compute_confusion_percent_with_empty(
+    raster_ref_path: Path, raster_compare_path: Path
+) -> tuple[np.ndarray, np.ndarray, dict[int, str]]:
+    reference = load_raster(raster_ref_path)
+    prediction = load_raster(raster_compare_path)
 
-    # Remapper le raster référence
-    r1_remap = remap_reference_classes_bellec(r1)
-    r2_remap = remap_reference_classes_LidarFlair(r2)
+    target_shape = (
+        max(reference.shape[0], prediction.shape[0]),
+        max(reference.shape[1], prediction.shape[1]),
+    )
+    reference = pad_or_crop_to_size(reference, target_shape)
+    prediction = pad_or_crop_to_size(prediction, target_shape)
 
-    # Remplacer les NaN par 4 (classe Vide)
-    r1_final = np.where(np.isnan(r1_remap), 3, r1_remap)
-    r2_final = np.where(np.isnan(r2_remap), 3, r2_remap)
+    reference_remap = remap_classes(reference, REFERENCE_REMAP)
+    prediction_remap = remap_classes(prediction, PREDICTION_REMAP)
 
-    # Calculer la matrice
+    reference_final = np.where(np.isnan(reference_remap), 3, reference_remap)
+    prediction_final = np.where(np.isnan(prediction_remap), 3, prediction_remap)
+
     labels = [0, 1, 2, 3]
-    cm = confusion_matrix(r1_final.flatten(), r2_final.flatten(), labels=labels)
+    cm = confusion_matrix(reference_final.flatten(), prediction_final.flatten(), labels=labels)
 
-    # Normalisation par ligne pour le pourcentage
-    cm_percent = cm.astype(float)
-    cm_percent = cm_percent / cm_percent.sum(axis=1, keepdims=True) * 100
+    cm_percent = cm.astype(np.float64)
+    row_sums = cm_percent.sum(axis=1, keepdims=True)
+    cm_percent = np.divide(cm_percent, row_sums, out=np.zeros_like(cm_percent), where=row_sums != 0)
+    cm_percent *= 100
+    return cm, cm_percent, CLASS_NAMES
 
-    # Noms des classes
-    class_names = {
-        0: "Pelouse",
-        1: "Buisson / Arbuste",
-        2: "Arbre",
-        3: "Autre"
-    }
 
-    return cm, cm_percent, class_names
+def pad_or_crop_to_size(arr: np.ndarray, target_shape: tuple[int, int]) -> np.ndarray:
+    return align_array_to_shape(arr, target_shape, fill_value=np.nan, allow_crop=True)
 
-def plot_confusion_matrix_percent(cm_percent, class_names, output_path="confusion_matrix_percent.png"):
+
+def plot_confusion_matrix_percent(
+    cm_percent: np.ndarray, class_names: dict[int, str], output_path: Path
+) -> None:
     plt.figure(figsize=(8, 6))
     sns.heatmap(
         cm_percent,
         annot=True,
         fmt=".1f",
-        cmap="plasma",  # jaune -> violet
+        cmap="plasma",
         xticklabels=[class_names[i] for i in range(len(class_names))],
         yticklabels=[class_names[i] for i in range(len(class_names))],
     )
-    plt.xlabel("Classes prédites")
-    plt.ylabel("Classes réelles")
-    plt.title("Matrice de confusion (%) raster vs raster (avec Vide)")
+    plt.xlabel("Classes predites")
+    plt.ylabel("Classes reelles")
+    plt.title("Matrice de confusion (%) raster vs raster")
     plt.tight_layout()
     plt.savefig(output_path, dpi=300)
     plt.close()
-    print(f"✅ Matrice de confusion en pourcentage sauvegardée : {output_path}")
+    print(f"Saved confusion matrix plot to: {output_path}")
 
-def compute_metrics_from_confusion_matrix(cm, class_names, log_path="metrics_log.txt"):
-    """
-    Calcule IoU, Precision, Recall, Dice par classe et globalement.
-    Enregistre les résultats dans un fichier log.
-    """
+
+def compute_metrics_from_confusion_matrix(
+    cm: np.ndarray, class_names: dict[int, str]
+) -> dict[str, object]:
     num_classes = cm.shape[0]
+    per_class: list[dict[str, float | str]] = []
 
-    # Initialisation des tableaux
-    iou_list, precision_list, recall_list, dice_list = [], [], [], []
+    for index in range(num_classes):
+        true_positive = float(cm[index, index])
+        false_positive = float(np.sum(cm[:, index]) - true_positive)
+        false_negative = float(np.sum(cm[index, :]) - true_positive)
+        denom_iou = true_positive + false_positive + false_negative
 
-    with open(log_path, "w", encoding="utf-8") as f:
-        f.write("==== Rapport de performance segmentation ====\n\n")
-        f.write(f"{'Classe':<20}{'IoU':>10}{'Precision':>15}{'Recall':>15}{'Dice':>15}\n")
-        f.write("-" * 70 + "\n")
+        iou = true_positive / denom_iou if denom_iou != 0 else float("nan")
+        precision = (
+            true_positive / (true_positive + false_positive)
+            if (true_positive + false_positive) != 0
+            else float("nan")
+        )
+        recall = (
+            true_positive / (true_positive + false_negative)
+            if (true_positive + false_negative) != 0
+            else float("nan")
+        )
+        dice = (
+            (2 * true_positive) / (2 * true_positive + false_positive + false_negative)
+            if (2 * true_positive + false_positive + false_negative) != 0
+            else float("nan")
+        )
 
-        for i in range(num_classes):
-            TP = cm[i, i]
-            FP = np.sum(cm[:, i]) - TP
-            FN = np.sum(cm[i, :]) - TP
-            denom_iou = TP + FP + FN
+        per_class.append(
+            {
+                "class_id": index,
+                "class_name": class_names[index],
+                "iou": iou,
+                "precision": precision,
+                "recall": recall,
+                "dice": dice,
+            }
+        )
 
-            IoU = TP / denom_iou if denom_iou != 0 else np.nan
-            Precision = TP / (TP + FP) if (TP + FP) != 0 else np.nan
-            Recall = TP / (TP + FN) if (TP + FN) != 0 else np.nan
-            Dice = (2 * TP) / (2 * TP + FP + FN) if (2 * TP + FP + FN) != 0 else np.nan
+    valid_entries = [entry for entry in per_class if entry["class_name"] != "Autre"]
+    summary = {
+        "mean_iou": float(np.nanmean([entry["iou"] for entry in valid_entries])),
+        "mean_precision": float(np.nanmean([entry["precision"] for entry in valid_entries])),
+        "mean_recall": float(np.nanmean([entry["recall"] for entry in valid_entries])),
+        "mean_dice": float(np.nanmean([entry["dice"] for entry in valid_entries])),
+    }
+    return {"per_class": per_class, "summary": summary}
 
-            iou_list.append(IoU)
-            precision_list.append(Precision)
-            recall_list.append(Recall)
-            dice_list.append(Dice)
 
-            f.write(f"{class_names[i]:<20}{IoU:>10.3f}{Precision:>15.3f}{Recall:>15.3f}{Dice:>15.3f}\n")
+def write_log(metrics: dict[str, object], log_path: Path) -> None:
+    per_class = metrics["per_class"]
+    summary = metrics["summary"]
+    with log_path.open("w", encoding="utf-8") as handle:
+        handle.write("==== Segmentation Performance Report ====\n\n")
+        handle.write(f"{'Class':<20}{'IoU':>10}{'Precision':>15}{'Recall':>15}{'Dice':>15}\n")
+        handle.write("-" * 75 + "\n")
+        for entry in per_class:
+            handle.write(
+                f"{entry['class_name']:<20}"
+                f"{entry['iou']:>10.3f}"
+                f"{entry['precision']:>15.3f}"
+                f"{entry['recall']:>15.3f}"
+                f"{entry['dice']:>15.3f}\n"
+            )
+        handle.write("\n==== Global Means (excluding 'Autre') ====\n")
+        handle.write(f"Mean IoU       : {summary['mean_iou']:.3f}\n")
+        handle.write(f"Mean Precision : {summary['mean_precision']:.3f}\n")
+        handle.write(f"Mean Recall    : {summary['mean_recall']:.3f}\n")
+        handle.write(f"Mean Dice      : {summary['mean_dice']:.3f}\n")
 
-        f.write("\n==== Moyennes globales (hors classe 'Vide') ====\n")
 
-        valid_idx = [i for i in range(num_classes) if class_names[i] != "Vide"]
-        mean_iou = np.nanmean([iou_list[i] for i in valid_idx])
-        mean_precision = np.nanmean([precision_list[i] for i in valid_idx])
-        mean_recall = np.nanmean([recall_list[i] for i in valid_idx])
-        mean_dice = np.nanmean([dice_list[i] for i in valid_idx])
+def main() -> None:
+    args = parse_args()
+    args.output_dir.mkdir(parents=True, exist_ok=True)
 
-        f.write(f"\nIoU moyen       : {mean_iou:.3f}\n")
-        f.write(f"Precision moyenne: {mean_precision:.3f}\n")
-        f.write(f"Recall moyen     : {mean_recall:.3f}\n")
-        f.write(f"Dice moyen       : {mean_dice:.3f}\n")
+    cm, cm_percent, class_names = compute_confusion_percent_with_empty(
+        args.reference, args.prediction
+    )
+    plot_confusion_matrix_percent(cm_percent, class_names, args.output_dir / args.plot_name)
 
-    print(f"✅ Rapport complet enregistré dans : {os.path.abspath(log_path)}")
+    metrics = compute_metrics_from_confusion_matrix(cm, class_names)
+    write_json(metrics, args.output_dir / args.metrics_name)
+    write_log(metrics, args.output_dir / args.log_name)
+
+    print(f"Saved metrics JSON to: {args.output_dir / args.metrics_name}")
+    print(f"Saved metrics log to: {args.output_dir / args.log_name}")
+
 
 if __name__ == "__main__":
-    raster_ref_path = "OtherData/1845_5175/Bellec_1845_5175.tif"      # 1–5
-    raster_compare_path = "results/1845_5175/FusionLidarFlair2018_1845_5175.tif" # 0–3
-
-    cm, cm_percent, class_names = compute_confusion_percent_with_empty(raster_ref_path, raster_compare_path)
-    plot_confusion_matrix_percent(cm_percent, class_names)
-    compute_metrics_from_confusion_matrix(cm, class_names, log_path="metrics_log.txt")
+    main()
