@@ -621,20 +621,22 @@ def main() -> None:
         )
 
     if args.reference_raster:
-        prediction_for_eval = legacy_fused_raster if args.run_legacy_fusion else fusion_dir / "final_fused_08m.tif"
-        run_command(
-            [
-                sys.executable,
-                "confusionMatrix.py",
-                "--reference",
-                str(args.reference_raster.resolve()),
-                "--prediction",
-                str(prediction_for_eval),
-                "--output-dir",
-                str(evaluation_dir),
-            ],
-            cwd=code_dir,
+        prediction_for_eval = (
+            legacy_fused_raster if args.run_legacy_fusion else fusion_dir / "final_fused_08m.tif"
         )
+        evaluation_command = [
+            sys.executable,
+            "confusionMatrix.py",
+            "--reference",
+            str(args.reference_raster.resolve()),
+            "--prediction",
+            str(prediction_for_eval),
+            "--output-dir",
+            str(evaluation_dir),
+        ]
+        if args.use_gpu:
+            evaluation_command.append("--use-gpu")
+        run_command(evaluation_command, cwd=code_dir)
 
     print("\nWorkflow completed successfully.")
     print(f"Orthophoto mosaic: {orthophoto_mosaic}")

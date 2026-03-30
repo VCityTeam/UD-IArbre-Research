@@ -85,7 +85,10 @@ docker compose build vegetalisation-gpu
 
 `vegetalisation` is the portable CPU image.
 
-`vegetalisation-gpu` is the same workflow with `gpus: all` for NVIDIA hosts.
+`vegetalisation-gpu` builds a CUDA-enabled PyTorch image with `gpus: all` for NVIDIA hosts.
+
+If you change the Dockerfile or the PyTorch/CUDA setup, run these build commands again before launching
+the workflow.
 
 ## Run
 
@@ -173,7 +176,7 @@ This writes the confusion matrix image, metrics summary JSON, and evaluation log
 --mapping-json              Optional JSON object for custom class remapping after reweighting.
 --ortho-source-resolution   Optional source orthophoto pixel size in meters. Default: inferred from raster metadata.
 --ortho-output-resolution   Output orthophoto pixel size in meters. Alias: --ortho-target-resolution. Default: 0.8.
---use-gpu                   Ask FLAIR-HUB to run on GPU.
+--use-gpu                   Ask FLAIR-HUB to run on GPU and use CUDA for evaluation when available.
 --run-legacy-fusion         Also produce the legacy LiDAR vegetation and legacy LiDAR+FLAIR fusion outputs.
 --apply-lidar-correction    Correct the LiDAR MNS mosaic before the legacy branch.
 --reference-raster          Compute a confusion matrix and summary metrics against a reference raster.

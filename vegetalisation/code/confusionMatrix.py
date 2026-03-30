@@ -7,11 +7,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
 import seaborn as sns
-from sklearn.metrics import confusion_matrix
 from rasterio.enums import Resampling
 from rasterio.warp import reproject
 from rasterio.windows import from_bounds
 from workflow_utils import write_json
+
+try:
+    import torch
+except ImportError:  # pragma: no cover - optional dependency outside the Docker image
+    torch = None
 
 REFERENCE_REMAP = {1: 0, 2: 1, 3: 1, 4: 2, 5: 2}
 PREDICTION_REMAP = {0: 0, 1: 1, 2: 2, 3: 2}
@@ -28,6 +32,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--plot-name", default="confusion_matrix_percent.png")
     parser.add_argument("--metrics-name", default="metrics_summary.json")
     parser.add_argument("--log-name", default="metrics_log.txt")
+    parser.add_argument(
+        "--use-gpu",
+        action="store_true",
+        help="Use CUDA via PyTorch for confusion-matrix accumulation when available.",
+    )
     return parser.parse_args()
 
 
@@ -93,19 +102,47 @@ def remap_classes(array: np.ndarray, mapping: dict[int, int]) -> np.ndarray:
     return result
 
 
+def compute_confusion_matrix_cpu(
+    reference_final: np.ndarray, prediction_final: np.ndarray, num_classes: int
+) -> np.ndarray:
+    encoded = (reference_final.astype(np.int64) * num_classes) + prediction_final.astype(np.int64)
+    counts = np.bincount(encoded.ravel(), minlength=num_classes * num_classes)
+    return counts.reshape(num_classes, num_classes)
+
+
+def compute_confusion_matrix_gpu(
+    reference_final: np.ndarray, prediction_final: np.ndarray, num_classes: int
+) -> np.ndarray:
+    if torch is None:
+        raise RuntimeError("PyTorch is not installed, so GPU evaluation is unavailable.")
+    if not torch.cuda.is_available():
+        raise RuntimeError("CUDA is not available, so GPU evaluation cannot be used.")
+
+    device = torch.device("cuda")
+    reference_tensor = torch.from_numpy(reference_final.astype(np.int64, copy=False)).to(device)
+    prediction_tensor = torch.from_numpy(prediction_final.astype(np.int64, copy=False)).to(device)
+    encoded = reference_tensor.reshape(-1) * num_classes + prediction_tensor.reshape(-1)
+    counts = torch.bincount(encoded, minlength=num_classes * num_classes)
+    return counts.reshape(num_classes, num_classes).cpu().numpy()
+
+
 def compute_confusion_percent_with_empty(
-    raster_ref_path: Path, raster_compare_path: Path
+    raster_ref_path: Path, raster_compare_path: Path, *, use_gpu: bool = False
 ) -> tuple[np.ndarray, np.ndarray, dict[int, str]]:
     reference, prediction = load_overlapping_rasters(raster_ref_path, raster_compare_path)
 
     reference_remap = remap_classes(reference, REFERENCE_REMAP)
     prediction_remap = remap_classes(prediction, PREDICTION_REMAP)
 
-    reference_final = np.where(np.isnan(reference_remap), 3, reference_remap)
-    prediction_final = np.where(np.isnan(prediction_remap), 3, prediction_remap)
+    reference_final = np.where(np.isnan(reference_remap), 3, reference_remap).astype(np.int64)
+    prediction_final = np.where(np.isnan(prediction_remap), 3, prediction_remap).astype(np.int64)
 
-    labels = [0, 1, 2, 3]
-    cm = confusion_matrix(reference_final.flatten(), prediction_final.flatten(), labels=labels)
+    num_classes = len(CLASS_NAMES)
+    if use_gpu:
+        print("Computing confusion matrix on GPU.")
+        cm = compute_confusion_matrix_gpu(reference_final, prediction_final, num_classes)
+    else:
+        cm = compute_confusion_matrix_cpu(reference_final, prediction_final, num_classes)
 
     cm_percent = cm.astype(np.float64)
     row_sums = cm_percent.sum(axis=1, keepdims=True)
@@ -212,7 +249,7 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     cm, cm_percent, class_names = compute_confusion_percent_with_empty(
-        args.reference, args.prediction
+        args.reference, args.prediction, use_gpu=args.use_gpu
     )
     plot_confusion_matrix_percent(cm_percent, class_names, args.output_dir / args.plot_name)
 

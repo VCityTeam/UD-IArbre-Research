@@ -5,7 +5,8 @@ services:
       dockerfile: Dockerfile
       args:
         FLAIR_HUB_REF: ${FLAIR_HUB_REF:-main}
-    image: ud-iarbre-vegetalisation:latest
+        TORCH_WHEEL_CHANNEL: cpu
+    image: ud-iarbre-vegetalisation:cpu
     working_dir: /workspace
     volumes:
       - .:/workspace
@@ -18,9 +19,13 @@ services:
       dockerfile: Dockerfile
       args:
         FLAIR_HUB_REF: ${FLAIR_HUB_REF:-main}
-    image: ud-iarbre-vegetalisation:latest
+        TORCH_WHEEL_CHANNEL: cu124
+    image: ud-iarbre-vegetalisation:gpu
     working_dir: /workspace
     gpus: all
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
     volumes:
       - .:/workspace
       - ${WORKDIR_HOST:-./workdir}:/workspace/workdir
