@@ -34,16 +34,19 @@ available orthophotos.
 
 ## Expected Inputs
 
-Create the `workdir/inputs` directory in [`vegetalisation/code`](vegetalisation/code) and store the two
-inventory JSON files there:
+Create the `workdir/inputs` directory in [`vegetalisation/code`](vegetalisation/code) and store the workflow
+inputs there:
 
 - `workdir/inputs/nuage.json`
 - `workdir/inputs/ortho.json`
+- `workdir/inputs/reference.tiff` optional evaluation raster exported from the Grand Lyon
+  `vegetation stratifiee 2018` dataset
 
 They are used by:
 
 - [`extract_nuage.py`](code/extract_nuage.py)
 - [`ortho_extract.py`](code/ortho_extract.py)
+- [`confusionMatrix.py`](code/confusionMatrix.py) when `--reference-raster` is provided
 
 ### Download `nuage.json` and `ortho.json`
 
@@ -56,6 +59,9 @@ Download the inventories from the Grand Lyon portal section
 3. Open the orthophoto dataset download page:
    <https://data.grandlyon.com/portail/fr/jeux-de-donnees/orthophotographie-2018-metropole-lyon-format-tiff/telechargements>
 4. Download the API WS inventory JSON and save it as `workdir/inputs/ortho.json`.
+5. Optional for evaluation: open the reference vegetation dataset download page:
+   <https://data.grandlyon.com/portail/fr/jeux-de-donnees/vegetation-stratifiee-2018-metropole-lyon/telechargements>
+6. Download the GeoTIFF reference raster and save it as `workdir/inputs/reference.tiff`.
 
 Expected result:
 
@@ -65,6 +71,7 @@ vegetalisation/code/
     inputs/
       nuage.json
       ortho.json
+      reference.tiff
 ```
 
 ## Build
@@ -91,6 +98,9 @@ New-Item -ItemType Directory -Force -Path workdir\inputs | Out-Null
 ```
 
 Then place the two renamed inventory files in `workdir/inputs`.
+
+If you want evaluation outputs, also place the downloaded Grand Lyon vegetation reference raster in
+`workdir/inputs/reference.tiff`.
 
 Example on CPU:
 
@@ -120,6 +130,27 @@ docker compose run --rm vegetalisation-gpu `
   --ymin-end 5176000 `
   --use-gpu
 ```
+
+### Run With Evaluation
+
+To populate the `evaluation` folder, pass `--reference-raster` with the downloaded Grand Lyon
+`vegetation stratifiee 2018` GeoTIFF:
+
+```powershell
+docker compose run --rm vegetalisation `
+  python run_workflow.py `
+  --run-name doua_1845_5175 `
+  --nuage-json workdir/inputs/nuage.json `
+  --ortho-json workdir/inputs/ortho.json `
+  --reference-raster workdir/inputs/reference.tiff `
+  --xmin-start 1845000 `
+  --xmin-end 1846000 `
+  --ymin-start 5175000 `
+  --ymin-end 5176000
+```
+
+This writes the confusion matrix image, metrics summary JSON, and evaluation log under
+`workdir/runs/doua_1845_5175/evaluation/`.
 
 ## Main Options
 

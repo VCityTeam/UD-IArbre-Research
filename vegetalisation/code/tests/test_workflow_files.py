@@ -7,6 +7,7 @@ import rasterio
 import yaml
 from rasterio.transform import from_origin
 
+from confusionMatrix import compute_confusion_percent_with_empty
 from extract_nuage import select_tiles as select_lidar_tiles
 from ortho_extract import resample_raster
 from run_workflow import (
@@ -186,3 +187,59 @@ def test_ensure_flair_hub_source_reuses_existing_clone(workspace_tmp_path) -> No
     )
 
     assert resolved == src_dir
+
+
+def test_confusion_matrix_uses_only_overlapping_extent(workspace_tmp_path) -> None:
+    reference_path = workspace_tmp_path / "reference.tif"
+    prediction_path = workspace_tmp_path / "prediction.tif"
+
+    reference_data = np.array(
+        [
+            [1, 1, 1, 1],
+            [1, 2, 2, 1],
+            [1, 4, 5, 1],
+            [1, 1, 1, 1],
+        ],
+        dtype=np.uint8,
+    )
+    prediction_data = np.array(
+        [
+            [0, 1],
+            [2, 3],
+        ],
+        dtype=np.uint8,
+    )
+
+    with rasterio.open(
+        reference_path,
+        "w",
+        driver="GTiff",
+        height=4,
+        width=4,
+        count=1,
+        dtype="uint8",
+        transform=from_origin(0, 4, 1, 1),
+    ) as dst:
+        dst.write(reference_data, 1)
+
+    with rasterio.open(
+        prediction_path,
+        "w",
+        driver="GTiff",
+        height=2,
+        width=2,
+        count=1,
+        dtype="uint8",
+        transform=from_origin(1, 3, 1, 1),
+    ) as dst:
+        dst.write(prediction_data, 1)
+
+    cm, cm_percent, class_names = compute_confusion_percent_with_empty(
+        reference_path,
+        prediction_path,
+    )
+
+    assert cm.shape == (4, 4)
+    assert int(cm.sum()) == 4
+    assert np.count_nonzero(cm) > 0
+    assert class_names[2] == "Arbre"

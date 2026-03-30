@@ -8,8 +8,10 @@ import numpy as np
 import rasterio
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
-
-from workflow_utils import align_array_to_shape, write_json
+from rasterio.enums import Resampling
+from rasterio.warp import reproject
+from rasterio.windows import from_bounds
+from workflow_utils import write_json
 
 REFERENCE_REMAP = {1: 0, 2: 1, 3: 1, 4: 2, 5: 2}
 PREDICTION_REMAP = {0: 0, 1: 1, 2: 2, 3: 2}
@@ -29,12 +31,59 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_raster(path: Path) -> np.ndarray:
-    with rasterio.open(path) as src:
-        data = src.read(1).astype(np.float32)
-        if src.nodata is not None:
-            data[data == src.nodata] = np.nan
-    return data
+def load_overlapping_rasters(reference_path: Path, prediction_path: Path) -> tuple[np.ndarray, np.ndarray]:
+    with rasterio.open(reference_path) as reference_src, rasterio.open(prediction_path) as prediction_src:
+        left = max(reference_src.bounds.left, prediction_src.bounds.left)
+        bottom = max(reference_src.bounds.bottom, prediction_src.bounds.bottom)
+        right = min(reference_src.bounds.right, prediction_src.bounds.right)
+        top = min(reference_src.bounds.top, prediction_src.bounds.top)
+
+        if left >= right or bottom >= top:
+            raise ValueError("Reference and prediction rasters do not overlap.")
+
+        prediction_window = from_bounds(
+            left,
+            bottom,
+            right,
+            top,
+            transform=prediction_src.transform,
+        ).round_offsets().round_lengths()
+
+        prediction = prediction_src.read(1, window=prediction_window).astype(np.float32)
+        if prediction_src.nodata is not None:
+            prediction[prediction == prediction_src.nodata] = np.nan
+
+        if reference_src.crs == prediction_src.crs:
+            reference_window = from_bounds(
+                left,
+                bottom,
+                right,
+                top,
+                transform=reference_src.transform,
+            ).round_offsets().round_lengths()
+            reference = reference_src.read(
+                1,
+                window=reference_window,
+                out_shape=prediction.shape,
+                resampling=Resampling.nearest,
+            ).astype(np.float32)
+            if reference_src.nodata is not None:
+                reference[reference == reference_src.nodata] = np.nan
+        else:
+            reference = np.full(prediction.shape, np.nan, dtype=np.float32)
+            reproject(
+                source=rasterio.band(reference_src, 1),
+                destination=reference,
+                src_transform=reference_src.transform,
+                src_crs=reference_src.crs,
+                src_nodata=reference_src.nodata,
+                dst_transform=prediction_src.window_transform(prediction_window),
+                dst_crs=prediction_src.crs,
+                dst_nodata=np.nan,
+                resampling=Resampling.nearest,
+            )
+
+    return reference, prediction
 
 
 def remap_classes(array: np.ndarray, mapping: dict[int, int]) -> np.ndarray:
@@ -47,15 +96,7 @@ def remap_classes(array: np.ndarray, mapping: dict[int, int]) -> np.ndarray:
 def compute_confusion_percent_with_empty(
     raster_ref_path: Path, raster_compare_path: Path
 ) -> tuple[np.ndarray, np.ndarray, dict[int, str]]:
-    reference = load_raster(raster_ref_path)
-    prediction = load_raster(raster_compare_path)
-
-    target_shape = (
-        max(reference.shape[0], prediction.shape[0]),
-        max(reference.shape[1], prediction.shape[1]),
-    )
-    reference = pad_or_crop_to_size(reference, target_shape)
-    prediction = pad_or_crop_to_size(prediction, target_shape)
+    reference, prediction = load_overlapping_rasters(raster_ref_path, raster_compare_path)
 
     reference_remap = remap_classes(reference, REFERENCE_REMAP)
     prediction_remap = remap_classes(prediction, PREDICTION_REMAP)
@@ -71,10 +112,6 @@ def compute_confusion_percent_with_empty(
     cm_percent = np.divide(cm_percent, row_sums, out=np.zeros_like(cm_percent), where=row_sums != 0)
     cm_percent *= 100
     return cm, cm_percent, CLASS_NAMES
-
-
-def pad_or_crop_to_size(arr: np.ndarray, target_shape: tuple[int, int]) -> np.ndarray:
-    return align_array_to_shape(arr, target_shape, fill_value=np.nan, allow_crop=True)
 
 
 def plot_confusion_matrix_percent(
