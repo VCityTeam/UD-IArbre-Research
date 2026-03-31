@@ -248,7 +248,7 @@ def test_confusion_matrix_uses_only_overlapping_extent(workspace_tmp_path) -> No
 def test_confusion_matrix_uses_mapping_from_matrix_config(workspace_tmp_path) -> None:
     reference_path = workspace_tmp_path / "reference_custom.tif"
     prediction_path = workspace_tmp_path / "prediction_custom.tif"
-    matrix_config_path = workspace_tmp_path / "config_matrix.yml"
+    matrix_config_path = workspace_tmp_path / "configs.yml"
 
     with rasterio.open(
         reference_path,

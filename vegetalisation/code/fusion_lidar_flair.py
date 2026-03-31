@@ -9,7 +9,7 @@ import yaml
 
 from workflow_utils import align_array_to_shape, max_shape
 
-DEFAULT_MATRIX_CONFIG = Path("configs/config_matrix.yml")
+DEFAULT_MATRIX_CONFIG = Path("configs/configs.yml")
 VALID_OUTPUT_CLASSES = (0, 1, 2)
 
 

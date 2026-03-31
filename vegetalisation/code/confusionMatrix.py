@@ -19,7 +19,7 @@ try:
 except ImportError:  # pragma: no cover - optional dependency outside the Docker image
     torch = None
 
-DEFAULT_MATRIX_CONFIG = Path("configs/config_matrix.yml")
+DEFAULT_MATRIX_CONFIG = Path("configs/configs.yml")
 
 
 def parse_args() -> argparse.Namespace:

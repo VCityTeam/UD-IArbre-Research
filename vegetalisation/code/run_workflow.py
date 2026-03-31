@@ -21,7 +21,7 @@ from workflow_utils import (
 
 DEFAULT_WORKSPACE = Path("workdir")
 DEFAULT_CONFIG = Path("configs/config_zonal_detection.yaml")
-DEFAULT_MATRIX_CONFIG = Path("configs/config_matrix.yml")
+DEFAULT_MATRIX_CONFIG = Path("configs/configs.yml")
 DEFAULT_MODEL_REPO = "IGNF/FLAIR-HUB_LC-A_RGB_swinlarge-upernet"
 DEFAULT_MODEL_FILENAME = "FLAIR-HUB_LC-A_RGB_swinlarge-upernet.safetensors"
 DEFAULT_MODEL_REVISION = "336bd84"
