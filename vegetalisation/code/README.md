@@ -140,7 +140,7 @@ To populate the `evaluation` folder, pass `--reference-raster` with the download
 `vegetation stratifiee 2018` GeoTIFF:
 
 ```powershell
-docker compose run --rm vegetalisation `
+docker compose run --rm vegetalisation-gpu `
   python run_workflow.py `
   --run-name doua_1845_5175 `
   --nuage-json workdir/inputs/nuage.json `
