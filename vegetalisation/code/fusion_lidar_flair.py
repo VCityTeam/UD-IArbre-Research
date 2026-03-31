@@ -5,10 +5,11 @@ from pathlib import Path
 
 import numpy as np
 import rasterio
+import yaml
 
 from workflow_utils import align_array_to_shape, max_shape
 
-LIDAR_VEGETATION_CLASSES = (3, 4, 5, 8)
+DEFAULT_MATRIX_CONFIG = Path("configs/config_matrix.yml")
 VALID_OUTPUT_CLASSES = (0, 1, 2)
 
 
@@ -21,6 +22,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--veg-mask", type=Path, required=True)
     parser.add_argument("--second-map", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
+    parser.add_argument("--matrix-config", type=Path, default=DEFAULT_MATRIX_CONFIG)
     parser.add_argument("--modify-flair", action="store_true")
     parser.add_argument("--keep-class-lidar1", action="store_true")
     parser.add_argument(
@@ -54,31 +56,58 @@ def save_tif(path: Path, arr: np.ndarray, profile: dict) -> None:
         dst.write(output, 1)
 
 
+def load_matrix_config(config_path: Path) -> dict:
+    with config_path.open("r", encoding="utf-8") as handle:
+        config = yaml.safe_load(handle)
+    if not isinstance(config, dict):
+        raise ValueError(f"Invalid matrix config: {config_path}")
+    return config
+
+
+def classify_heights(
+    out: np.ndarray,
+    keep_mask: np.ndarray,
+    height_map: np.ndarray,
+    thresholds: dict,
+) -> np.ndarray:
+    low_threshold = float(thresholds["low_to_medium"])
+    medium_threshold = float(thresholds["medium_to_high"])
+
+    out[keep_mask & (height_map < low_threshold)] = 0
+    out[
+        keep_mask & (height_map >= low_threshold) & (height_map < medium_threshold)
+    ] = 1
+    out[keep_mask & (height_map >= medium_threshold)] = 2
+    return out
+
+
 def create_vegetation_map(
     class_lidar_map: np.ndarray,
     height_lidar_map: np.ndarray,
     vege_mask: np.ndarray,
     flair_vege: np.ndarray,
+    config: dict,
     modify_flair: bool = True,
     keep_class_lidar1: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
-    keep_vegetation = np.isin(class_lidar_map, LIDAR_VEGETATION_CLASSES)
-    keep_class1 = (class_lidar_map == 1) & (vege_mask != 255)
+    lidar_config = config["lidar"]
+    flair_config = config["flair"]
+
+    keep_vegetation = np.isin(class_lidar_map, lidar_config["vegetation_classes"])
+    keep_class1 = (class_lidar_map == lidar_config["optional_class_1"]) & (
+        vege_mask != lidar_config["mask_excluded_value"]
+    )
     keep_mask = keep_vegetation | keep_class1 if keep_class_lidar1 else keep_vegetation
 
     out_lidar = np.full(class_lidar_map.shape, np.nan, dtype=np.float32)
-    out_lidar[keep_mask & (height_lidar_map < 0.30)] = 0
-    out_lidar[keep_mask & (height_lidar_map >= 0.30) & (height_lidar_map < 5)] = 1
-    out_lidar[keep_mask & (height_lidar_map >= 5)] = 2
+    classify_heights(out_lidar, keep_mask, height_lidar_map, lidar_config["height_thresholds"])
 
     if not modify_flair:
         return out_lidar, flair_vege.astype(np.float32)
 
-    keep_flair = vege_mask != 255
+    keep_flair = vege_mask != flair_config["mask_excluded_value"]
     out_flair = np.full(flair_vege.shape, np.nan, dtype=np.float32)
-    out_flair[keep_flair & (height_lidar_map < 0.75)] = 0
-    out_flair[keep_flair & (height_lidar_map >= 0.75) & (height_lidar_map < 5)] = 1
-    out_flair[keep_flair & (height_lidar_map >= 5)] = 2
+    classify_heights(out_flair, keep_flair, height_lidar_map, flair_config["height_thresholds"])
     return out_lidar, out_flair
 
 
@@ -108,6 +137,11 @@ def main() -> None:
     args = parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
+    config_path = args.matrix_config
+    if not config_path.is_absolute():
+        config_path = Path(__file__).resolve().parent / config_path
+    matrix_config = load_matrix_config(config_path)
+
     class_map, profile = load_tif(args.class_map)
     height_map, _ = load_tif(args.height_map)
     veg_mask, _ = load_tif(args.veg_mask)
@@ -124,6 +158,7 @@ def main() -> None:
         height_map,
         veg_mask,
         second_map,
+        config=matrix_config,
         modify_flair=args.modify_flair,
         keep_class_lidar1=args.keep_class_lidar1,
     )

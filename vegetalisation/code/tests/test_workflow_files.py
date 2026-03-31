@@ -243,3 +243,68 @@ def test_confusion_matrix_uses_only_overlapping_extent(workspace_tmp_path) -> No
     assert int(cm.sum()) == 4
     assert np.count_nonzero(cm) > 0
     assert class_names[2] == "Arbre"
+
+
+def test_confusion_matrix_uses_mapping_from_matrix_config(workspace_tmp_path) -> None:
+    reference_path = workspace_tmp_path / "reference_custom.tif"
+    prediction_path = workspace_tmp_path / "prediction_custom.tif"
+    matrix_config_path = workspace_tmp_path / "config_matrix.yml"
+
+    with rasterio.open(
+        reference_path,
+        "w",
+        driver="GTiff",
+        height=1,
+        width=1,
+        count=1,
+        dtype="uint8",
+        transform=from_origin(0, 1, 1, 1),
+    ) as dst:
+        dst.write(np.array([[7]], dtype=np.uint8), 1)
+
+    with rasterio.open(
+        prediction_path,
+        "w",
+        driver="GTiff",
+        height=1,
+        width=1,
+        count=1,
+        dtype="uint8",
+        transform=from_origin(0, 1, 1, 1),
+    ) as dst:
+        dst.write(np.array([[9]], dtype=np.uint8), 1)
+
+    matrix_config = {
+        "lidar": {
+            "vegetation_classes": [3, 4, 5, 8],
+            "optional_class_1": 1,
+            "mask_excluded_value": 255,
+            "height_thresholds": {
+                "low_to_medium": 0.30,
+                "medium_to_high": 5.0,
+            },
+        },
+        "flair": {
+            "mask_excluded_value": 255,
+            "height_thresholds": {
+                "low_to_medium": 0.75,
+                "medium_to_high": 5.0,
+            },
+        },
+        "evaluation": {
+            "reference_remap": {7: 0},
+            "prediction_remap": {9: 0},
+            "class_names": {0: "CustomGrass", 1: "CustomShrub", 2: "CustomTree", 3: "Autre"},
+            "empty_class_id": 3,
+        },
+    }
+    matrix_config_path.write_text(yaml.safe_dump(matrix_config), encoding="utf-8")
+
+    cm, _, class_names = compute_confusion_percent_with_empty(
+        reference_path,
+        prediction_path,
+        matrix_config_path=matrix_config_path,
+    )
+
+    assert cm[0, 0] == 1
+    assert class_names[0] == "CustomGrass"

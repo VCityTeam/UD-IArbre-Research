@@ -21,6 +21,7 @@ from workflow_utils import (
 
 DEFAULT_WORKSPACE = Path("workdir")
 DEFAULT_CONFIG = Path("configs/config_zonal_detection.yaml")
+DEFAULT_MATRIX_CONFIG = Path("configs/config_matrix.yml")
 DEFAULT_MODEL_REPO = "IGNF/FLAIR-HUB_LC-A_RGB_swinlarge-upernet"
 DEFAULT_MODEL_FILENAME = "FLAIR-HUB_LC-A_RGB_swinlarge-upernet.safetensors"
 DEFAULT_MODEL_REVISION = "336bd84"
@@ -96,6 +97,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--weights-json", type=Path)
     parser.add_argument("--mapping-json", type=Path)
+    parser.add_argument("--matrix-config", type=Path, default=DEFAULT_MATRIX_CONFIG)
     parser.add_argument("--flair-probability-raster", type=Path)
     parser.add_argument("--reweighted-raster", type=Path)
     parser.add_argument("--keep-class-lidar1", action="store_true")
@@ -560,6 +562,8 @@ def main() -> None:
         str(reweighted_raster),
         "--out-dir",
         str(fusion_dir),
+        "--matrix-config",
+        str(args.matrix_config),
     ]
     if args.modify_flair:
         fusion_command.append("--modify-flair")
@@ -633,6 +637,8 @@ def main() -> None:
             str(prediction_for_eval),
             "--output-dir",
             str(evaluation_dir),
+            "--matrix-config",
+            str(args.matrix_config),
         ]
         if args.use_gpu:
             evaluation_command.append("--use-gpu")

@@ -7,9 +7,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
 import seaborn as sns
+import yaml
 from rasterio.enums import Resampling
 from rasterio.warp import reproject
 from rasterio.windows import from_bounds
+
 from workflow_utils import write_json
 
 try:
@@ -17,9 +19,7 @@ try:
 except ImportError:  # pragma: no cover - optional dependency outside the Docker image
     torch = None
 
-REFERENCE_REMAP = {1: 0, 2: 1, 3: 1, 4: 2, 5: 2}
-PREDICTION_REMAP = {0: 0, 1: 1, 2: 2, 3: 2}
-CLASS_NAMES = {0: "Pelouse", 1: "Buisson_Arbuste", 2: "Arbre", 3: "Autre"}
+DEFAULT_MATRIX_CONFIG = Path("configs/config_matrix.yml")
 
 
 def parse_args() -> argparse.Namespace:
@@ -29,6 +29,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--reference", type=Path, required=True)
     parser.add_argument("--prediction", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--matrix-config", type=Path, default=DEFAULT_MATRIX_CONFIG)
     parser.add_argument("--plot-name", default="confusion_matrix_percent.png")
     parser.add_argument("--metrics-name", default="metrics_summary.json")
     parser.add_argument("--log-name", default="metrics_log.txt")
@@ -38,6 +39,20 @@ def parse_args() -> argparse.Namespace:
         help="Use CUDA via PyTorch for confusion-matrix accumulation when available.",
     )
     return parser.parse_args()
+
+
+def load_matrix_config(config_path: Path) -> dict:
+    with config_path.open("r", encoding="utf-8") as handle:
+        config = yaml.safe_load(handle)
+    if not isinstance(config, dict):
+        raise ValueError(f"Invalid matrix config: {config_path}")
+    return config
+
+
+def resolve_matrix_config_path(config_path: Path) -> Path:
+    if config_path.is_absolute():
+        return config_path
+    return Path(__file__).resolve().parent / config_path
 
 
 def load_overlapping_rasters(reference_path: Path, prediction_path: Path) -> tuple[np.ndarray, np.ndarray]:
@@ -127,17 +142,30 @@ def compute_confusion_matrix_gpu(
 
 
 def compute_confusion_percent_with_empty(
-    raster_ref_path: Path, raster_compare_path: Path, *, use_gpu: bool = False
+    raster_ref_path: Path,
+    raster_compare_path: Path,
+    *,
+    matrix_config_path: Path = DEFAULT_MATRIX_CONFIG,
+    use_gpu: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, dict[int, str]]:
+    config = load_matrix_config(resolve_matrix_config_path(matrix_config_path))
+    evaluation_config = config["evaluation"]
+
     reference, prediction = load_overlapping_rasters(raster_ref_path, raster_compare_path)
 
-    reference_remap = remap_classes(reference, REFERENCE_REMAP)
-    prediction_remap = remap_classes(prediction, PREDICTION_REMAP)
+    reference_remap = remap_classes(reference, evaluation_config["reference_remap"])
+    prediction_remap = remap_classes(prediction, evaluation_config["prediction_remap"])
 
-    reference_final = np.where(np.isnan(reference_remap), 3, reference_remap).astype(np.int64)
-    prediction_final = np.where(np.isnan(prediction_remap), 3, prediction_remap).astype(np.int64)
+    class_names = {
+        int(class_id): class_name
+        for class_id, class_name in evaluation_config["class_names"].items()
+    }
+    empty_class_id = int(evaluation_config["empty_class_id"])
 
-    num_classes = len(CLASS_NAMES)
+    reference_final = np.where(np.isnan(reference_remap), empty_class_id, reference_remap).astype(np.int64)
+    prediction_final = np.where(np.isnan(prediction_remap), empty_class_id, prediction_remap).astype(np.int64)
+
+    num_classes = len(class_names)
     if use_gpu:
         print("Computing confusion matrix on GPU.")
         cm = compute_confusion_matrix_gpu(reference_final, prediction_final, num_classes)
@@ -148,7 +176,7 @@ def compute_confusion_percent_with_empty(
     row_sums = cm_percent.sum(axis=1, keepdims=True)
     cm_percent = np.divide(cm_percent, row_sums, out=np.zeros_like(cm_percent), where=row_sums != 0)
     cm_percent *= 100
-    return cm, cm_percent, CLASS_NAMES
+    return cm, cm_percent, class_names
 
 
 def plot_confusion_matrix_percent(
@@ -249,7 +277,10 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     cm, cm_percent, class_names = compute_confusion_percent_with_empty(
-        args.reference, args.prediction, use_gpu=args.use_gpu
+        args.reference,
+        args.prediction,
+        matrix_config_path=args.matrix_config,
+        use_gpu=args.use_gpu,
     )
     plot_confusion_matrix_percent(cm_percent, class_names, args.output_dir / args.plot_name)
 

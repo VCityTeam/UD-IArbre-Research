@@ -11,6 +11,19 @@ from tqdm import tqdm
 
 from workflow_utils import validate_positive_number
 
+GROUND_EXCLUDED_CLASSES = frozenset({1, 3, 4, 5, 8})
+WATER_CLASS = 9
+NEIGHBOR_OFFSETS = (
+    (-1, -1),
+    (-1, 0),
+    (-1, 1),
+    (0, -1),
+    (0, 1),
+    (1, -1),
+    (1, 0),
+    (1, 1),
+)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -58,57 +71,55 @@ def write_raster(
     ) as dst:
         dst.write(array, 1)
 
-def clean_mnt_mns(in_arr, in_class):
-    out = in_arr.astype(np.float32, copy=True)
-    h, w = out.shape
-    min_value = np.nanmin(out)
-    print(min_value)
 
-    # Offsets des 8 voisins
-    neighbors = [(-1, -1), (-1, 0), (-1, 1),
-                 ( 0, -1),          ( 0, 1),
-                 ( 1, -1), ( 1, 0), ( 1, 1)]
+def _iter_valid_neighbors(
+    array: np.ndarray,
+    row_index: int,
+    column_index: int,
+) -> list[float]:
+    height, width = array.shape
+    neighbors: list[float] = []
 
-    # Deux passes max
-    while(np.any(np.isnan(out))):
-        new_out = out.copy()
+    for row_offset, column_offset in NEIGHBOR_OFFSETS:
+        neighbor_row = row_index + row_offset
+        neighbor_column = column_index + column_offset
+        if 0 <= neighbor_row < height and 0 <= neighbor_column < width:
+            neighbor_value = array[neighbor_row, neighbor_column]
+            if not np.isnan(neighbor_value):
+                neighbors.append(float(neighbor_value))
 
-        for y in range(h):
-            for x in range(w):
-                
-                if (in_class[y, x] == 9):
-                    #print("JE SUIS DE L'EAU")
-                    new_out[y, x] = min_value
-                    #print(new_out[y, x])
-                    continue
+    return neighbors
 
-                if not np.isnan(out[y, x]):
-                    continue
 
-                s = 0.0
-                c = 0
+def clean_mnt_mns(input_array: np.ndarray, input_class: np.ndarray) -> np.ndarray:
+    cleaned = input_array.astype(np.float32, copy=True)
+    valid_values = cleaned[~np.isnan(cleaned)]
+    if valid_values.size == 0:
+        return np.zeros_like(cleaned, dtype=np.float32)
 
-                # Parcours des 8 voisins
-                for dy, dx in neighbors:
-                    ny = y + dy
-                    nx = x + dx
+    fallback_value = float(valid_values.min())
+    cleaned[input_class == WATER_CLASS] = fallback_value
 
-                    if 0 <= ny < h and 0 <= nx < w:
-                        val = out[ny, nx]
-                        if not np.isnan(val):
-                            s += val
-                            c += 1
+    while True:
+        nan_positions = np.argwhere(np.isnan(cleaned))
+        if nan_positions.size == 0:
+            break
 
-                if c > 0:
-                    new_out[y, x] = s/c
+        next_cleaned = cleaned.copy()
+        replaced_count = 0
+        for row_index, column_index in nan_positions:
+            neighbors = _iter_valid_neighbors(cleaned, row_index, column_index)
+            if neighbors:
+                next_cleaned[row_index, column_index] = np.float32(np.mean(neighbors))
+                replaced_count += 1
 
-        out = new_out
+        cleaned = next_cleaned
+        if replaced_count == 0:
+            break
 
-    # Les NaN restants → 0
-    print(np.min(out))
-    out[np.isnan(out)] = np.nanmin(out)
+    cleaned[np.isnan(cleaned)] = fallback_value
+    return cleaned
 
-    return out
 
 def create_mns_mnt_class(
     path_in: Path,
@@ -123,7 +134,6 @@ def create_mns_mnt_class(
     z = las.z
     classes = las.classification
 
-    print("RESOLUTION ===========", resolution)
     xmin, ymin = x.min(), y.min()
     xmax, ymax = x.max(), y.max()
     width = int(np.ceil((xmax - xmin) / resolution)) + 1
@@ -142,7 +152,10 @@ def create_mns_mnt_class(
         total=len(z),
         desc=f"Processing {path_in.name}",
     ):
-        if (np.isnan(mnt[y_index, x_index]) or z_value < mnt[y_index, x_index]) and class_value not in (1, 3, 4, 5, 8):
+        if (
+            (np.isnan(mnt[y_index, x_index]) or z_value < mnt[y_index, x_index])
+            and class_value not in GROUND_EXCLUDED_CLASSES
+        ):
             mnt[y_index, x_index] = z_value
 
         if np.isnan(mns[y_index, x_index]) or z_value > mns[y_index, x_index]:
