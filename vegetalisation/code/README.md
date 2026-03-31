@@ -149,7 +149,8 @@ docker compose run --rm vegetalisation `
   --xmin-start 1845000 `
   --xmin-end 1846000 `
   --ymin-start 5175000 `
-  --ymin-end 5176000
+  --ymin-end 5176000 `
+  --use-gpu
 ```
 
 This writes the confusion matrix image, metrics summary JSON, and evaluation log under
@@ -225,7 +226,7 @@ output remapping with JSON files:
   "8": 1.0,
   "12": 1.0,
   "13": 1.0,
-  "14": 1.5
+  "14": 1.0
 }
 ```
 

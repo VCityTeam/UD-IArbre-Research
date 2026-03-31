@@ -59,7 +59,7 @@ def create_vegetation_map(
     height_lidar_map: np.ndarray,
     vege_mask: np.ndarray,
     flair_vege: np.ndarray,
-    modify_flair: bool = False,
+    modify_flair: bool = True,
     keep_class_lidar1: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     keep_vegetation = np.isin(class_lidar_map, LIDAR_VEGETATION_CLASSES)
@@ -67,8 +67,8 @@ def create_vegetation_map(
     keep_mask = keep_vegetation | keep_class1 if keep_class_lidar1 else keep_vegetation
 
     out_lidar = np.full(class_lidar_map.shape, np.nan, dtype=np.float32)
-    out_lidar[keep_mask & (height_lidar_map < 0.75)] = 0
-    out_lidar[keep_mask & (height_lidar_map >= 0.75) & (height_lidar_map < 5)] = 1
+    out_lidar[keep_mask & (height_lidar_map < 0.30)] = 0
+    out_lidar[keep_mask & (height_lidar_map >= 0.30) & (height_lidar_map < 5)] = 1
     out_lidar[keep_mask & (height_lidar_map >= 5)] = 2
 
     if not modify_flair:

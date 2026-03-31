@@ -54,7 +54,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--xmin-end", type=int, required=True)
     parser.add_argument("--ymin-start", type=int, required=True)
     parser.add_argument("--ymin-end", type=int, required=True)
-    parser.add_argument("--resolution", type=float, default=0.8)
+    parser.add_argument("--resolution", type=float, default=1)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--num-worker", type=int, default=0)
     parser.add_argument("--img-pixels-detection", type=int, default=512)
@@ -73,7 +73,7 @@ def parse_args() -> argparse.Namespace:
         "--ortho-output-resolution",
         dest="ortho_output_resolution",
         type=float,
-        default=0.8,
+        default=0.2,
         help="Output orthophoto pixel size in meters.",
     )
     parser.add_argument("--skip-download", action="store_true")

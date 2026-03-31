@@ -32,7 +32,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("lidar_data_processed/mns_mnt"),
     )
-    parser.add_argument("--resolution", type=float, default=0.8)
+    parser.add_argument("--resolution", type=float, default=1)
     return parser.parse_args()
 
 
@@ -58,6 +58,57 @@ def write_raster(
     ) as dst:
         dst.write(array, 1)
 
+def clean_mnt_mns(in_arr, in_class):
+    out = in_arr.astype(np.float32, copy=True)
+    h, w = out.shape
+    min_value = np.nanmin(out)
+    print(min_value)
+
+    # Offsets des 8 voisins
+    neighbors = [(-1, -1), (-1, 0), (-1, 1),
+                 ( 0, -1),          ( 0, 1),
+                 ( 1, -1), ( 1, 0), ( 1, 1)]
+
+    # Deux passes max
+    while(np.any(np.isnan(out))):
+        new_out = out.copy()
+
+        for y in range(h):
+            for x in range(w):
+                
+                if (in_class[y, x] == 9):
+                    #print("JE SUIS DE L'EAU")
+                    new_out[y, x] = min_value
+                    #print(new_out[y, x])
+                    continue
+
+                if not np.isnan(out[y, x]):
+                    continue
+
+                s = 0.0
+                c = 0
+
+                # Parcours des 8 voisins
+                for dy, dx in neighbors:
+                    ny = y + dy
+                    nx = x + dx
+
+                    if 0 <= ny < h and 0 <= nx < w:
+                        val = out[ny, nx]
+                        if not np.isnan(val):
+                            s += val
+                            c += 1
+
+                if c > 0:
+                    new_out[y, x] = s/c
+
+        out = new_out
+
+    # Les NaN restants → 0
+    print(np.min(out))
+    out[np.isnan(out)] = np.nanmin(out)
+
+    return out
 
 def create_mns_mnt_class(
     path_in: Path,
@@ -72,6 +123,7 @@ def create_mns_mnt_class(
     z = las.z
     classes = las.classification
 
+    print("RESOLUTION ===========", resolution)
     xmin, ymin = x.min(), y.min()
     xmax, ymax = x.max(), y.max()
     width = int(np.ceil((xmax - xmin) / resolution)) + 1
@@ -90,7 +142,7 @@ def create_mns_mnt_class(
         total=len(z),
         desc=f"Processing {path_in.name}",
     ):
-        if np.isnan(mnt[y_index, x_index]) or z_value < mnt[y_index, x_index]:
+        if (np.isnan(mnt[y_index, x_index]) or z_value < mnt[y_index, x_index]) and class_value not in (1, 3, 4, 5, 8):
             mnt[y_index, x_index] = z_value
 
         if np.isnan(mns[y_index, x_index]) or z_value > mns[y_index, x_index]:
@@ -98,8 +150,8 @@ def create_mns_mnt_class(
             class_raster[y_index, x_index] = class_value
 
     crs = las.header.parse_crs()
-    write_raster(out_mns, mns, crs, transform, nodata=np.nan)
-    write_raster(out_mnt, mnt, crs, transform, nodata=np.nan)
+    write_raster(out_mns, clean_mnt_mns(mns, class_raster), crs, transform, nodata=np.nan)
+    write_raster(out_mnt, clean_mnt_mns(mnt, class_raster), crs, transform, nodata=np.nan)
     write_raster(out_class, class_raster, crs, transform, nodata=-1)
 
 
