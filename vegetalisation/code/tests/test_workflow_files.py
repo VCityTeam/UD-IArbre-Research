@@ -13,6 +13,7 @@ from ortho_extract import resample_raster
 from run_workflow import (
     ensure_flair_hub_source,
     ensure_inventory_file,
+    require_existing_file,
     stage_matching_tiles,
     write_runtime_config,
 )
@@ -187,6 +188,27 @@ def test_ensure_flair_hub_source_reuses_existing_clone(workspace_tmp_path) -> No
     )
 
     assert resolved == src_dir
+
+
+def test_require_existing_file_returns_path_when_present(workspace_tmp_path) -> None:
+    raster_path = workspace_tmp_path / "existing.tif"
+    raster_path.write_bytes(b"data")
+
+    resolved = require_existing_file(raster_path, label="existing raster")
+
+    assert resolved == raster_path
+
+
+def test_require_existing_file_raises_when_missing(workspace_tmp_path) -> None:
+    missing_path = workspace_tmp_path / "missing.tif"
+
+    try:
+        require_existing_file(missing_path, label="missing raster")
+    except FileNotFoundError as exc:
+        assert "Missing missing raster" in str(exc)
+        assert str(missing_path) in str(exc)
+    else:
+        raise AssertionError("require_existing_file should raise for a missing path.")
 
 
 def test_confusion_matrix_uses_only_overlapping_extent(workspace_tmp_path) -> None:

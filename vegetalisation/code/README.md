@@ -168,6 +168,7 @@ This writes the confusion matrix image, metrics summary JSON, and evaluation log
 --xmin-start/--xmin-end     Bounding box selection in Lambert-93.
 --ymin-start/--ymin-end     Bounding box selection in Lambert-93.
 --skip-download             Reuse existing LiDAR/ortho downloads.
+--reuse-derived-rasters    Reuse existing LiDAR/ortho mosaics for the run instead of rebuilding them.
 --skip-flair                Reuse an existing FLAIR probability raster.
 --skip-reweight             Skip reweighting and use an existing vegetation raster.
 --flair-probability-raster  Existing FLAIR probability GeoTIFF.
@@ -251,6 +252,27 @@ docker compose run --rm vegetalisation python run_workflow.py `
   --ymin-start 5175000 `
   --ymin-end 5176000 `
 ```
+
+### Reuse Existing Inference Inputs
+
+If you only changed the vegetation strata definitions in [`configs/configs.yml`](configs/configs.yml)
+or a similar post-processing setting, you can now skip rebuilding the derived LiDAR and orthophoto
+rasters and also skip FLAIR inference:
+
+```powershell
+docker compose run --rm vegetalisation python run_workflow.py `
+  --run-name doua_1845_5175 `
+  --xmin-start 1845000 `
+  --xmin-end 1846000 `
+  --ymin-start 5175000 `
+  --ymin-end 5176000 `
+  --reuse-derived-rasters `
+  --skip-flair `
+  --skip-reweight
+```
+
+This mode expects the rasters from the same run to already exist under `workdir/runs/<run-name>/`.
+It only reuses them when you explicitly pass `--reuse-derived-rasters`.
 
 ## Tests
 

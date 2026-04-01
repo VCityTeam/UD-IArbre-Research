@@ -78,6 +78,14 @@ def parse_args() -> argparse.Namespace:
         help="Output orthophoto pixel size in meters.",
     )
     parser.add_argument("--skip-download", action="store_true")
+    parser.add_argument(
+        "--reuse-derived-rasters",
+        action="store_true",
+        help=(
+            "Reuse existing LiDAR and orthophoto derived rasters for the run instead of "
+            "rebuilding them. Useful when only post-processing settings changed."
+        ),
+    )
     parser.add_argument("--skip-flair", action="store_true")
     parser.add_argument("--skip-reweight", action="store_true")
     parser.add_argument("--use-gpu", action="store_true")
@@ -172,6 +180,12 @@ def find_latest_raster(folder: Path) -> Path:
     if not candidates:
         raise FileNotFoundError(f"No GeoTIFF found under: {folder}")
     return candidates[-1]
+
+
+def require_existing_file(path: Path, *, label: str) -> Path:
+    if not path.exists():
+        raise FileNotFoundError(f"Missing {label}: {path}")
+    return path
 
 
 def ensure_inventory_file(
@@ -406,93 +420,100 @@ def main() -> None:
             )
         run_command(ortho_extract_command, cwd=code_dir)
 
-    run_command(
-        [
-            sys.executable,
-            "fusion_nuage.py",
-            "--laz-folder",
-            str(laz_dir),
-            "--height-folder",
-            str(lidar_height_tiles_dir),
-            "--class-folder",
-            str(lidar_class_tiles_dir),
-            "--mns-mnt-folder",
-            str(lidar_mns_mnt_tiles_dir),
-            "--resolution",
-            str(args.resolution),
-        ],
-        cwd=code_dir,
-    )
+    if args.reuse_derived_rasters:
+        require_existing_file(lidar_height_mosaic, label="LiDAR height mosaic")
+        require_existing_file(lidar_class_mosaic, label="LiDAR class mosaic")
+        require_existing_file(lidar_mns_mosaic, label="LiDAR MNS mosaic")
+        require_existing_file(lidar_mnt_mosaic, label="LiDAR MNT mosaic")
+        require_existing_file(orthophoto_mosaic, label="orthophoto mosaic")
+    else:
+        run_command(
+            [
+                sys.executable,
+                "fusion_nuage.py",
+                "--laz-folder",
+                str(laz_dir),
+                "--height-folder",
+                str(lidar_height_tiles_dir),
+                "--class-folder",
+                str(lidar_class_tiles_dir),
+                "--mns-mnt-folder",
+                str(lidar_mns_mnt_tiles_dir),
+                "--resolution",
+                str(args.resolution),
+            ],
+            cwd=code_dir,
+        )
 
-    run_command(
-        [
-            sys.executable,
-            "ortho_fusion.py",
-            "--input-dir",
-            str(lidar_height_tiles_dir),
-            "--output-file",
-            str(lidar_height_mosaic),
-        ],
-        cwd=code_dir,
-    )
-
-    mns_tiles_only_dir = lidar_mosaic_dir / "mns_tiles_only"
-    mnt_tiles_only_dir = lidar_mosaic_dir / "mnt_tiles_only"
-    mns_count = stage_matching_tiles(lidar_mns_mnt_tiles_dir, mns_tiles_only_dir, "*_mns.tif")
-    mnt_count = stage_matching_tiles(lidar_mns_mnt_tiles_dir, mnt_tiles_only_dir, "*_mnt.tif")
-
-    if mns_count:
         run_command(
             [
                 sys.executable,
                 "ortho_fusion.py",
                 "--input-dir",
-                str(mns_tiles_only_dir),
+                str(lidar_height_tiles_dir),
                 "--output-file",
-                str(lidar_mns_mosaic),
+                str(lidar_height_mosaic),
             ],
             cwd=code_dir,
         )
-    else:
-        raise FileNotFoundError(f"No MNS tiles found in: {lidar_mns_mnt_tiles_dir}")
-    if mnt_count:
+
+        mns_tiles_only_dir = lidar_mosaic_dir / "mns_tiles_only"
+        mnt_tiles_only_dir = lidar_mosaic_dir / "mnt_tiles_only"
+        mns_count = stage_matching_tiles(lidar_mns_mnt_tiles_dir, mns_tiles_only_dir, "*_mns.tif")
+        mnt_count = stage_matching_tiles(lidar_mns_mnt_tiles_dir, mnt_tiles_only_dir, "*_mnt.tif")
+
+        if mns_count:
+            run_command(
+                [
+                    sys.executable,
+                    "ortho_fusion.py",
+                    "--input-dir",
+                    str(mns_tiles_only_dir),
+                    "--output-file",
+                    str(lidar_mns_mosaic),
+                ],
+                cwd=code_dir,
+            )
+        else:
+            raise FileNotFoundError(f"No MNS tiles found in: {lidar_mns_mnt_tiles_dir}")
+        if mnt_count:
+            run_command(
+                [
+                    sys.executable,
+                    "ortho_fusion.py",
+                    "--input-dir",
+                    str(mnt_tiles_only_dir),
+                    "--output-file",
+                    str(lidar_mnt_mosaic),
+                ],
+                cwd=code_dir,
+            )
+        else:
+            raise FileNotFoundError(f"No MNT tiles found in: {lidar_mns_mnt_tiles_dir}")
+
         run_command(
             [
                 sys.executable,
                 "ortho_fusion.py",
                 "--input-dir",
-                str(mnt_tiles_only_dir),
+                str(lidar_class_tiles_dir),
                 "--output-file",
-                str(lidar_mnt_mosaic),
+                str(lidar_class_mosaic),
             ],
             cwd=code_dir,
         )
-    else:
-        raise FileNotFoundError(f"No MNT tiles found in: {lidar_mns_mnt_tiles_dir}")
 
-    run_command(
-        [
-            sys.executable,
-            "ortho_fusion.py",
-            "--input-dir",
-            str(lidar_class_tiles_dir),
-            "--output-file",
-            str(lidar_class_mosaic),
-        ],
-        cwd=code_dir,
-    )
-
-    run_command(
-        [
-            sys.executable,
-            "ortho_fusion.py",
-            "--input-dir",
-            str(ortho_tiles_dir),
-            "--output-file",
-            str(orthophoto_mosaic),
-        ],
-        cwd=code_dir,
-    )
+        run_command(
+            [
+                sys.executable,
+                "ortho_fusion.py",
+                "--input-dir",
+                str(ortho_tiles_dir),
+                "--output-file",
+                str(orthophoto_mosaic),
+            ],
+            cwd=code_dir,
+        )
 
     probability_raster = args.flair_probability_raster
     if not args.skip_flair:
