@@ -167,8 +167,12 @@ def compute_confusion_percent_with_empty(
 
     num_classes = len(class_names)
     if use_gpu:
-        print("Computing confusion matrix on GPU.")
-        cm = compute_confusion_matrix_gpu(reference_final, prediction_final, num_classes)
+        try:
+            print("Computing confusion matrix on GPU.")
+            cm = compute_confusion_matrix_gpu(reference_final, prediction_final, num_classes)
+        except RuntimeError as error:
+            print(f"{error} Falling back to CPU evaluation.")
+            cm = compute_confusion_matrix_cpu(reference_final, prediction_final, num_classes)
     else:
         cm = compute_confusion_matrix_cpu(reference_final, prediction_final, num_classes)
 
