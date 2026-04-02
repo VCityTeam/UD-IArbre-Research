@@ -12,6 +12,7 @@ from extract_nuage import select_tiles as select_lidar_tiles
 from ortho_extract import resample_raster
 from run_workflow import (
     ensure_flair_hub_source,
+    ensure_cuda_available_if_requested,
     ensure_inventory_file,
     load_yaml_config,
     require_existing_file,
@@ -165,10 +166,37 @@ def test_resolve_workflow_settings_prefers_configs_when_cli_absent() -> None:
 
 
 def test_load_yaml_config_reads_baseline_workflow_settings() -> None:
+    runtime_config = load_yaml_config(
+        Path(__file__).resolve().parent.parent / "configs" / "baseline" / "config_zonal_detection.yaml"
+    )
     config = load_yaml_config(Path(__file__).resolve().parent.parent / "configs" / "baseline" / "configs.yml")
 
+    assert runtime_config["use_gpu"] is False
     assert config["workflow"]["orthophoto"]["output_resolution"] == 0.2
     assert config["workflow"]["fusion"]["modify_flair"] is False
+
+
+def test_ensure_cuda_available_if_requested_allows_cpu_runs() -> None:
+    ensure_cuda_available_if_requested(False)
+
+
+def test_ensure_cuda_available_if_requested_rejects_missing_cuda(monkeypatch) -> None:
+    class DummyCuda:
+        @staticmethod
+        def is_available() -> bool:
+            return False
+
+    class DummyTorch:
+        cuda = DummyCuda()
+
+    monkeypatch.setattr("run_workflow.torch", DummyTorch)
+
+    try:
+        ensure_cuda_available_if_requested(True)
+    except RuntimeError as exc:
+        assert "CUDA is unavailable" in str(exc)
+    else:
+        raise AssertionError("Expected RuntimeError when GPU is requested without CUDA.")
 
 
 def test_stage_matching_tiles_copies_only_matching_rasters(workspace_tmp_path) -> None:

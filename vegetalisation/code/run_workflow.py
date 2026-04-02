@@ -30,6 +30,11 @@ DEFAULT_MODEL_REVISION = "336bd84"
 DEFAULT_FLAIR_HUB_REPO_URL = "https://github.com/IGNF/FLAIR-HUB.git"
 INVENTORY_DOWNLOAD_TIMEOUT_SECONDS = 60
 
+try:
+    import torch
+except ImportError:  # pragma: no cover - optional dependency outside runtime images
+    torch = None
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -255,6 +260,23 @@ def resolve_model(args: argparse.Namespace, model_dir: Path) -> Path:
         local_dir_use_symlinks=False,
     )
     return Path(downloaded)
+
+
+def ensure_cuda_available_if_requested(use_gpu: bool) -> None:
+    if not use_gpu:
+        return
+    if torch is None:
+        raise RuntimeError(
+            "GPU inference was requested, but PyTorch is not installed in this environment. "
+            "Disable GPU with `--no-use-gpu` or set `use_gpu: false` in the experiment "
+            "config_zonal_detection.yaml."
+        )
+    if not torch.cuda.is_available():
+        raise RuntimeError(
+            "GPU inference was requested, but CUDA is unavailable in this environment. "
+            "Disable GPU with `--no-use-gpu` or set `use_gpu: false` in the experiment "
+            "config_zonal_detection.yaml."
+        )
 
 
 def write_runtime_config(
@@ -497,6 +519,7 @@ def main() -> None:
         raise ValueError("img_pixels_detection must be strictly positive.")
     if workflow_settings["margin"] < 0:
         raise ValueError("margin must be greater than or equal to 0.")
+    ensure_cuda_available_if_requested(workflow_settings["use_gpu"])
 
     if not args.skip_download:
         ensure_inventory_file(
@@ -687,7 +710,14 @@ def main() -> None:
             cwd=code_dir,
             env=flair_env,
         )
-        probability_raster = find_latest_raster(flair_probability_dir)
+        try:
+            probability_raster = find_latest_raster(flair_probability_dir)
+        except FileNotFoundError as exc:
+            raise RuntimeError(
+                "FLAIR inference finished without producing a probability GeoTIFF. "
+                "Check the inference logs above. A common cause is requesting GPU inference "
+                "in a CPU-only environment."
+            ) from exc
     elif probability_raster is None:
         probability_raster = find_latest_raster(flair_probability_dir)
 

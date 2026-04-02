@@ -12,7 +12,7 @@ cog_conversion: true
 # Model & Inference
 # ======================
 model_weights: workdir/models/FLAIR-HUB_LC-A_RGB_swinlarge-upernet.safetensors
-use_gpu: true
+use_gpu: false
 batch_size: 1
 num_worker: 0
 
