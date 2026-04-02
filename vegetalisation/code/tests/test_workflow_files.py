@@ -13,8 +13,10 @@ from ortho_extract import resample_raster
 from run_workflow import (
     ensure_flair_hub_source,
     ensure_inventory_file,
+    load_yaml_config,
     require_existing_file,
     resolve_experiment_config_paths,
+    resolve_workflow_settings,
     stage_matching_tiles,
     write_runtime_config,
 )
@@ -92,6 +94,81 @@ def test_resolve_experiment_config_paths_keeps_explicit_file_overrides(workspace
     assert config_template == explicit_template.resolve()
     assert matrix_config == explicit_matrix.resolve()
     assert resolved_dir == experiment_dir.resolve()
+
+
+def test_resolve_workflow_settings_prefers_configs_when_cli_absent() -> None:
+    args = type(
+        "Args",
+        (),
+        {
+            "resolution": None,
+            "batch_size": None,
+            "num_worker": None,
+            "img_pixels_detection": None,
+            "margin": None,
+            "use_gpu": None,
+            "ortho_source_resolution": None,
+            "ortho_output_resolution": None,
+            "modify_flair": None,
+            "keep_class_lidar1": None,
+            "flair_only_herbaceous": None,
+            "run_legacy_fusion": None,
+            "apply_lidar_correction": None,
+        },
+    )()
+
+    runtime_template_config = {
+        "output_px_meters": 1.5,
+        "batch_size": 4,
+        "num_worker": 2,
+        "img_pixels_detection": 640,
+        "margin": 64,
+        "use_gpu": True,
+    }
+    matrix_config = {
+        "workflow": {
+            "orthophoto": {
+                "source_resolution": 0.05,
+                "output_resolution": 0.25,
+            },
+            "fusion": {
+                "modify_flair": True,
+                "keep_class_lidar1": True,
+                "flair_only_herbaceous": True,
+            },
+            "legacy": {
+                "run_legacy_fusion": True,
+                "apply_lidar_correction": True,
+            },
+        }
+    }
+
+    settings = resolve_workflow_settings(
+        runtime_template_config=runtime_template_config,
+        matrix_config=matrix_config,
+        args=args,
+    )
+
+    assert settings["resolution"] == 1.5
+    assert settings["batch_size"] == 4
+    assert settings["num_worker"] == 2
+    assert settings["img_pixels_detection"] == 640
+    assert settings["margin"] == 64
+    assert settings["use_gpu"] is True
+    assert settings["ortho_source_resolution"] == 0.05
+    assert settings["ortho_output_resolution"] == 0.25
+    assert settings["modify_flair"] is True
+    assert settings["keep_class_lidar1"] is True
+    assert settings["flair_only_herbaceous"] is True
+    assert settings["run_legacy_fusion"] is True
+    assert settings["apply_lidar_correction"] is True
+
+
+def test_load_yaml_config_reads_baseline_workflow_settings() -> None:
+    config = load_yaml_config(Path(__file__).resolve().parent.parent / "configs" / "baseline" / "configs.yml")
+
+    assert config["workflow"]["orthophoto"]["output_resolution"] == 0.2
+    assert config["workflow"]["fusion"]["modify_flair"] is False
 
 
 def test_stage_matching_tiles_copies_only_matching_rasters(workspace_tmp_path) -> None:

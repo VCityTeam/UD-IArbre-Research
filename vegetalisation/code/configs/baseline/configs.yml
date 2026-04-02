@@ -1,3 +1,15 @@
+workflow:
+  orthophoto:
+    source_resolution:
+    output_resolution: 0.2
+  fusion:
+    modify_flair: false
+    keep_class_lidar1: false
+    flair_only_herbaceous: false
+  legacy:
+    run_legacy_fusion: false
+    apply_lidar_correction: false
+
 lidar:
   vegetation_classes:
     - 3

@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import requests
 import yaml
@@ -65,11 +66,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--xmin-end", type=int, required=True)
     parser.add_argument("--ymin-start", type=int, required=True)
     parser.add_argument("--ymin-end", type=int, required=True)
-    parser.add_argument("--resolution", type=float, default=1)
-    parser.add_argument("--batch-size", type=int, default=1)
-    parser.add_argument("--num-worker", type=int, default=0)
-    parser.add_argument("--img-pixels-detection", type=int, default=512)
-    parser.add_argument("--margin", type=int, default=128)
+    parser.add_argument("--resolution", type=float, default=None)
+    parser.add_argument("--batch-size", type=int, default=None)
+    parser.add_argument("--num-worker", type=int, default=None)
+    parser.add_argument("--img-pixels-detection", type=int, default=None)
+    parser.add_argument("--margin", type=int, default=None)
     parser.add_argument(
         "--ortho-source-resolution",
         type=float,
@@ -84,7 +85,7 @@ def parse_args() -> argparse.Namespace:
         "--ortho-output-resolution",
         dest="ortho_output_resolution",
         type=float,
-        default=0.2,
+        default=None,
         help="Output orthophoto pixel size in meters.",
     )
     parser.add_argument("--skip-download", action="store_true")
@@ -98,7 +99,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--skip-flair", action="store_true")
     parser.add_argument("--skip-reweight", action="store_true")
-    parser.add_argument("--use-gpu", action="store_true")
+    parser.add_argument("--use-gpu", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--model-path", type=Path)
     parser.add_argument("--model-repo", default=DEFAULT_MODEL_REPO)
     parser.add_argument("--model-filename", default=DEFAULT_MODEL_FILENAME)
@@ -118,17 +119,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--matrix-config", type=Path, default=DEFAULT_MATRIX_CONFIG)
     parser.add_argument("--flair-probability-raster", type=Path)
     parser.add_argument("--reweighted-raster", type=Path)
-    parser.add_argument("--keep-class-lidar1", action="store_true")
-    parser.add_argument("--modify-flair", action="store_true")
-    parser.add_argument("--flair-only-herbaceous", action="store_true")
+    parser.add_argument(
+        "--keep-class-lidar1", action=argparse.BooleanOptionalAction, default=None
+    )
+    parser.add_argument("--modify-flair", action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument(
+        "--flair-only-herbaceous", action=argparse.BooleanOptionalAction, default=None
+    )
     parser.add_argument(
         "--apply-lidar-correction",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help="Apply NaN correction to the LiDAR MNS mosaic before the legacy LiDAR vegetation derivation.",
     )
     parser.add_argument(
         "--run-legacy-fusion",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help="Also run the legacy LiDAR vegetation derivation and the historical LiDAR+Flair fusion.",
     )
     parser.add_argument(
@@ -220,6 +227,14 @@ def ensure_inventory_file(
     return path
 
 
+def load_yaml_config(path: Path) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8") as handle:
+        config = yaml.safe_load(handle)
+    if not isinstance(config, dict):
+        raise ValueError(f"Invalid YAML config: {path}")
+    return config
+
+
 def resolve_model(args: argparse.Namespace, model_dir: Path) -> Path:
     if args.model_path:
         model_path = args.model_path.resolve()
@@ -278,6 +293,64 @@ def write_runtime_config(
         yaml.safe_dump(config, handle, sort_keys=False)
 
 
+def resolve_workflow_settings(
+    *,
+    runtime_template_config: dict[str, Any],
+    matrix_config: dict[str, Any],
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    workflow_config = matrix_config.get("workflow", {})
+    orthophoto_config = workflow_config.get("orthophoto", {})
+    fusion_config = workflow_config.get("fusion", {})
+    legacy_config = workflow_config.get("legacy", {})
+
+    def choose(cli_value: Any, config_value: Any, fallback: Any) -> Any:
+        if cli_value is not None:
+            return cli_value
+        if config_value is not None:
+            return config_value
+        return fallback
+
+    settings = {
+        "resolution": float(
+            choose(args.resolution, runtime_template_config.get("output_px_meters"), 1.0)
+        ),
+        "batch_size": int(choose(args.batch_size, runtime_template_config.get("batch_size"), 1)),
+        "num_worker": int(choose(args.num_worker, runtime_template_config.get("num_worker"), 0)),
+        "img_pixels_detection": int(
+            choose(args.img_pixels_detection, runtime_template_config.get("img_pixels_detection"), 512)
+        ),
+        "margin": int(choose(args.margin, runtime_template_config.get("margin"), 128)),
+        "use_gpu": bool(choose(args.use_gpu, runtime_template_config.get("use_gpu"), False)),
+        "ortho_source_resolution": choose(
+            args.ortho_source_resolution, orthophoto_config.get("source_resolution"), None
+        ),
+        "ortho_output_resolution": float(
+            choose(args.ortho_output_resolution, orthophoto_config.get("output_resolution"), 0.2)
+        ),
+        "modify_flair": bool(choose(args.modify_flair, fusion_config.get("modify_flair"), False)),
+        "keep_class_lidar1": bool(
+            choose(args.keep_class_lidar1, fusion_config.get("keep_class_lidar1"), False)
+        ),
+        "flair_only_herbaceous": bool(
+            choose(
+                args.flair_only_herbaceous,
+                fusion_config.get("flair_only_herbaceous"),
+                False,
+            )
+        ),
+        "run_legacy_fusion": bool(
+            choose(args.run_legacy_fusion, legacy_config.get("run_legacy_fusion"), False)
+        ),
+        "apply_lidar_correction": bool(
+            choose(args.apply_lidar_correction, legacy_config.get("apply_lidar_correction"), False)
+        ),
+    }
+    if settings["ortho_source_resolution"] is not None:
+        settings["ortho_source_resolution"] = float(settings["ortho_source_resolution"])
+    return settings
+
+
 def resolve_experiment_config_paths(
     code_dir: Path,
     *,
@@ -330,18 +403,6 @@ def stage_matching_tiles(source_dir: Path, target_dir: Path, pattern: str) -> in
 def main() -> None:
     args = parse_args()
     validate_bbox(args.xmin_start, args.xmin_end, args.ymin_start, args.ymin_end)
-    validate_positive_number(args.resolution, "resolution")
-    if args.ortho_source_resolution is not None:
-        validate_positive_number(args.ortho_source_resolution, "ortho_source_resolution")
-    validate_positive_number(args.ortho_output_resolution, "ortho_output_resolution")
-    if args.batch_size <= 0:
-        raise ValueError("batch_size must be strictly positive.")
-    if args.num_worker < 0:
-        raise ValueError("num_worker must be greater than or equal to 0.")
-    if args.img_pixels_detection <= 0:
-        raise ValueError("img_pixels_detection must be strictly positive.")
-    if args.margin < 0:
-        raise ValueError("margin must be greater than or equal to 0.")
 
     code_dir = Path(__file__).resolve().parent
     workspace = args.workspace.resolve()
@@ -414,6 +475,29 @@ def main() -> None:
     if not matrix_config_path.exists():
         raise FileNotFoundError(f"Matrix config not found: {matrix_config_path}")
 
+    runtime_template_config = load_yaml_config(config_template)
+    matrix_config = load_yaml_config(matrix_config_path)
+    workflow_settings = resolve_workflow_settings(
+        runtime_template_config=runtime_template_config,
+        matrix_config=matrix_config,
+        args=args,
+    )
+
+    validate_positive_number(workflow_settings["resolution"], "resolution")
+    if workflow_settings["ortho_source_resolution"] is not None:
+        validate_positive_number(
+            workflow_settings["ortho_source_resolution"], "ortho_source_resolution"
+        )
+    validate_positive_number(workflow_settings["ortho_output_resolution"], "ortho_output_resolution")
+    if workflow_settings["batch_size"] <= 0:
+        raise ValueError("batch_size must be strictly positive.")
+    if workflow_settings["num_worker"] < 0:
+        raise ValueError("num_worker must be greater than or equal to 0.")
+    if workflow_settings["img_pixels_detection"] <= 0:
+        raise ValueError("img_pixels_detection must be strictly positive.")
+    if workflow_settings["margin"] < 0:
+        raise ValueError("margin must be greater than or equal to 0.")
+
     if not args.skip_download:
         ensure_inventory_file(
             nuage_json,
@@ -466,11 +550,11 @@ def main() -> None:
             "--ymin-end",
             str(args.ymin_end),
             "--output-resolution",
-            str(args.ortho_output_resolution),
+            str(workflow_settings["ortho_output_resolution"]),
         ]
-        if args.ortho_source_resolution is not None:
+        if workflow_settings["ortho_source_resolution"] is not None:
             ortho_extract_command.extend(
-                ["--source-resolution", str(args.ortho_source_resolution)]
+                ["--source-resolution", str(workflow_settings["ortho_source_resolution"])]
             )
         run_command(ortho_extract_command, cwd=code_dir)
 
@@ -494,7 +578,7 @@ def main() -> None:
                 "--mns-mnt-folder",
                 str(lidar_mns_mnt_tiles_dir),
                 "--resolution",
-                str(args.resolution),
+                str(workflow_settings["resolution"]),
             ],
             cwd=code_dir,
         )
@@ -584,12 +668,12 @@ def main() -> None:
             orthophoto_mosaic=orthophoto_mosaic,
             flair_output_dir=flair_probability_dir,
             run_name=args.run_name,
-            use_gpu=args.use_gpu,
-            batch_size=args.batch_size,
-            num_worker=args.num_worker,
-            img_pixels_detection=args.img_pixels_detection,
-            margin=args.margin,
-            output_px_meters=args.resolution,
+            use_gpu=workflow_settings["use_gpu"],
+            batch_size=workflow_settings["batch_size"],
+            num_worker=workflow_settings["num_worker"],
+            img_pixels_detection=workflow_settings["img_pixels_detection"],
+            margin=workflow_settings["margin"],
+            output_px_meters=workflow_settings["resolution"],
         )
         flair_env = os.environ.copy()
         existing_pythonpath = flair_env.get("PYTHONPATH")
@@ -642,18 +726,18 @@ def main() -> None:
         "--matrix-config",
         str(matrix_config_path),
     ]
-    if args.modify_flair:
+    if workflow_settings["modify_flair"]:
         fusion_command.append("--modify-flair")
-    if args.keep_class_lidar1:
+    if workflow_settings["keep_class_lidar1"]:
         fusion_command.append("--keep-class-lidar1")
-    if args.flair_only_herbaceous:
+    if workflow_settings["flair_only_herbaceous"]:
         fusion_command.append("--flair-only-herbaceous")
 
     run_command(fusion_command, cwd=code_dir)
 
-    if args.run_legacy_fusion:
+    if workflow_settings["run_legacy_fusion"]:
         legacy_mns_input = lidar_mns_mosaic
-        if args.apply_lidar_correction:
+        if workflow_settings["apply_lidar_correction"]:
             run_command(
                 [
                     sys.executable,
@@ -703,7 +787,7 @@ def main() -> None:
 
     if args.reference_raster:
         prediction_for_eval = (
-            legacy_fused_raster if args.run_legacy_fusion else fusion_dir / "final_fused.tif"
+            legacy_fused_raster if workflow_settings["run_legacy_fusion"] else fusion_dir / "final_fused.tif"
         )
         evaluation_command = [
             sys.executable,
@@ -717,7 +801,7 @@ def main() -> None:
             "--matrix-config",
             str(matrix_config_path),
         ]
-        if args.use_gpu:
+        if workflow_settings["use_gpu"]:
             evaluation_command.append("--use-gpu")
         run_command(evaluation_command, cwd=code_dir)
 
@@ -730,7 +814,7 @@ def main() -> None:
     print(f"FLAIR probability raster: {probability_raster}")
     print(f"Reweighted vegetation raster: {reweighted_raster}")
     print(f"Final fusion directory: {fusion_dir}")
-    if args.run_legacy_fusion:
+    if workflow_settings["run_legacy_fusion"]:
         print(f"Legacy LiDAR classes: {legacy_lidar_classes}")
         print(f"Legacy fused raster: {legacy_fused_raster}")
     if args.reference_raster:
@@ -754,6 +838,7 @@ def main() -> None:
                 "runtime_config": runtime_config.as_posix(),
                 "reweighted_raster": reweighted_raster.as_posix(),
             },
+            "resolved_workflow": workflow_settings,
             "model": {
                 "repo": args.model_repo,
                 "filename": args.model_filename,

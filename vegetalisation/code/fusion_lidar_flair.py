@@ -23,11 +23,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--second-map", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--matrix-config", type=Path, default=DEFAULT_MATRIX_CONFIG)
-    parser.add_argument("--modify-flair", action="store_true")
-    parser.add_argument("--keep-class-lidar1", action="store_true")
+    parser.add_argument("--modify-flair", action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument(
+        "--keep-class-lidar1", action=argparse.BooleanOptionalAction, default=None
+    )
     parser.add_argument(
         "--flair-only-herbaceous",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help="Only use Flair where LiDAR is invalid and Flair predicts class 0.",
     )
     return parser.parse_args()
@@ -62,6 +65,24 @@ def load_matrix_config(config_path: Path) -> dict:
     if not isinstance(config, dict):
         raise ValueError(f"Invalid matrix config: {config_path}")
     return config
+
+
+def resolve_fusion_options(config: dict, args: argparse.Namespace) -> tuple[bool, bool, bool]:
+    fusion_config = config.get("workflow", {}).get("fusion", {})
+    modify_flair = (
+        args.modify_flair if args.modify_flair is not None else bool(fusion_config.get("modify_flair", False))
+    )
+    keep_class_lidar1 = (
+        args.keep_class_lidar1
+        if args.keep_class_lidar1 is not None
+        else bool(fusion_config.get("keep_class_lidar1", False))
+    )
+    flair_only_herbaceous = (
+        args.flair_only_herbaceous
+        if args.flair_only_herbaceous is not None
+        else bool(fusion_config.get("flair_only_herbaceous", False))
+    )
+    return modify_flair, keep_class_lidar1, flair_only_herbaceous
 
 
 def classify_heights(
@@ -141,6 +162,9 @@ def main() -> None:
     if not config_path.is_absolute():
         config_path = Path(__file__).resolve().parent / config_path
     matrix_config = load_matrix_config(config_path)
+    modify_flair, keep_class_lidar1, flair_only_herbaceous = resolve_fusion_options(
+        matrix_config, args
+    )
 
     class_map, profile = load_tif(args.class_map)
     height_map, _ = load_tif(args.height_map)
@@ -159,8 +183,8 @@ def main() -> None:
         veg_mask,
         second_map,
         config=matrix_config,
-        modify_flair=args.modify_flair,
-        keep_class_lidar1=args.keep_class_lidar1,
+        modify_flair=modify_flair,
+        keep_class_lidar1=keep_class_lidar1,
     )
     save_tif(args.out_dir / "vegetation_map.tif", vegetation_map_lidar, profile)
 
@@ -170,7 +194,7 @@ def main() -> None:
     fused = fuse_maps(
         vegetation_map_lidar,
         vegetation_map_flair,
-        use_flair_everywhere=not args.flair_only_herbaceous,
+        use_flair_everywhere=not flair_only_herbaceous,
     )
     save_tif(args.out_dir / "final_fused.tif", fused, profile)
 

@@ -190,36 +190,32 @@ This writes the confusion matrix image, metrics summary JSON, and evaluation log
 
 ## Main Options
 
+Most workflow behavior should now be adjusted through your experiment configuration files:
+
+- [`configs/baseline/config_zonal_detection.yaml`](configs/baseline/config_zonal_detection.yaml) for FLAIR-HUB inference settings
+- [`configs/baseline/configs.yml`](configs/baseline/configs.yml) for reweighting, fusion, and evaluation settings
+
+In practice, the command line only needs a small set of options for selecting inputs, area, and execution mode.
+
 ```text
 --workspace                 Working root. Default: workdir
 --run-name                  Output run name.
 --experiment-config-dir     Directory containing both config_zonal_detection.yaml and configs.yml.
                             Default behavior uses configs/baseline through the file defaults.
---download-missing-inventories
-                            Download missing inventory JSON files when URLs are provided.
---nuage-json-url            Optional URL used to download the LiDAR inventory JSON.
---ortho-json-url            Optional URL used to download the orthophoto inventory JSON.
+--nuage-json                LiDAR inventory JSON. Default: workdir/inputs/nuage.json
+--ortho-json                Orthophoto inventory JSON. Default: workdir/inputs/ortho.json
 --xmin-start/--xmin-end     Bounding box selection in Lambert-93.
 --ymin-start/--ymin-end     Bounding box selection in Lambert-93.
---skip-download             Reuse existing LiDAR/ortho downloads.
---reuse-derived-rasters    Reuse existing LiDAR/ortho mosaics for the run instead of rebuilding them.
+--use-gpu                   Ask FLAIR-HUB to run on GPU and use CUDA for evaluation when available.
+--reference-raster          Compute a confusion matrix and summary metrics against a reference raster.
+--reuse-derived-rasters     Reuse existing LiDAR/ortho mosaics for the run instead of rebuilding them.
 --skip-flair                Reuse an existing FLAIR probability raster.
 --skip-reweight             Skip reweighting and use an existing vegetation raster.
---flair-probability-raster  Existing FLAIR probability GeoTIFF.
---reweighted-raster         Existing reweighted vegetation GeoTIFF.
---model-path                Local model path. If omitted, downloaded from Hugging Face.
---weights-json              Optional JSON object for custom probability-band weights.
---mapping-json              Optional JSON object for custom class remapping after reweighting.
---config-template           Explicit FLAIR-HUB template path. Overrides the experiment default when provided.
---matrix-config             Explicit post-processing/evaluation config path. Overrides the experiment default when provided.
---ortho-source-resolution   Optional source orthophoto pixel size in meters. Default: inferred from raster metadata.
---ortho-output-resolution   Output orthophoto pixel size in meters. Alias: --ortho-target-resolution. Default: 0.8.
---use-gpu                   Ask FLAIR-HUB to run on GPU and use CUDA for evaluation when available.
---run-legacy-fusion         Also produce the legacy LiDAR vegetation and legacy LiDAR+FLAIR fusion outputs.
---apply-lidar-correction    Correct the LiDAR MNS mosaic before the legacy branch.
---reference-raster          Compute a confusion matrix and summary metrics against a reference raster.
---metadata-name             Name of the run manifest JSON written under the run directory.
 ```
+
+Less common flags such as JSON overrides, explicit config file paths, legacy-branch switches, model overrides,
+and download helpers are still available through `python run_workflow.py --help`, but they are intentionally
+left out here to keep the day-to-day interface simple.
 
 Full help:
 
