@@ -561,6 +561,8 @@ def main() -> None:
             str(probability_raster),
             "--output",
             str(reweighted_raster),
+            "--matrix-config",
+            str(args.matrix_config),
         ]
         if weights_json:
             reweight_command.extend(["--weights-json", str(weights_json)])

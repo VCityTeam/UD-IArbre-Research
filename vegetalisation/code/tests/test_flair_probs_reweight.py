@@ -4,7 +4,7 @@ import numpy as np
 import rasterio
 from rasterio.transform import from_origin
 
-from flair_probs_reweight import IGNORE_VALUE, reweight_and_filter
+from flair_probs_reweight import reweight_and_filter
 
 
 def test_reweight_and_filter_applies_weights_and_mapping(workspace_tmp_path) -> None:
@@ -40,7 +40,7 @@ def test_reweight_and_filter_applies_weights_and_mapping(workspace_tmp_path) -> 
     with rasterio.open(output_path) as src:
         result = src.read(1)
 
-    expected = np.array([[0, 1], [2, IGNORE_VALUE]], dtype=np.uint8)
+    expected = np.array([[0, 1], [2, 255]], dtype=np.uint8)
     assert np.array_equal(result, expected)
 
 
