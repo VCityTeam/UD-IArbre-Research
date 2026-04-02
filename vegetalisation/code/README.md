@@ -195,14 +195,14 @@ docker compose run --rm vegetalisation python run_workflow.py --help
 
 For a run named `doua_1845_5175`, outputs are written under:
 
-- `workdir/runs/doua_1845_5175/ortho/mosaic/orthophoto_mosaic_08m.tif`
-- `workdir/runs/doua_1845_5175/lidar/mosaic/lidar_height_08m.tif`
-- `workdir/runs/doua_1845_5175/lidar/mosaic/lidar_class_08m.tif`
+- `workdir/runs/doua_1845_5175/ortho/mosaic/orthophoto_mosaic.tif`
+- `workdir/runs/doua_1845_5175/lidar/mosaic/lidar_height.tif`
+- `workdir/runs/doua_1845_5175/lidar/mosaic/lidar_class.tif`
 - `workdir/runs/doua_1845_5175/flair/runtime_config.yaml`
 - `workdir/runs/doua_1845_5175/run_metadata.json`
 - `workdir/runs/doua_1845_5175/flair/probabilities/...`
 - `workdir/runs/doua_1845_5175/flair/flair_vegetation_reweighted.tif`
-- `workdir/runs/doua_1845_5175/fusion/final_fused_08m.tif`
+- `workdir/runs/doua_1845_5175/fusion/final_fused.tif`
 - `workdir/runs/doua_1845_5175/fusion/legacy_lidar_classes.tif`
 - `workdir/runs/doua_1845_5175/fusion/legacy_fused_lidar_flair.tif`
 - `workdir/runs/doua_1845_5175/evaluation/confusion_matrix_percent.png`

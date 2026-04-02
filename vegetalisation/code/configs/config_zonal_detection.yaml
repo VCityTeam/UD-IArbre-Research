@@ -40,7 +40,7 @@ modalities:
     SENTINEL1-DESC_TS: false
 
   AERIAL_RGBI:
-    input_img_path: workdir/ortho/mosaic/orthophoto_mosaic_08m.tif
+    input_img_path: workdir/ortho/mosaic/orthophoto_mosaic.tif
     channels: [1, 2, 3]
     normalization:
       type: custom

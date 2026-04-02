@@ -12,7 +12,7 @@ from rasterio.enums import Resampling
 from workflow_utils import validate_bbox, validate_positive_number
 
 DEFAULT_JSON_FILE = Path("ortho.json")
-DEFAULT_OUTPUT_DIR = Path("orthophotos_08m")
+DEFAULT_OUTPUT_DIR = Path("orthophotos")
 DEFAULT_TEMP_DIR = Path("temp_5cm")
 DEFAULT_XMIN_START = 1841500
 DEFAULT_XMIN_END = 1852000

@@ -311,19 +311,19 @@ def main() -> None:
     lidar_mosaic_dir = run_dir / "lidar" / "mosaic"
 
     ortho_temp_dir = run_dir / "ortho" / "temp_5cm"
-    ortho_tiles_dir = run_dir / "ortho" / "tiles_08m"
+    ortho_tiles_dir = run_dir / "ortho" / "tiles"
     ortho_mosaic_dir = run_dir / "ortho" / "mosaic"
 
     flair_dir = run_dir / "flair"
     flair_probability_dir = flair_dir / "probabilities"
     fusion_dir = run_dir / "fusion"
 
-    lidar_height_mosaic = lidar_mosaic_dir / "lidar_height_08m.tif"
-    lidar_class_mosaic = lidar_mosaic_dir / "lidar_class_08m.tif"
-    lidar_mns_mosaic = lidar_mosaic_dir / "lidar_mns_08m.tif"
-    lidar_mnt_mosaic = lidar_mosaic_dir / "lidar_mnt_08m.tif"
-    lidar_mns_corrected = lidar_mosaic_dir / "lidar_mns_08m_corrected.tif"
-    orthophoto_mosaic = ortho_mosaic_dir / "orthophoto_mosaic_08m.tif"
+    lidar_height_mosaic = lidar_mosaic_dir / "lidar_height.tif"
+    lidar_class_mosaic = lidar_mosaic_dir / "lidar_class.tif"
+    lidar_mns_mosaic = lidar_mosaic_dir / "lidar_mns.tif"
+    lidar_mnt_mosaic = lidar_mosaic_dir / "lidar_mnt.tif"
+    lidar_mns_corrected = lidar_mosaic_dir / "lidar_mns_corrected.tif"
+    orthophoto_mosaic = ortho_mosaic_dir / "orthophoto_mosaic.tif"
     runtime_config = flair_dir / "runtime_config.yaml"
     reweighted_raster = args.reweighted_raster or (flair_dir / "flair_vegetation_reweighted.tif")
     legacy_lidar_height = fusion_dir / "legacy_lidar_height.tif"
@@ -647,7 +647,7 @@ def main() -> None:
 
     if args.reference_raster:
         prediction_for_eval = (
-            legacy_fused_raster if args.run_legacy_fusion else fusion_dir / "final_fused_08m.tif"
+            legacy_fused_raster if args.run_legacy_fusion else fusion_dir / "final_fused.tif"
         )
         evaluation_command = [
             sys.executable,

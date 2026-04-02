@@ -6,8 +6,8 @@ from pathlib import Path
 import rasterio
 from rasterio.merge import merge
 
-DEFAULT_TILES = ["HG_08m.tif", "HD_08m.tif", "BG_08m.tif", "BD_08m.tif"]
-DEFAULT_OUTPUT = Path("Flair2023_08m.tif")
+DEFAULT_TILES = ["HG.tif", "HD.tif", "BG.tif", "BD.tif"]
+DEFAULT_OUTPUT = Path("Flair2023.tif")
 
 
 def parse_args() -> argparse.Namespace:

@@ -20,7 +20,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-file",
         type=Path,
-        default=Path("heights_08m.tif"),
+        default=Path("heights.tif"),
         help="Merged GeoTIFF output path.",
     )
     return parser.parse_args()

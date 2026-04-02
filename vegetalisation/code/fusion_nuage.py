@@ -209,8 +209,8 @@ def main() -> None:
         base_name = laz_path.stem
         out_mns = args.mns_mnt_folder / f"{base_name}_mns.tif"
         out_mnt = args.mns_mnt_folder / f"{base_name}_mnt.tif"
-        out_class = args.class_folder / f"{base_name}_class_08m.tif"
-        out_height = args.height_folder / f"{base_name}_height_08.tif"
+        out_class = args.class_folder / f"{base_name}_class.tif"
+        out_height = args.height_folder / f"{base_name}_height.tif"
 
         if out_height.exists() and out_class.exists():
             print(f"Skipping existing outputs for: {base_name}")

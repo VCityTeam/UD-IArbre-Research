@@ -162,17 +162,17 @@ def main() -> None:
         modify_flair=args.modify_flair,
         keep_class_lidar1=args.keep_class_lidar1,
     )
-    save_tif(args.out_dir / "vegetation_map_08m.tif", vegetation_map_lidar, profile)
+    save_tif(args.out_dir / "vegetation_map.tif", vegetation_map_lidar, profile)
 
     remapped = remap_classes(vegetation_map_flair)
-    save_tif(args.out_dir / "second_remapped_08m.tif", remapped, profile)
+    save_tif(args.out_dir / "second_remapped.tif", remapped, profile)
 
     fused = fuse_maps(
         vegetation_map_lidar,
         vegetation_map_flair,
         use_flair_everywhere=not args.flair_only_herbaceous,
     )
-    save_tif(args.out_dir / "final_fused_08m.tif", fused, profile)
+    save_tif(args.out_dir / "final_fused.tif", fused, profile)
 
     print(f"Generated outputs in: {args.out_dir}")
 
