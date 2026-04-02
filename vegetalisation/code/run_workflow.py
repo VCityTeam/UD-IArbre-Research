@@ -20,8 +20,9 @@ from workflow_utils import (
 )
 
 DEFAULT_WORKSPACE = Path("workdir")
-DEFAULT_CONFIG = Path("configs/config_zonal_detection.yaml")
-DEFAULT_MATRIX_CONFIG = Path("configs/configs.yml")
+DEFAULT_EXPERIMENT_CONFIG_DIR = Path("configs/baseline")
+DEFAULT_CONFIG = DEFAULT_EXPERIMENT_CONFIG_DIR / "config_zonal_detection.yaml"
+DEFAULT_MATRIX_CONFIG = DEFAULT_EXPERIMENT_CONFIG_DIR / "configs.yml"
 DEFAULT_MODEL_REPO = "IGNF/FLAIR-HUB_LC-A_RGB_swinlarge-upernet"
 DEFAULT_MODEL_FILENAME = "FLAIR-HUB_LC-A_RGB_swinlarge-upernet.safetensors"
 DEFAULT_MODEL_REVISION = "336bd84"
@@ -35,6 +36,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--workspace", type=Path, default=DEFAULT_WORKSPACE)
     parser.add_argument("--run-name", required=True)
+    parser.add_argument(
+        "--experiment-config-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Optional directory containing both config_zonal_detection.yaml and configs.yml "
+            "for a self-contained experiment."
+        ),
+    )
     parser.add_argument("--config-template", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--nuage-json", type=Path)
     parser.add_argument("--ortho-json", type=Path)
@@ -268,6 +278,43 @@ def write_runtime_config(
         yaml.safe_dump(config, handle, sort_keys=False)
 
 
+def resolve_experiment_config_paths(
+    code_dir: Path,
+    *,
+    experiment_config_dir: Path | None,
+    config_template: Path,
+    matrix_config: Path,
+) -> tuple[Path, Path, Path | None]:
+    resolved_experiment_dir = None
+    resolved_config_template = config_template
+    resolved_matrix_config = matrix_config
+
+    if experiment_config_dir is not None:
+        resolved_experiment_dir = (
+            experiment_config_dir
+            if experiment_config_dir.is_absolute()
+            else (code_dir / experiment_config_dir)
+        ).resolve()
+
+        if config_template == DEFAULT_CONFIG:
+            resolved_config_template = resolved_experiment_dir / "config_zonal_detection.yaml"
+        if matrix_config == DEFAULT_MATRIX_CONFIG:
+            resolved_matrix_config = resolved_experiment_dir / "configs.yml"
+
+    resolved_config_template = (
+        resolved_config_template
+        if resolved_config_template.is_absolute()
+        else (code_dir / resolved_config_template)
+    ).resolve()
+    resolved_matrix_config = (
+        resolved_matrix_config
+        if resolved_matrix_config.is_absolute()
+        else (code_dir / resolved_matrix_config)
+    ).resolve()
+
+    return resolved_config_template, resolved_matrix_config, resolved_experiment_dir
+
+
 def stage_matching_tiles(source_dir: Path, target_dir: Path, pattern: str) -> int:
     target_dir.mkdir(parents=True, exist_ok=True)
     for existing_file in target_dir.glob("*.tif"):
@@ -334,7 +381,12 @@ def main() -> None:
 
     nuage_json = (args.nuage_json or (inputs_dir / "nuage.json")).resolve()
     ortho_json = (args.ortho_json or (inputs_dir / "ortho.json")).resolve()
-    config_template = (code_dir / args.config_template).resolve()
+    config_template, matrix_config_path, experiment_config_dir = resolve_experiment_config_paths(
+        code_dir,
+        experiment_config_dir=args.experiment_config_dir,
+        config_template=args.config_template,
+        matrix_config=args.matrix_config,
+    )
     weights_json = args.weights_json.resolve() if args.weights_json else None
     mapping_json = args.mapping_json.resolve() if args.mapping_json else None
 
@@ -359,6 +411,8 @@ def main() -> None:
 
     if not config_template.exists():
         raise FileNotFoundError(f"FLAIR-HUB config template not found: {config_template}")
+    if not matrix_config_path.exists():
+        raise FileNotFoundError(f"Matrix config not found: {matrix_config_path}")
 
     if not args.skip_download:
         ensure_inventory_file(
@@ -562,7 +616,7 @@ def main() -> None:
             "--output",
             str(reweighted_raster),
             "--matrix-config",
-            str(args.matrix_config),
+            str(matrix_config_path),
         ]
         if weights_json:
             reweight_command.extend(["--weights-json", str(weights_json)])
@@ -586,7 +640,7 @@ def main() -> None:
         "--out-dir",
         str(fusion_dir),
         "--matrix-config",
-        str(args.matrix_config),
+        str(matrix_config_path),
     ]
     if args.modify_flair:
         fusion_command.append("--modify-flair")
@@ -661,7 +715,7 @@ def main() -> None:
             "--output-dir",
             str(evaluation_dir),
             "--matrix-config",
-            str(args.matrix_config),
+            str(matrix_config_path),
         ]
         if args.use_gpu:
             evaluation_command.append("--use-gpu")
@@ -692,6 +746,11 @@ def main() -> None:
             "paths": {
                 "workspace": workspace.as_posix(),
                 "run_dir": run_dir.as_posix(),
+                "experiment_config_dir": (
+                    experiment_config_dir.as_posix() if experiment_config_dir is not None else None
+                ),
+                "config_template": config_template.as_posix(),
+                "matrix_config": matrix_config_path.as_posix(),
                 "runtime_config": runtime_config.as_posix(),
                 "reweighted_raster": reweighted_raster.as_posix(),
             },

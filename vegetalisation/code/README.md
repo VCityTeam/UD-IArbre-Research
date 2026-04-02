@@ -10,9 +10,12 @@ This folder contains a reproducible Docker workflow for the urban vegetation pip
 6. fuse LiDAR and FLAIR vegetation outputs,
 7. run the historical LiDAR vegetation branch and verify results with a confusion matrix.
 
-The FLAIR-HUB configuration base is the repository file
-[`configs/config_zonal_detection.yaml`](configs/config_zonal_detection.yaml).
-The workflow reads that file, injects run-specific paths, and writes a runtime copy before inference.
+The default experiment configuration lives under
+[`configs/baseline/config_zonal_detection.yaml`](configs/baseline/config_zonal_detection.yaml)
+and
+[`configs/baseline/configs.yml`](configs/baseline/configs.yml).
+The workflow reads those files, injects run-specific runtime paths into the FLAIR-HUB template, and writes a
+runtime copy before inference.
 
 ## Why RGB
 
@@ -26,11 +29,37 @@ available orthophotos.
 - `docker-compose.yml`: CPU and GPU services for reproducible execution.
 - `requirements-workflow.txt`: dependencies for the local orchestration scripts.
 - `run_workflow.py`: end-to-end workflow runner.
-- `configs/config_zonal_detection.yaml`: base FLAIR-HUB zonal inference configuration.
+- `configs/baseline/config_zonal_detection.yaml`: baseline FLAIR-HUB zonal inference configuration.
+- `configs/baseline/configs.yml`: baseline post-processing, fusion, evaluation, and reweighting configuration.
 - `lidarCorrection.py`: optional LiDAR NaN correction.
 - `calculateVegetationFromLidar.py`: optional historical LiDAR vegetation derivation.
 - `fusionBetweenFlairAndLidar.py`: optional historical LiDAR+FLAIR fusion.
 - `confusionMatrix.py`: optional reproducible evaluation against a reference raster.
+
+## Experiment Configurations
+
+Each experiment is a self-contained directory under `configs/` that contains:
+
+- `config_zonal_detection.yaml` for FLAIR-HUB inference settings
+- `configs.yml` for reweighting, fusion, and evaluation settings
+
+The repository currently provides:
+
+- `configs/baseline/`
+
+To create a new experiment, copy the baseline directory and edit the two YAML files:
+
+```text
+configs/
+  baseline/
+    config_zonal_detection.yaml
+    configs.yml
+  experiment1/
+    config_zonal_detection.yaml
+    configs.yml
+```
+
+Then select it with `--experiment-config-dir`.
 
 ## Expected Inputs
 
@@ -111,6 +140,7 @@ Example on CPU:
 docker compose run --rm vegetalisation `
   python run_workflow.py `
   --run-name 1845_5175 `
+  --experiment-config-dir configs/baseline `
   --nuage-json workdir/inputs/nuage.json `
   --ortho-json workdir/inputs/ortho.json `
   --xmin-start 1845000 `
@@ -125,6 +155,7 @@ Example on GPU:
 docker compose run --rm vegetalisation-gpu `
   python run_workflow.py `
   --run-name 1845_5175 `
+  --experiment-config-dir configs/baseline `
   --nuage-json workdir/inputs/nuage.json `
   --ortho-json workdir/inputs/ortho.json `
   --xmin-start 1845000 `
@@ -143,6 +174,7 @@ To populate the `evaluation` folder, pass `--reference-raster` with the download
 docker compose run --rm vegetalisation-gpu `
   python run_workflow.py `
   --run-name 1845_5175 `
+  --experiment-config-dir configs/baseline `
   --nuage-json workdir/inputs/nuage.json `
   --ortho-json workdir/inputs/ortho.json `
   --reference-raster workdir/inputs/reference.tiff `
@@ -161,6 +193,8 @@ This writes the confusion matrix image, metrics summary JSON, and evaluation log
 ```text
 --workspace                 Working root. Default: workdir
 --run-name                  Output run name.
+--experiment-config-dir     Directory containing both config_zonal_detection.yaml and configs.yml.
+                            Default behavior uses configs/baseline through the file defaults.
 --download-missing-inventories
                             Download missing inventory JSON files when URLs are provided.
 --nuage-json-url            Optional URL used to download the LiDAR inventory JSON.
@@ -176,6 +210,8 @@ This writes the confusion matrix image, metrics summary JSON, and evaluation log
 --model-path                Local model path. If omitted, downloaded from Hugging Face.
 --weights-json              Optional JSON object for custom probability-band weights.
 --mapping-json              Optional JSON object for custom class remapping after reweighting.
+--config-template           Explicit FLAIR-HUB template path. Overrides the experiment default when provided.
+--matrix-config             Explicit post-processing/evaluation config path. Overrides the experiment default when provided.
 --ortho-source-resolution   Optional source orthophoto pixel size in meters. Default: inferred from raster metadata.
 --ortho-output-resolution   Output orthophoto pixel size in meters. Alias: --ortho-target-resolution. Default: 0.8.
 --use-gpu                   Ask FLAIR-HUB to run on GPU and use CUDA for evaluation when available.
@@ -245,23 +281,27 @@ Use them with:
 ```powershell
 docker compose run --rm vegetalisation python run_workflow.py `
   --run-name 1845_5175 `
+  --experiment-config-dir configs/baseline `
   --nuage-json workdir/inputs/nuage.json `
   --ortho-json workdir/inputs/ortho.json `
   --xmin-start 1845000 `
   --xmin-end 1846000 `
   --ymin-start 5175000 `
   --ymin-end 5176000 `
+  --weights-json workdir/inputs/custom_weights.json `
+  --mapping-json workdir/inputs/custom_mapping.json
 ```
 
 ### Reuse Existing Inference Inputs
 
-If you only changed the vegetation strata definitions in [`configs/configs.yml`](configs/configs.yml)
-or a similar post-processing setting, you can now skip rebuilding the derived LiDAR and orthophoto
-rasters and also skip FLAIR inference:
+If you only changed the vegetation strata definitions in your experiment's `configs.yml`, for example
+[`configs/baseline/configs.yml`](configs/baseline/configs.yml), or a similar post-processing setting,
+you can now skip rebuilding the derived LiDAR and orthophoto rasters and also skip FLAIR inference:
 
 ```powershell
 docker compose run --rm vegetalisation python run_workflow.py `
   --run-name 1845_5175 `
+  --experiment-config-dir configs/baseline `
   --xmin-start 1845000 `
   --xmin-end 1846000 `
   --ymin-start 5175000 `

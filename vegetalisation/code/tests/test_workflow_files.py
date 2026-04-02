@@ -14,6 +14,7 @@ from run_workflow import (
     ensure_flair_hub_source,
     ensure_inventory_file,
     require_existing_file,
+    resolve_experiment_config_paths,
     stage_matching_tiles,
     write_runtime_config,
 )
@@ -47,6 +48,50 @@ def test_write_runtime_config_injects_runtime_values(workspace_tmp_path) -> None
     assert runtime["use_gpu"] is True
     assert runtime["modalities"]["AERIAL_RGBI"]["input_img_path"] == "/data/ortho.tif"
     assert runtime["modalities"]["AERIAL_RGBI"]["channels"] == [1, 2, 3]
+
+
+def test_resolve_experiment_config_paths_uses_experiment_directory_defaults(
+    workspace_tmp_path,
+) -> None:
+    code_dir = workspace_tmp_path / "code"
+    experiment_dir = code_dir / "configs" / "experiment1"
+    experiment_dir.mkdir(parents=True)
+    (experiment_dir / "config_zonal_detection.yaml").write_text("output_path: test\n", encoding="utf-8")
+    (experiment_dir / "configs.yml").write_text("flair: {}\n", encoding="utf-8")
+
+    config_template, matrix_config, resolved_dir = resolve_experiment_config_paths(
+        code_dir,
+        experiment_config_dir=Path("configs/experiment1"),
+        config_template=Path("configs/baseline/config_zonal_detection.yaml"),
+        matrix_config=Path("configs/baseline/configs.yml"),
+    )
+
+    assert config_template == (experiment_dir / "config_zonal_detection.yaml").resolve()
+    assert matrix_config == (experiment_dir / "configs.yml").resolve()
+    assert resolved_dir == experiment_dir.resolve()
+
+
+def test_resolve_experiment_config_paths_keeps_explicit_file_overrides(workspace_tmp_path) -> None:
+    code_dir = workspace_tmp_path / "code"
+    experiment_dir = code_dir / "configs" / "experiment1"
+    explicit_dir = code_dir / "custom"
+    experiment_dir.mkdir(parents=True)
+    explicit_dir.mkdir(parents=True)
+    explicit_template = explicit_dir / "config_zonal_detection.yaml"
+    explicit_matrix = explicit_dir / "configs.yml"
+    explicit_template.write_text("output_path: explicit\n", encoding="utf-8")
+    explicit_matrix.write_text("flair: {}\n", encoding="utf-8")
+
+    config_template, matrix_config, resolved_dir = resolve_experiment_config_paths(
+        code_dir,
+        experiment_config_dir=Path("configs/experiment1"),
+        config_template=Path("custom/config_zonal_detection.yaml"),
+        matrix_config=Path("custom/configs.yml"),
+    )
+
+    assert config_template == explicit_template.resolve()
+    assert matrix_config == explicit_matrix.resolve()
+    assert resolved_dir == experiment_dir.resolve()
 
 
 def test_stage_matching_tiles_copies_only_matching_rasters(workspace_tmp_path) -> None:

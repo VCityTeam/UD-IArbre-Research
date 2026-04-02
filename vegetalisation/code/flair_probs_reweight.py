@@ -9,7 +9,7 @@ import yaml
 
 from workflow_utils import load_json_mapping, load_json_numeric_mapping
 
-DEFAULT_MATRIX_CONFIG = Path("configs/configs.yml")
+DEFAULT_MATRIX_CONFIG = Path("configs/baseline/configs.yml")
 
 
 def parse_args() -> argparse.Namespace:
