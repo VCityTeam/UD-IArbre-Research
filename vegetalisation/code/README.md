@@ -110,7 +110,7 @@ Example on CPU:
 ```powershell
 docker compose run --rm vegetalisation `
   python run_workflow.py `
-  --run-name doua_1845_5175 `
+  --run-name 1845_5175 `
   --nuage-json workdir/inputs/nuage.json `
   --ortho-json workdir/inputs/ortho.json `
   --xmin-start 1845000 `
@@ -124,7 +124,7 @@ Example on GPU:
 ```powershell
 docker compose run --rm vegetalisation-gpu `
   python run_workflow.py `
-  --run-name doua_1845_5175 `
+  --run-name 1845_5175 `
   --nuage-json workdir/inputs/nuage.json `
   --ortho-json workdir/inputs/ortho.json `
   --xmin-start 1845000 `
@@ -142,7 +142,7 @@ To populate the `evaluation` folder, pass `--reference-raster` with the download
 ```powershell
 docker compose run --rm vegetalisation-gpu `
   python run_workflow.py `
-  --run-name doua_1845_5175 `
+  --run-name 1845_5175 `
   --nuage-json workdir/inputs/nuage.json `
   --ortho-json workdir/inputs/ortho.json `
   --reference-raster workdir/inputs/reference.tiff `
@@ -154,7 +154,7 @@ docker compose run --rm vegetalisation-gpu `
 ```
 
 This writes the confusion matrix image, metrics summary JSON, and evaluation log under
-`workdir/runs/doua_1845_5175/evaluation/`.
+`workdir/runs/1845_5175/evaluation/`.
 
 ## Main Options
 
@@ -193,21 +193,21 @@ docker compose run --rm vegetalisation python run_workflow.py --help
 
 ## Outputs
 
-For a run named `doua_1845_5175`, outputs are written under:
+For a run named `1845_5175`, outputs are written under:
 
-- `workdir/runs/doua_1845_5175/ortho/mosaic/orthophoto_mosaic.tif`
-- `workdir/runs/doua_1845_5175/lidar/mosaic/lidar_height.tif`
-- `workdir/runs/doua_1845_5175/lidar/mosaic/lidar_class.tif`
-- `workdir/runs/doua_1845_5175/flair/runtime_config.yaml`
-- `workdir/runs/doua_1845_5175/run_metadata.json`
-- `workdir/runs/doua_1845_5175/flair/probabilities/...`
-- `workdir/runs/doua_1845_5175/flair/flair_vegetation_reweighted.tif`
-- `workdir/runs/doua_1845_5175/fusion/final_fused.tif`
-- `workdir/runs/doua_1845_5175/fusion/legacy_lidar_classes.tif`
-- `workdir/runs/doua_1845_5175/fusion/legacy_fused_lidar_flair.tif`
-- `workdir/runs/doua_1845_5175/evaluation/confusion_matrix_percent.png`
-- `workdir/runs/doua_1845_5175/evaluation/metrics_summary.json`
-- `workdir/runs/doua_1845_5175/evaluation/metrics_log.txt`
+- `workdir/runs/1845_5175/ortho/mosaic/orthophoto_mosaic.tif`
+- `workdir/runs/1845_5175/lidar/mosaic/lidar_height.tif`
+- `workdir/runs/1845_5175/lidar/mosaic/lidar_class.tif`
+- `workdir/runs/1845_5175/flair/runtime_config.yaml`
+- `workdir/runs/1845_5175/run_metadata.json`
+- `workdir/runs/1845_5175/flair/probabilities/...`
+- `workdir/runs/1845_5175/flair/flair_vegetation_reweighted.tif`
+- `workdir/runs/1845_5175/fusion/final_fused.tif`
+- `workdir/runs/1845_5175/fusion/legacy_lidar_classes.tif`
+- `workdir/runs/1845_5175/fusion/legacy_fused_lidar_flair.tif`
+- `workdir/runs/1845_5175/evaluation/confusion_matrix_percent.png`
+- `workdir/runs/1845_5175/evaluation/metrics_summary.json`
+- `workdir/runs/1845_5175/evaluation/metrics_log.txt`
 
 ## Notes
 
@@ -244,7 +244,7 @@ Use them with:
 
 ```powershell
 docker compose run --rm vegetalisation python run_workflow.py `
-  --run-name doua_1845_5175 `
+  --run-name 1845_5175 `
   --nuage-json workdir/inputs/nuage.json `
   --ortho-json workdir/inputs/ortho.json `
   --xmin-start 1845000 `
@@ -261,7 +261,7 @@ rasters and also skip FLAIR inference:
 
 ```powershell
 docker compose run --rm vegetalisation python run_workflow.py `
-  --run-name doua_1845_5175 `
+  --run-name 1845_5175 `
   --xmin-start 1845000 `
   --xmin-end 1846000 `
   --ymin-start 5175000 `
