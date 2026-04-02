@@ -213,7 +213,7 @@ In practice, the command line only needs a small set of options for selecting in
 --skip-reweight             Skip reweighting and use an existing vegetation raster.
 ```
 
-Less common flags such as JSON overrides, explicit config file paths, legacy-branch switches, model overrides,
+Less common flags such as explicit config file paths, legacy-branch switches, model overrides,
 and download helpers are still available through `python run_workflow.py --help`, but they are intentionally
 left out here to keep the day-to-day interface simple.
 
@@ -251,42 +251,11 @@ For a run named `1845_5175`, outputs are written under:
 
 ## Configuration Overrides
 
-The probability reweighting step is no longer hardcoded. You can override both the class weights and the
-output remapping with JSON files:
+The probability reweighting step is now configured only through your experiment
+[`configs.yml`](configs/baseline/configs.yml), under `flair.reweight`.
 
-```json
-{
-  "8": 1.0,
-  "12": 1.0,
-  "13": 1.0,
-  "14": 1.0
-}
-```
-
-```json
-{
-  "8": 0,
-  "14": 1,
-  "12": 2,
-  "13": 3
-}
-```
-
-Use them with:
-
-```powershell
-docker compose run --rm vegetalisation python run_workflow.py `
-  --run-name 1845_5175 `
-  --experiment-config-dir configs/baseline `
-  --nuage-json workdir/inputs/nuage.json `
-  --ortho-json workdir/inputs/ortho.json `
-  --xmin-start 1845000 `
-  --xmin-end 1846000 `
-  --ymin-start 5175000 `
-  --ymin-end 5176000 `
-  --weights-json workdir/inputs/custom_weights.json `
-  --mapping-json workdir/inputs/custom_mapping.json
-```
+To change class weights or output remapping for an experiment, edit that YAML or create a new
+experiment folder by copying `configs/baseline/`.
 
 ### Reuse Existing Inference Inputs
 

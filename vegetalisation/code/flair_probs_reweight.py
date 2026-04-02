@@ -7,8 +7,6 @@ import numpy as np
 import rasterio
 import yaml
 
-from workflow_utils import load_json_mapping, load_json_numeric_mapping
-
 DEFAULT_MATRIX_CONFIG = Path("configs/baseline/configs.yml")
 
 
@@ -18,16 +16,6 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--input", "-i", type=Path, required=True, help="Input probability GeoTIFF")
     parser.add_argument("--output", "-o", type=Path, required=True, help="Output remapped GeoTIFF")
-    parser.add_argument(
-        "--weights-json",
-        type=Path,
-        help="Optional JSON object mapping probability band indices to multiplicative weights.",
-    )
-    parser.add_argument(
-        "--mapping-json",
-        type=Path,
-        help="Optional JSON object mapping original predicted classes to output classes.",
-    )
     parser.add_argument("--matrix-config", type=Path, default=DEFAULT_MATRIX_CONFIG)
     return parser.parse_args()
 
@@ -101,15 +89,9 @@ def reweight_and_filter(
 
 def main() -> None:
     args = parse_args()
-    weights = (
-        load_json_numeric_mapping(args.weights_json, "weights_json") if args.weights_json else None
-    )
-    mapping = load_json_mapping(args.mapping_json, "mapping_json") if args.mapping_json else None
     reweight_and_filter(
         args.input,
         args.output,
-        weights=weights,
-        mapping=mapping,
         matrix_config_path=args.matrix_config,
     )
 

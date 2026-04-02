@@ -119,8 +119,6 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_FLAIR_HUB_REPO_URL,
         help="Git repository used to fetch the full FLAIR-HUB source tree.",
     )
-    parser.add_argument("--weights-json", type=Path)
-    parser.add_argument("--mapping-json", type=Path)
     parser.add_argument("--matrix-config", type=Path, default=DEFAULT_MATRIX_CONFIG)
     parser.add_argument("--flair-probability-raster", type=Path)
     parser.add_argument("--reweighted-raster", type=Path)
@@ -470,9 +468,6 @@ def main() -> None:
         config_template=args.config_template,
         matrix_config=args.matrix_config,
     )
-    weights_json = args.weights_json.resolve() if args.weights_json else None
-    mapping_json = args.mapping_json.resolve() if args.mapping_json else None
-
     for folder in [
         workspace,
         run_dir,
@@ -732,10 +727,6 @@ def main() -> None:
             "--matrix-config",
             str(matrix_config_path),
         ]
-        if weights_json:
-            reweight_command.extend(["--weights-json", str(weights_json)])
-        if mapping_json:
-            reweight_command.extend(["--mapping-json", str(mapping_json)])
         run_command(reweight_command, cwd=code_dir)
     elif not reweighted_raster.exists():
         raise FileNotFoundError(f"Missing reweighted raster: {reweighted_raster}")
