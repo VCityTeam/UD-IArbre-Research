@@ -1,14 +1,14 @@
 workflow:
   orthophoto:
     source_resolution:
-    output_resolution: 0.2
+    output_resolution: 0.5
   fusion:
     modify_flair: false
-    keep_class_lidar1: false
+    keep_class_lidar1: true
     flair_only_herbaceous: false
   legacy:
     run_legacy_fusion: false
-    apply_lidar_correction: false
+    apply_lidar_correction: true
 
 lidar:
   vegetation_classes:
@@ -37,13 +37,13 @@ flair:
       5: 1
       6: 1
       7: 1
-      8: 1
+      8: 3
       9: 1
       10: 1
       11: 1
       12: 1
       13: 1
-      14: 1
+      14: 10
       15: 1
       16: 1
       17: 1

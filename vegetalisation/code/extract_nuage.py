@@ -9,7 +9,7 @@ import requests
 
 from workflow_utils import validate_bbox
 
-DEFAULT_JSON_FILE = Path("nuage.json")
+DEFAULT_JSON_FILE = Path("infra.json")
 DEFAULT_OUTPUT_DIR = Path("laz_tiles")
 DEFAULT_XMIN_START = 1841500
 DEFAULT_XMIN_END = 1852000
