@@ -136,8 +136,8 @@ def create_mns_mnt_class(
 
     xmin, ymin = x.min(), y.min()
     xmax, ymax = x.max(), y.max()
-    width = int(np.ceil((xmax - xmin) / resolution)) + 1
-    height = int(np.ceil((ymax - ymin) / resolution)) + 1
+    width = int(np.ceil((xmax - xmin) / resolution))
+    height = int(np.ceil((ymax - ymin) / resolution))
     transform = from_origin(xmin, ymax, resolution, resolution)
 
     mns = np.full((height, width), np.nan, dtype=np.float32)
@@ -146,6 +146,9 @@ def create_mns_mnt_class(
 
     x_indices = ((x - xmin) / resolution).astype(int)
     y_indices = ((ymax - y) / resolution).astype(int)
+
+    x_indices = np.clip(x_indices, 0, width - 1)
+    y_indices = np.clip(y_indices, 0, height - 1)
 
     for x_index, y_index, z_value, class_value in tqdm(
         zip(x_indices, y_indices, z, classes, strict=True),
