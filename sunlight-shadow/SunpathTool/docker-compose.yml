@@ -1,0 +1,40 @@
+version: "3.9"
+
+services:
+  sunpath:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: "3.12"
+    image: sunpath:latest
+    container_name: sunpath-calculator
+    volumes:
+      - ./output:/workspace/output
+    environment:
+      PYTHONUNBUFFERED: "1"
+      LOG_LEVEL: "INFO"
+    command: >
+      --latitude 45.75
+      --longitude 4.85
+      --start-year 1975
+      --end-year 2075
+      --filename /workspace/output/sunpath_lyon.csv
+      --log-level INFO
+    profiles:
+      - manual
+
+  sunpath-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sunpath:latest
+    container_name: sunpath-test
+    volumes:
+      - ./output:/workspace/output
+      - ./tests:/workspace/tests
+    environment:
+      PYTHONUNBUFFERED: "1"
+    command: python -m pytest tests/ -v
+    profiles:
+      - test

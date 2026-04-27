@@ -1,0 +1,55 @@
+services:
+  pysunlight:
+    build:
+      context: ..
+      dockerfile: sunlight-shadow/Dockerfile
+    image: iarbre/pysunlight:latest
+    container_name: pysunlight
+    environment:
+      TIMESTAMP: ${TIMESTAMP:-}
+      START_DATE: ${START_DATE:-}
+      END_DATE: ${END_DATE:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      FORMAT: ${FORMAT:-CSV}
+      OPTIONAL_ARGS: ${OPTIONAL_ARGS:-}
+      INPUT_PATH: ${INPUT_PATH:-/inputs}
+      INPUTS_FOLDER: /inputs
+      OUTPUTS_FOLDER: /outputs
+    volumes:
+      - ${INPUTS_FOLDER:-./inputs}:/inputs
+      - ${OUTPUTS_FOLDER:-./output}:/outputs
+    profiles:
+      - pysunlight
+
+  sunpath:
+    build:
+      context: ./SunpathTool
+      dockerfile: Dockerfile
+    image: iarbre/sunpath:latest
+    container_name: sunpath
+    volumes:
+      - ./output:/workspace/output
+    environment:
+      PYTHONUNBUFFERED: "1"
+    command:
+      - --help
+    profiles:
+      - sunpath
+
+  sunlight-demo:
+    build:
+      context: ..
+      dockerfile: sunlight-shadow/demo/Dockerfile
+    image: iarbre/sunlight-demo:latest
+    container_name: sunlight-demo
+    environment:
+      DEMO_TILESET_URL: ${DEMO_TILESET_URL:-/data/inputs/tileset.json}
+      #DEMO_CSV_URL: ${DEMO_CSV_URL:-/data/output/output.csv}
+      DEMO_CSV_URL: /data/output/2020-05-05__1200/output.csv
+    ports:
+      - "8080:8080"
+    volumes:
+      - ${INPUTS_FOLDER:-./inputs}:/app/data/inputs:ro
+      - ${OUTPUTS_FOLDER:-./output}:/app/data/output:ro
+    profiles:
+      - demo
