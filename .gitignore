@@ -15,3 +15,9 @@ vegetalisation/code/.ruff_cache/
 vegetalisation/code/.pytest_cache/
 vegetalisation/code/__pycache__/
 vegetalisation/code/pytest-cache-files-*/
+*.b3dm
+
+## Temporary files
+tileset.json
+sunpath.csv
+output.csv
