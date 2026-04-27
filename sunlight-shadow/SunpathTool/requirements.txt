@@ -1,4 +1,13 @@
+# Core dependencies
 pysolar==0.13
-hera==5.24.0
-hera[yaml]
-hera[cli]
+
+# Workflow orchestration (optional, for pySunlight-workflow.py)
+hera[all]==5.24.0
+
+# Development and testing (optional)
+pytest>=7.0
+pytest-cov>=4.0
+black>=23.0
+isort>=5.0
+flake8>=6.0
+mypy>=1.0
