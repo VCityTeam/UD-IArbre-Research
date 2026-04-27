@@ -1,0 +1,17 @@
+services:
+  desealing:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ud-iarbre-desealing:latest
+    working_dir: /usr/src/app
+    volumes:
+      - ./donnees:/usr/src/app/donnees
+      - ./output:/usr/src/app/output
+    command:
+      - python
+      - -u
+      - main.py
+      - -c
+      - donnees/myconfig.yaml
+      - --docker

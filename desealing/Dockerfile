@@ -19,6 +19,7 @@ COPY main.py .
 COPY lecture.py .
 COPY methods.py .
 COPY visualization.py .
+COPY configtemplate.yaml .
+COPY donnees ./donnees
 
-
-CMD ["python", "-u", "main.py", "-c", "config_casier_docker.yaml"]
+CMD ["python", "-u", "main.py", "-c", "donnees/myconfig.yaml", "--docker"]

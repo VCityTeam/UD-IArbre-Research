@@ -13,8 +13,8 @@ imperviousness_path: "donnees/imperviousness_default.tif"
 # Exemple : imperviousness_path: "../donnees/imperviousness_lyon.tif"
 
 # Necessary for "casier" method
-output_path: "casier_out"
-# Exemple : output_path: "../casier_out"
+output_path: "output"
+# Exemple : output_path: "output"
 
 # Necessary for "casier" method
 slope: "best_fit_plane" # Choose between slope computing methods and remove brackets

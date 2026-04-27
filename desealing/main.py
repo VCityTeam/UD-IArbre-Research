@@ -4,6 +4,7 @@ import methods
 import visualization
 import configargparse
 import time
+import os
 
 time_start = time.time()
 
@@ -81,7 +82,7 @@ parser.add_argument(
     "--output_path",
     type=str,
     default="../casier_out/casiers_infiltration.shp",
-    help="Path to the output shapefile.",
+    help="Output directory or vector file path (.shp, .gpkg, etc.).",
     required=False,
 )
 
@@ -102,6 +103,48 @@ parser.add_argument(
 parser.set_defaults(docker_check=False)
 
 args = parser.parse_args()
+
+
+def export_casiers(casiers, output_path):
+    """
+    Export casiers using a format inferred from the output path.
+
+    If a directory is provided, the workflow writes a Shapefile named
+    ``casiers_infiltration.shp`` inside it. Shapefile attribute names are
+    shortened explicitly to avoid runtime laundering warnings.
+    """
+    shapefile_field_map = {
+        "imperviousness": "impervious",
+        "normalized_slope": "norm_slope",
+        "infiltration_index": "infilt_idx",
+    }
+
+    base_name = "casiers_infiltration"
+    _, extension = os.path.splitext(output_path)
+    extension = extension.lower()
+
+    if extension:
+        output_dir = os.path.dirname(output_path) or "."
+        export_path = output_path
+    else:
+        output_dir = output_path
+        export_path = os.path.join(output_path, f"{base_name}.shp")
+        extension = ".shp"
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    export_gdf = casiers.copy()
+    if extension == ".shp":
+        export_gdf = export_gdf.rename(columns=shapefile_field_map)
+        long_columns = [column for column in export_gdf.columns if len(str(column)) > 10]
+        if long_columns:
+            raise ValueError(
+                "Shapefile export requires field names of 10 characters or less. "
+                f"Remaining long columns: {long_columns}"
+            )
+
+    export_gdf.to_file(export_path)
+    return output_dir, export_path
 
 # Assigning arguments to variables
 mnt_path = args.tile_path
@@ -134,13 +177,10 @@ match method:
         total_time = time_end - time_start
         print(f"Total execution time: {total_time:.2f} seconds")
 
-        import os
-        if not os.path.exists(output_path):
-            os.makedirs(output_path)
+        output_dir, export_path = export_casiers(casiers, output_path)
+        print(f"Exported casiers to: {export_path}")
 
-        casiers.to_file(output_path + "/casiers_infiltration.shp")
-
-        visualization.plot_tiles_casier(casiers, docker_check, output_path=output_path)
+        visualization.plot_tiles_casier(casiers, docker_check, output_path=output_dir)
 
     case "ibk":
         mnt_data, _, _, mnt_transform = lecture.load_single_tile(mnt_path)

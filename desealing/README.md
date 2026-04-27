@@ -1,163 +1,202 @@
-# README
+# Desealing Workflow
 
-## Description
+This folder contains the urban desealing internship workflow and a checked-in sample dataset that can be used to reproduce a baseline run.
 
-This project aims to provide a tool for processing and analyzing geospatial data to generate usable Shapefile (.shp) files using either the "casier" (grid) method or the Beven-Kirkby Index (IBK) / Topographical Wetness Index (TWI) method.
+The project supports two analysis modes:
 
-Here is an overview of the main features:
+1. `casier`: build a regular grid, compute a slope-based indicator from the DEM, combine it with imperviousness, and export a Shapefile with infiltration scores.
+2. `ibk`: compute a simplified Beven-Kirkby / topographic wetness style raster analysis from the DEM.
 
-- **lecture.py**: This file contains the necessary functions to read and interpret input data, such as DEM (Digital Elevation Model) files and the imperviousness file, both of which are raster files in .tif format.
+## Files
 
-- **methode.py**: This file implements the various calculation methods used to analyze the data, including grid segmentation algorithms and slope calculations.
+- `Dockerfile`: container image for the workflow.
+- `docker-compose.yml`: reproducible wrapper for the default Docker run.
+- `requirements.txt`: Python dependencies.
+- `main.py`: workflow entry point and CLI.
+- `lecture.py`: raster loading helpers.
+- `methods.py`: slope, grid, infiltration, and IBK calculations.
+- `visualization.py`: PNG and interactive plotting helpers.
+- `configtemplate.yaml`: template for creating your own run configuration.
+- `donnees/myconfig.yaml`: checked-in baseline configuration for the sample data.
+- `donnees/dem_default.tif`: sample DEM used by the baseline configuration.
+- `donnees/imperviousness_default.tif`: sample imperviousness raster used by the baseline configuration.
+- `img/image.png`: illustration showing how DEM coverage should fit inside the imperviousness raster coverage.
 
-- **visualisation.py**: This file provides functions to visualize intermediate and final results, making it easier to interpret the processed data.
+## Reproducible Baseline
 
-- **main.py**: This file is the main entry point of the project. It orchestrates the execution of the different steps based on the parameters provided by the user.
+The repository already includes everything needed for a baseline `casier` run:
 
-## Installation
+- a Docker image definition,
+- a Docker Compose wrapper,
+- a checked-in configuration file,
+- a sample DEM,
+- a sample imperviousness raster.
 
-To run the code, make sure you have the following installed:
+From [`desealing`](.) you can reproduce that baseline with:
 
-- Python 3.8 or higher
-
-To run the following commands (and this program), first navigate to the `desealing` directory using the following **bash** command:
-
-```bash
-cd Path/to/the/desealing/folder
+```powershell
+docker compose build desealing
+docker compose run --rm desealing
 ```
 
-It is recommended to create a Python virtual environment before installing the dependencies if you are not already in one. To do this, run in **bash**:
+This runs:
 
-```bash
-python3 -m venv venv_name
+```powershell
+python -u main.py -c donnees/myconfig.yaml --docker
 ```
 
-To activate the virtual environment:
+and writes the outputs into `output/`.
 
-- **On macOS/Linux (Unix):**
+## Expected Inputs
 
-    ```bash
-    source .venv/bin/activate
-    ```
+The workflow uses GeoTIFF rasters:
 
-- **On Windows:**
+- a DEM for both methods,
+- an imperviousness raster for the `casier` method only.
 
-    ```cmd
-    .venv\Scripts\activate
-    ```
+The checked-in baseline configuration expects:
 
-Then, install the dependencies with the following **bash** command:
+- `donnees/dem_default.tif`
+- `donnees/imperviousness_default.tif`
 
-```bash
+For your own runs, place your rasters in `donnees/` or another mounted folder and update the config file paths accordingly.
+
+After downloading the data for your area of interest, make sure the DEM area is fully contained within the imperviousness raster extent when using the `casier` method.
+
+![Coverage illustration](img/image.png)
+
+## Prepare Your Own Configuration
+
+Copy [`configtemplate.yaml`](configtemplate.yaml) to a new file such as `donnees/myconfig-custom.yaml` and edit the values:
+
+```yaml
+method: "casier"
+tile_path: "donnees/dem_default.tif"
+imperviousness_path: "donnees/imperviousness_default.tif"
+output_path: "output"
+slope: "best_fit_plane"
+casiersize: 10
+imperviousness_factor: 0.4
+```
+
+Parameter notes:
+
+- `method`: choose `casier` or `ibk`.
+- `tile_path`: DEM raster path.
+- `imperviousness_path`: required for `casier`.
+- `output_path`: output directory, or an explicit vector file path such as `output/casiers_infiltration.shp` or `output/casiers_infiltration.gpkg`.
+- `slope`: one of `mean_thresholded`, `best_fit_plane`, `slope_std_dev`, `slope_max`, `slope_mean_denoised`.
+- `casiersize`: grid size in meters for `casier`.
+- `imperviousness_factor`: weight between `0` and `1` for the imperviousness term.
+
+## Run Locally Without Docker
+
+From [`desealing`](.):
+
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
+python main.py -c donnees/myconfig.yaml --no-docker
 ```
 
-## Prerequisites
+This mode opens plots interactively for the `casier` and `ibk` methods.
 
-This program requires a number of input data files to perform the desired analyses:
+## Run With Docker
 
-- A Digital Elevation Model (DEM) in GeoTIFF raster format (.tif)
-  - [RGE ALTI (1m or 5m)]([https://geoservices.ign.fr/bdalti](https://geoservices.ign.fr/rgealti))
-- The soil imperviousness map in GeoTIFF raster format (.tif), only for the grid method
-  - [Imperviousness Density 2018 (raster 10 m and 100 m), Europe, 3-yearly](https://land.copernicus.eu/en/products/high-resolution-layer-imperviousness/imperviousness-density-2018#download)
+### Default baseline run
 
-After downloading the data for the area you want to analyze, make sure the DEM area to be analyzed is ***entirely*** included within the imperviousness map area as shown:
-![alt text](img/image.png)
+From [`desealing`](.):
 
-## Harmonizing raster data with QGIS
-
-To ensure your downloaded data have the same coordinate reference system (CRS) and can be used together, follow these steps in QGIS:
-
-1. **Check the CRS of rasters**  
-    - Right-click each raster layer in QGIS, then select **Properties** > **Information** to check the CRS (e.g., EPSG:2154 or EPSG:4326).
-
-2. **Reproject a raster (Warp)**  
-    - If the CRS are different, go to **Raster** > **Projections** > **Warp (Reproject)**.
-    - Select the raster to reproject, choose the target CRS (the same as the other raster), then run the process.
-
-3. **Clip a raster (Clip by Extent)**  
-    - To ensure both rasters cover exactly the same area, use **Raster** > **Extraction** > **Clip by Extent**.
-    - Select the raster to clip and define the extent from the other raster or a vector layer.
-
-4. **Check alignment**  
-    - Add both rasters to QGIS. They should now display superimposed and aligned on the same coordinates.
-
-This way, your two maps will have the same CRS and extent, ensuring their compatibility for analysis.
-
-## Usage
-
-There are two ways to run the code:
-
-- With a pre-created YAML configuration file
-- By passing all arguments via the command line
-
-You then need to create an instance of the `configtemplate.yaml` file and modify it according to your needs, name it `myconfig.yaml` and place it in the "donnees" directory.
-
-With a configuration file (not running the code through a docker container), use the following command:
-
-```bash
-python main.py -c myconfig.yaml --no-docker
+```powershell
+docker compose build desealing
+docker compose run --rm desealing
 ```
 
-or
+Because `docker-compose.yml` mounts `./donnees` and `./output`, the generated shapefile and PNG files stay in your local repository.
 
-```bash
-python main.py -c donnees/myconfig.yaml --docker
+### Run a custom configuration
+
+If you created `donnees/myconfig-custom.yaml`, run:
+
+```powershell
+docker compose run --rm desealing python -u main.py -c donnees/myconfig-custom.yaml --docker
 ```
 
-A configtemplate.yaml file is available with all existing arguments and their required inputs, as well as notes on whether certain parameters are needed depending on the method used.
-The arguments are:
+### Direct `docker run` equivalent
 
-- **-c, --config**: Path to the YAML configuration file. Allows you to specify all parameters in a single file (optional).
-- **-t, --tile_path**: Path to the DEM (.tif) file. Required.
-- **-i, --imperviousness_path**: Path to the imperviousness file (.tif). Optional, but recommended for some methods.
-- **-m, --method**: Calculation method to use for infiltration. Possible choices: `casier` or `ibk`. Required.
-- **-cs, --casiersize**: Grid size in meters (used only with the `casier` method). Optional.
-- **-slope, --slope**: Slope calculation method. Possible choices: `mean_thresholded`, `best_fit_plane`, `slope_std_dev`, `slope_max`, `slope_mean_denoised`. Optional.
-- **-if, --imperviousness_factor**: Imperviousness factor (value between 0 and 1) used in infiltration calculation. Optional.
-- **-out, --output_path**: Path to the output (.shp) file where results will be saved. Optional.
-- **--docker** or **--no-docker**: Indicates if the script is running in a Docker container. Required
+If you prefer not to use Compose, from [`desealing`](.):
 
-If you prefer to pass all arguments via the command line, the command is more complex:
-
-```bash
-python main.py -t "path to DEM file" -i "path to imperviousness file" -m "method" -cs "grid size in meters" -slope "slope calculation method" -if "factor between 0 and 1 for imperviousness weight" -out "path to the folder to save the resulting .shp file" -d {False, True} 
+```powershell
+docker build -t ud-iarbre-desealing .
+docker run --rm `
+  -v "${PWD}/donnees:/usr/src/app/donnees" `
+  -v "${PWD}/output:/usr/src/app/output" `
+  ud-iarbre-desealing `
+  python -u main.py -c donnees/myconfig.yaml --docker
 ```
 
-Example:
+## Main Options
 
-```bash
-python main.py -t "data/mnt.tif" -i "data/imperviousness.tif" -m "casier" -cs 10 -slope "best_fit_plane" -if 0.4 -out "./output" -d False
+The command-line interface accepts these main options:
+
+- `-c`, `--config`: YAML configuration file path.
+- `-t`, `--tile_path`: DEM path.
+- `-i`, `--imperviousness_path`: imperviousness raster path.
+- `-m`, `--method`: `casier` or `ibk`.
+- `-cs`, `--casiersize`: grid size in meters.
+- `-slope`, `--slope`: slope calculation method.
+- `-if`, `--imperviousness_factor`: imperviousness weight.
+- `-out`, `--output_path`: output directory.
+- `--docker` / `--no-docker`: save figures instead of showing them interactively.
+
+Full help:
+
+```powershell
+python main.py --help
 ```
 
-## Docker
-This project can also be run in a Docker container. To do this, you need to build the Docker image and then run the container with the necessary parameters.
+## Outputs
 
-To build the Docker image, run the following command in the terminal:
+For the baseline `casier` run, the workflow writes into `output/`:
 
-```bash
-docker build -t desealing .
-```
+- `casiers_infiltration.shp` plus companion Shapefile files such as `.dbf`, `.prj`, and `.shx`
+- `casiers_infiltration.png`
 
-To run the Docker image, run the following command in the terminal:
+If you keep the default Shapefile output, field names are shortened to respect the Shapefile 10-character limit:
 
-```bash
-docker run -v "{path to data folder on your machine}:/usr/src/app/donnees" -v "{path to output folder on your machine}:/usr/src/app/data_output" desealing python -u main.py -c donnees/myconfig.yaml -d True
-```
+- `imperviousness` -> `impervious`
+- `normalized_slope` -> `norm_slope`
+- `infiltration_index` -> `infilt_idx`
 
-For example:
+If you want to preserve the full field names, set `output_path` to a format such as `output/casiers_infiltration.gpkg`.
 
-```bash
-docker run -v "/Users/pierre-antoine/dev/UD-IArbre-Research/desealing/donnees:/usr/src/app/donnees" -v "/Users/pierre-antoine/dev/UD-IArbre-Research/output:/usr/src/app/data_output" desealing python -u main.py -c donnees/myconfig.yaml -d True
-```
+The `casier` result contains:
 
-## Results
+- grid geometry,
+- slope values,
+- normalized slope,
+- imperviousness,
+- infiltration index.
 
-The results of the methods are displayed in figures generated using the matplotlib library for Python.
+The `ibk` mode currently displays the generated rasters but does not export them as GeoTIFF files.
 
-Results for the casier method are also stored in the `output` directory. These results are in multiple formats, but the Shapefile (.shp) format is the primary output.
+## Data Preparation Notes
+
+To harmonize raster data in QGIS before running the workflow:
+
+1. Check the CRS of both rasters in layer properties.
+2. Reproject one raster if the CRS differ.
+3. Clip rasters so they cover the same area.
+4. Verify that both layers align correctly.
+
+Recommended sources mentioned in the original internship documentation:
+
+- DEM: <https://geoservices.ign.fr/rgealti>
+- Imperviousness density: <https://land.copernicus.eu/en/products/high-resolution-layer-imperviousness/imperviousness-density-2018#download>
 
 ## Team
+
 - Pierre-Antoine CHIRON
 - John SAMUEL
 - Gilles GESQUIERE

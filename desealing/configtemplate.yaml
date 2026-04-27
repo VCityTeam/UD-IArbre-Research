@@ -1,27 +1,34 @@
-# Template for YAML configuration file
-# This file is used by the main.py script in this folder
-# Replace default values with your own values and remove unnecessary comments
+# Template for YAML configuration files used by main.py.
+# Copy this file, replace the example values, and keep only the parameters
+# that are relevant for your run.
 
-method: {"casier", "ibk"} # Choose between "casier" or "ibk" and remove brackets
+# Choose one:
+# - "casier": grid + slope + imperviousness workflow with Shapefile output
+# - "ibk": simplified Beven-Kirkby / TWI-style raster analysis
+method: "casier"
 
-# Necessary for both methods
-tile_path: "Path to DEM file in GeoTIFF format"
-# Exemple : tile_path: "donnees/mnt_villeurbanne.tif"
+# Required for both methods
+tile_path: "donnees/dem_default.tif"
 
-# Necessary for "casier" method
-imperviousness_path: "Path to imperviousness density file"
-# Exemple : imperviousness_path: "donnees/imperviousness_lyon.tif"
+# Required for the "casier" method
+imperviousness_path: "donnees/imperviousness_default.tif"
 
-# Necessary for "casier" method
-output_path: "Path to output folder"
-# Exemple : output_path: "../casier_out"
+# Required for the "casier" method
+output_path: "output"
 
-# Necessary for "casier" method
-slope: {"mean_thresholded", "best_fit_plane", "slope_std_dev", "slope_max", "slope_mean_denoised"} # Choose between slope computing methods and remove brackets
-# Exemple : slope: "best_fit_plane"
+# Required for the "casier" method
+# Choose one of:
+# - "mean_thresholded"
+# - "best_fit_plane"
+# - "slope_std_dev"
+# - "slope_max"
+# - "slope_mean_denoised"
+slope: "best_fit_plane"
 
-# Necessary for "casier" method
-casiersize: 10 # Size of the casier in meters
+# Required for the "casier" method
+casiersize: 10
 
-# Necessary for "casier" method
-imperviousness_factor: 0.4 # Imperviousness weight for the casier method, between 0 and 1
+# Required for the "casier" method
+# Weight between 0 and 1. The slope weight is computed automatically as
+# 1 - imperviousness_factor.
+imperviousness_factor: 0.4
