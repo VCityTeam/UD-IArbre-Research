@@ -40,6 +40,9 @@ This repository gathers:
 
 - [assets/logos/](assets/logos): project and partner logos used in repository documents.
 
+## More information
+- [IA.rbre Project](https://iarbre.fr/)
+
 ## License
 
 This repository is distributed under the terms described in [LICENSE](LICENSE).
