@@ -35,6 +35,7 @@ This repository gathers:
 
 - [Data Science for Urban Desealing](desealing/README.md)
 - [Data Science for Sunlight and Shadow Analyses](sunlight-shadow/README.md)
+- [Voxel-Based Representation for Volumetric Modeling of Territories](voxelisation/README.md)
 
 ## Shared Assets
 
