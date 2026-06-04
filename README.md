@@ -31,11 +31,14 @@ This repository gathers:
 - [Task 3.4](deliverables/T3.4/README.md)
 - [Task 4.6](deliverables/T4.6/README.md)
 
+## Current Internships
+- [Voxel-Based Representation for Volumetric Modeling of Territories](voxelisation/README.md)
+- [3D Urban Shadow Modeling from LiDAR Point Clouds](shadow-modeling/README.md)
+
 ## Past Internships
 
 - [Data Science for Urban Desealing](desealing/README.md)
 - [Data Science for Sunlight and Shadow Analyses](sunlight-shadow/README.md)
-- [Voxel-Based Representation for Volumetric Modeling of Territories](voxelisation/README.md)
 
 ## Shared Assets
 
