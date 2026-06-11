@@ -1,1 +1,0 @@
-📝 **Ce document est actuellement en cours d’écriture.**

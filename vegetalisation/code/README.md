@@ -185,6 +185,18 @@ docker compose run --rm vegetalisation-gpu `
   --use-gpu
 ```
 
+docker compose run --rm vegetalisation `
+python run_workflow.py `
+--run-name urbatree `
+--experiment-config-dir configs/RGB50cm_Weights_more_modified `
+--nuage-json workdir/inputs/nuage.json `
+--ortho-json workdir/inputs/ortho.json `
+--reference-raster workdir/inputs/reference.tiff `
+--xmin-start 1843000 `
+--xmin-end 1847000 `
+--ymin-start 5174000 `
+--ymin-end 5178000
+
 This writes the confusion matrix image, metrics summary JSON, and evaluation log under
 `workdir/runs/1845_5175/evaluation/`.
 
