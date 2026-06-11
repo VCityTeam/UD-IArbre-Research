@@ -10,3 +10,8 @@ The project will also include a strong emphasis on documentation and reproducibi
 to FAIR principles, and contributing to open-source documentation to enable the reuse of the processing pipeline in other territories. 
 Particular attention will be paid to reproducibility, computational efficiency, and the transferability of the methods across different 
 territories.
+
+## Team
+- Karima Ouadah
+- John Samuel
+- Gilles Gesquière
