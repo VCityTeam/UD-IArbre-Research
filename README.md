@@ -40,6 +40,10 @@ This repository gathers:
 - [Data Science for Urban Desealing](desealing/README.md)
 - [Data Science for Sunlight and Shadow Analyses](sunlight-shadow/README.md)
 
+
+## Presentations
+- [Cartographie stratifiée de la végétation urbaine à Lyon par fusion d’orthophotos et de LiDAR](./presentations/UrbaTree-2026-06-09.pdf), Arthur Villarroya-Palau, John Samuel, Ludovic Darmet, Maxime Tribolet, Anthony Angelot, Gilles Gesquière, [UrbaTree](https://urbatree.sciencesconf.org/), June 9-10 2026, Rennes
+
 ## Shared Assets
 
 - [assets/logos/](assets/logos): project and partner logos used in repository documents.
