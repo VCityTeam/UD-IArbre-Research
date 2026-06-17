@@ -4,3 +4,8 @@ This internship focuses on analyzing urban evolution using time series of orthop
 The objective is to automatically detect and characterize changes affecting vegetation, buildings, and road networks in order to better understand 
 the transformation dynamics of urban neighborhoods. The work will rely on image processing and machine learning techniques to extract, 
 compare, and quantify spatio-temporal changes, thereby contributing to a deeper understanding of urbanization processes.
+
+# Team
+- Remi Azar
+- John Samuel
+- Gilles Gesquière
