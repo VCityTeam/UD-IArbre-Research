@@ -34,6 +34,7 @@ This repository gathers:
 ## Current Internships
 - [Voxel-Based Representation for Volumetric Modeling of Territories](voxelisation/README.md)
 - [3D Urban Shadow Modeling from LiDAR Point Clouds](shadow-modeling/README.md)
+- [Urban Change Detection from Orthophotographs](./urbanchangedetection/README.md)
 
 ## Past Internships
 
