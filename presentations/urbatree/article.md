@@ -27,7 +27,7 @@ Dans notre cas, nous avons fait le choix de définir trois strates de végétati
 
 La fusion repose ensuite sur des règles explicites. Lorsque le LiDAR fournit une information végétale exploitable, celle-ci est privilégiée pour attribuer les strates. Lorsque le LiDAR est absent ou invalide, le système se replie sur la sortie optique. Les seuils utilisés dans le workflow sont de 0,30 m et 5,0 m pour la branche LiDAR, et de 0,3 m et 5,0 m pour le repli optique. L’intérêt de cette approche est de rester interprétable : la fusion n’est pas opaque, elle repose sur une articulation claire entre segmentation d’image et information de hauteur.
 
-![Exemple de résultat de fusion à partir des orthophotos et du LiDAR.](figures/exemple_low_reweight.png)
+![Exemple de résultat de fusion à partir des orthophotos et du LiDAR.](images/exemple_low_reweight.png)
 
 ## 4. Résultats
 
@@ -37,7 +37,7 @@ Le résultat le plus net concerne les arbres, qui sont correctement détectés d
 
 Au niveau agrégé, les gains d’IoU moyen restent modestes, mais l’intérêt du workflow réside surtout dans la différenciation des classes. Les arbres sont déjà bien captés, la végétation herbacée progresse, tandis que les arbustes demeurent la classe la plus difficile. Ce résultat confirme que la strate intermédiaire constitue toujours le principal enjeu scientifique de la cartographie urbaine stratifiée.
 
-![Matrice de confusion d’une configuration fusionnée.](figures/confusion_matrix_percent_low_reweight.png)
+![Matrice de confusion d’une configuration fusionnée.](images/confusion_matrix_percent_low_reweight.png)
 
 ## 5. Limites de l’évaluation
 
