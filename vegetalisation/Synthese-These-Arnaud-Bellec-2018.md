@@ -2,7 +2,7 @@
 
 | FRANCE 2030 | Banque des Territoires, Groupe Caisse des Dépôts | IA.rbre | LIRIS |
 | --- | --- | --- | --- |
-| ![Logo FRANCE 2030](../Images/Logos/LogoFRANCE2030.svg) | ![Logo Banque des Territoires, Groupe Caisse des Dépôts](../Images/Logos/LogoBanquedesTerritoires.svg) | ![Logo IA.rbre](../Images/Logos/LogoIArbreWithPicto.svg) | ![Logo LIRIS](../Images/Logos/LogoLIRIS.svg) |
+| ![Logo FRANCE 2030](../assets/logos/LogoFRANCE2030.svg) | ![Logo Banque des Territoires, Groupe Caisse des Dépôts](../assets/logos/LogoBanquedesTerritoires.svg) | ![Logo IA.rbre](../assets/logos/LogoIArbreWithPicto.svg) | ![Logo LIRIS](../assets/logos/LogoLIRIS.svg) |
 
 ---
 
