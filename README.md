@@ -18,6 +18,7 @@ This repository gathers:
 - [data-pipelines/](data-pipelines/synthese.md): notes and references on data-pipeline topics.
 - [desealing/](desealing/README.md): internship work on urban desealing.
 - [sunlight-shadow/](sunlight-shadow/README.md): internship work on sunlight and shadow analysis.
+- [urbanchangedetection/](urbanchangedetection/README.md): Urban Change Detection from Orthophotographs
 
 ## Ongoing Work
 
