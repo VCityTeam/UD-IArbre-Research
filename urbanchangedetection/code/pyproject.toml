@@ -1,0 +1,36 @@
+[project]
+name = "vegetalisation-code"
+version = "0.1.0"
+description = "Utility scripts for vegetation processing workflows."
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.3,<9",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["."]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "UP",
+    "B",
+]
+ignore = [
+    "B008",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+docstring-code-format = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

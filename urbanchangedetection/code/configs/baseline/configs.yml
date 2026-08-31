@@ -1,0 +1,81 @@
+workflow:
+  orthophoto:
+    source_resolution:
+    output_resolution: 0.5
+  legacy:
+    run_legacy_fusion: false
+    apply_lidar_correction: true
+
+
+classes:
+  building:
+    flair_bands: [0]
+    lidar_valid_classes: [6]
+    height_threshold: 0.0
+    height_change_threshold: 2.0
+
+  vegetation:
+    flair_bands: [8, 12, 13, 14]   # herbaceous, deciduous, coniferous, brushwood
+    lidar_valid_classes: [3, 4, 5, 8]  # à adapter selon votre nomenclature LiDAR
+    height_threshold: 0.0
+    height_change_threshold: 3.0    # un arbre bouge plus qu'un toit
+
+lidar:
+  building_class : 6
+  ground_classes:
+    - 0                  # non classifié (souvent sol)
+    - 2                  # sol nu (classe standard LiDAR HD IGN)
+  optional_class_1: 1
+  mask_excluded_value: 255
+  height_threshold: 1.0
+
+# Modif si besoin
+flair:
+  building_class : 0
+  mask_excluded_value: 255
+  # height_thresholds:
+  #  low_to_medium: 0.3
+  #  medium_to_high: 5.0
+  reweight:
+    weights:
+      0: 1 # building
+      1: 1 # greenhouse (serre)
+      2: 1 # swimming_pool
+      3: 1 # impervious surface
+      4: 1 # pervious surface
+      5: 1 # bare soil
+      6: 1 # water
+      7: 1 # snow
+      8: 1 # herbaceous vegetation
+      9: 1 # agricultal land
+      10: 1 # plowed land (terre labourée))
+      11: 1 # vineyard (vignoble)
+      12: 1 # deciduous (feuillus, arbres denses)
+      13: 1 # coniferous (conifères, arbres denses)
+      14: 1 # brushwood (arbustes, broussailles)
+      15: 1 # clear cut (zone déboisée)
+      16: 1 # ligneous (arbres isolés, haies)
+      17: 1 # mixed (mélange de végétation)
+      18: 1 # undefined
+    mapping:
+       0: 0
+    ignore_value: 255
+
+evaluation:
+  reference_remap:
+    1: 0
+    2: 1
+    3: 1
+    4: 2
+    5: 2
+  prediction_remap:
+    0: 0
+    1: 1
+    2: 2
+    3: 2
+  class_names:
+    0: Building
+    1: Other 
+  empty_class_id: 3 # ?
+
+

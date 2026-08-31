@@ -1,0 +1,7 @@
+code/workdir/
+code/.pytest_tmp/
+code/.test_tmp/
+code/.ruff_cache/
+code/.pytest_cache/
+code/__pycache__/
+code/pytest-cache-files-*/

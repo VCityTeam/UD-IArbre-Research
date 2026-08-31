@@ -1,0 +1,121 @@
+from __future__ import annotations
+import argparse
+from pathlib import Path
+import numpy as np
+import rasterio
+import yaml
+
+DEFAULT_MATRIX_CONFIG = Path("configs/baseline/configs.yml")
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Reweight class probabilities, then filter and remap target classes."
+    )
+    # Raster de probabilités FLAIR en entrée : shape (N_classes, hauteur, largeur)
+    # Chaque bande = probabilité d'une classe pour chaque pixel
+    parser.add_argument("--input", "-i", type=Path, required=True, help="Input probability GeoTIFF")
+    # Raster de sortie : une seule bande, avec la classe prédite après pondération
+    parser.add_argument("--output", "-o", type=Path, required=True, help="Output remapped GeoTIFF")
+    parser.add_argument("--matrix-config", type=Path, default=DEFAULT_MATRIX_CONFIG)
+    return parser.parse_args()
+
+
+def resolve_matrix_config_path(config_path: Path) -> Path:
+    # Si le chemin est relatif, le résout depuis le répertoire du script
+    if config_path.is_absolute():
+        return config_path
+    return Path(__file__).resolve().parent / config_path
+
+
+def load_reweight_config(config_path: Path) -> tuple[dict[int, float], dict[int, int], int]:
+    with config_path.open("r", encoding="utf-8") as handle:
+        config = yaml.safe_load(handle)
+    if not isinstance(config, dict):
+        raise ValueError(f"Invalid matrix config: {config_path}")
+
+    # Structure dans le YAML :
+    #   flair:
+    #     reweight:
+    #       weights:
+    #         0: 2.0
+    #         Le reste: 1
+    #       mapping:           # Filtre + renomme les classes après argmax
+    #         0: 0             # classe FLAIR 0 → classe de sortie 0
+    #       ignore_value: 255  # Valeur nodata pour les pixels non ciblés
+    try:
+        reweight_config = config["flair"]["reweight"]
+    except KeyError as exc:
+        raise KeyError(
+            f"Missing flair.reweight configuration in matrix config: {config_path}"
+        ) from exc
+
+    weights = {int(k): float(v) for k, v in reweight_config["weights"].items()}
+    mapping = {int(k): int(v) for k, v in reweight_config["mapping"].items()}
+    ignore_value = int(reweight_config["ignore_value"])
+    return weights, mapping, ignore_value
+
+
+def reweight_and_filter(
+    input_tif: Path,
+    output_tif: Path,
+    weights: dict[int, float] | None = None,
+    mapping: dict[int, int] | None = None,
+    ignore_value: int | None = None,
+    matrix_config_path: Path = DEFAULT_MATRIX_CONFIG,
+) -> None:
+    config_weights, config_mapping, config_ignore_value = load_reweight_config(
+        resolve_matrix_config_path(matrix_config_path)
+    )
+    # Priorité : arguments Python > config YAML
+    weights = weights or config_weights
+    mapping = mapping or config_mapping
+    ignore_value = config_ignore_value if ignore_value is None else int(ignore_value)
+
+    # Charge le raster de probabilités : shape = (N_classes, H, W)
+    # Chaque pixel a un vecteur de N_classes probabilités, une par bande
+    with rasterio.open(input_tif) as src:
+        probs = src.read().astype(np.float32)
+        meta = src.meta.copy()
+
+    # Vérifie que les classes à pondérer existent bien dans le raster
+    missing_classes = [c for c in weights if c >= probs.shape[0]]
+    if missing_classes:
+        raise ValueError(
+            f"Weight(s) defined for missing class band(s): {missing_classes}. "
+            f"Input only contains {probs.shape[0]} band(s)."
+        )
+
+    # Applique les poids aux probabilités : multiplie chaque bande par son poids
+    # La seule chose qui chose, c'est le poids des bâtiments (classe 0) : 2.0, le reste = 1
+    for class_id, weight in weights.items():
+        probs[class_id] *= weight
+
+    # Argmax : pour chaque pixel, choisit la classe avec la probabilité la plus haute
+    # Résultat : raster 2D (H, W) avec la classe prédite (entier)
+    prediction = np.argmax(probs, axis=0).astype(np.uint8)
+
+    # Remapping : ici ça change pas grand chose, puisque la classe 0 reste 0, mais ça permet de filtrer les classes non ciblées
+    filtered = np.full(prediction.shape, ignore_value, dtype=np.uint8)
+    for original_class, mapped_class in mapping.items():
+        filtered[prediction == original_class] = mapped_class
+
+    # Sauvegarde le résultat : 1 bande, dtype uint8, nodata = ignore_value
+    meta.update(count=1, dtype="uint8", nodata=ignore_value)
+    output_tif.parent.mkdir(parents=True, exist_ok=True)
+    with rasterio.open(output_tif, "w", **meta) as dst:
+        dst.write(filtered, 1)
+    print(f"Saved reweighted raster to: {output_tif}")
+
+
+def main() -> None:
+    args = parse_args()
+    reweight_and_filter(
+        args.input,
+        args.output,
+        matrix_config_path=args.matrix_config,
+    )
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,35 @@
+services:
+  change-detection:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        FLAIR_HUB_REF: ${FLAIR_HUB_REF:-main}
+        TORCH_WHEEL_CHANNEL: cpu
+    image: ud-iarbre-change-detection:cpu
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - ${WORKDIR_HOST:-./workdir}:/workspace/workdir
+      - hf_cache:/root/.cache/huggingface
+
+  change-detection-gpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        FLAIR_HUB_REF: ${FLAIR_HUB_REF:-main}
+        TORCH_WHEEL_CHANNEL: cu124
+    image: ud-iarbre-change-detection:gpu
+    working_dir: /workspace
+    gpus: all
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    volumes:
+      - .:/workspace
+      - ${WORKDIR_HOST:-./workdir}:/workspace/workdir
+      - hf_cache:/root/.cache/huggingface
+
+volumes:
+  hf_cache:
