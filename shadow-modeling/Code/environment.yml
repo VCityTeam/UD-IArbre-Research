@@ -1,0 +1,19 @@
+name: shadow_modeling
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.11.15
+  - python-pdal
+  - laspy
+  - numpy
+  - matplotlib
+  - rasterio
+  - urllib3
+  - scipy
+  - scikit-image
+  - requests
+  - pip
+  - pip:
+      - lazrs
