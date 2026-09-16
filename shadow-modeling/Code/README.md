@@ -45,20 +45,20 @@ docker run -it --rm -v "${PWD}:/app" shadow_modeling Method1.py
 docker run -it --rm -v "${PWD}:/app" shadow_modeling Method2.py
 ```
 
+
+### Input data
+
+The program takes as input several pieces of information provided by the user:
+- A date in numerical format **(e.g., 07/09/2023)**.
+- The X_min and Y_min positions of the desired LiDAR tile **(e.g., X_min : 1848000 ; Y_min : 5180000)**.
+The tile positions are available on the website of **[DataGrandLyon](https://data.grandlyon.com/portail/fr/jeux-de-donnees/nuage-de-points-lidar-2023-de-la-metropole-de-lyon/donnees)**.
+- After calculating the sun's positions for the desired date, the program asks the user to select a time of day to use for the calculation **(e.g., Program "2: 10H20" -> User : "2")**.
+
 <br>
 
 ### Result
 
 The generated shadow map, depending on the chosen method **Method 1 or 2**, is saved in **TIFF** format in the **`Data`** folder located at the project root.
 
-<br>
-
-## Input data
-
-The program takes as input several pieces of information provided by the user:
-- A date in numerical format **(e.g., 07/09/2023)**.
-- The X_min and Y_min positions of the desired LiDAR tile **(e.g., X_min : 1848000 ; Y_min : 5180000)**.
-The tile positions are available on the website of **[DataGrandLyon](https://data.grandlyon.com/portail/fr/jeux-de-donnees/nuage-de-points-lidar-2023-de-la-metropole-de-lyon/donnees)**.
-- After calculating the sun's positions for the desired date, the program asks the user to select a time of day to use for the calculation **(e.g., Programme "2: 10H20" -> User : "2")**.
 
 
