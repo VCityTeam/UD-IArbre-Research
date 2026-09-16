@@ -26,10 +26,13 @@ from rasterio.transform import from_origin
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# Def sunpos : The function calculates the sun's positions every three hours throughout the day for a given date and stores them in the 'time_list' array.
+# Parameters : latitude, tau angle, date
+# Outputs : elevations, azimuths, hour_angles, time_list
 def sunpos(latitude_deg, tau_deg, date):
     phi = math.radians(latitude_deg)
-    n = date.timetuple().tm_yday
-    Delta = (2.0 * math.pi * n) / 365.25
+    n_day_in_year = date.timetuple().tm_yday
+    Delta = (2.0 * math.pi * n_day_in_year) / 365.25
     delta = math.asin(
         0.3978 * math.sin(Delta - 1.4 + 0.0355 * math.sin(Delta - 0.0489))
     )
@@ -101,6 +104,8 @@ def bresenham(x0, y0, x1, y1):
 
     return points
 
+# Def process_cell : The function takes various parameters and tests whether a point is in shadow; if so, it adds the point to the 'shadow' list
+# Parameters : ix (x position of the cell), iy (y position of the cell), z (z coordinate of the cell), alpha (solar elevation), psi (solar azimuth), DSM, shadow list
 def process_cell(ix, iy, z, alpha, psi, DSM,  shadow):
     if alpha <= 0:
         return
@@ -144,6 +149,8 @@ def process_cell(ix, iy, z, alpha, psi, DSM,  shadow):
         if beta >= alpha:   #
             shadow.append((x, y, z_sol))
 
+# Def process_cell : (vegetation) The function takes various parameters and tests whether a point is in shadow; if so, it adds the point to the 'shadow_vegetation' list
+# Parameters : ix (x position of the cell), iy (y position of the cell), alpha (solar elevation), psi (solar azimuth), DSM, shadow_vegetation list, DSM CANOPE TOP, DSM CANOPE BOTTOM, DTM
 def process_cell_vegetation(ix, iy, alpha, psi, DSM, shadow_vegetation, dsm_canope_top, dsm_canope_bottom, DTM):
 
     if alpha <= 0:
