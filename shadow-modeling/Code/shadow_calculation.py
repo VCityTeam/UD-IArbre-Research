@@ -1,35 +1,35 @@
 import math
 import numpy as np
 
-def bresenham(x0, y0, x1, y1):
-    x0, y0 = int(round(x0)), int(round(y0))
-    x1, y1 = int(round(x1)), int(round(y1))
+def bresenham(x_cell, y_cell, x_project_end, y_project_end):
+    x_cell, y_cell = int(round(x_cell)), int(round(y_cell))
+    x_project_end, y_project_end = int(round(x_project_end)), int(round(y_project_end))
 
     points = []
 
-    dx = abs(x1 - x0)
-    dy = abs(y1 - y0)
+    dx = abs(x_project_end - x_cell)
+    dy = abs(y_project_end - y_cell)
 
-    sx = 1 if x0 < x1 else -1
-    sy = 1 if y0 < y1 else -1
+    sx = 1 if x_cell < x_project_end else -1
+    sy = 1 if y_cell < y_project_end else -1
 
     err = dx - dy
 
     while True:
-        points.append((x0, y0))
+        points.append((x_cell, y_cell))
 
-        if x0 == x1 and y0 == y1:
+        if x_cell == x_project_end and y_cell == y_project_end:
             break
 
         e2 = 2 * err
 
         if e2 > -dy:
             err -= dy
-            x0 += sx
+            x_cell += sx
 
         if e2 < dx:
             err += dx
-            y0 += sy
+            y_cell += sy
 
     return points
 
