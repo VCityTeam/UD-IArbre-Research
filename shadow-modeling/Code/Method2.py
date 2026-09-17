@@ -37,8 +37,8 @@ def main():
     bvh = BVHNode(cells)
 
     alpha_list, psi_list, omega, time = sunpos(
-        latitude_deg=45.75,
-        tau_deg= 45,
+        latitude_deg=45.75, # latitude of Lyon
+        tau_deg= 45, # time intervals 
         date=date
     )
 
