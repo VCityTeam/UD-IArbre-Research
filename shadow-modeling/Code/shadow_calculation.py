@@ -2,6 +2,7 @@ import math
 import numpy as np
 
 def bresenham(x_cell, y_cell, x_project_end, y_project_end):
+
     x_cell, y_cell = int(round(x_cell)), int(round(y_cell))
     x_project_end, y_project_end = int(round(x_project_end)), int(round(y_project_end))
 
@@ -49,6 +50,7 @@ def process_cell(ix, iy, z, alpha, psi, DSM,  shadow):
     x_top = ix - dx
     y_top = iy - dy
 
+    # line : grid cell traversed by the shadow ray
     line = bresenham(ix, iy, x_top, y_top)
 
     ix = int(ix)
