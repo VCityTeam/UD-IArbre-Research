@@ -50,14 +50,14 @@ def process_cell(ix, iy, z, alpha, psi, DSM,  shadow):
     x_top = ix - dx
     y_top = iy - dy
 
-    # line : grid cell traversed by the shadow ray
-    line = bresenham(ix, iy, x_top, y_top)
+    # list_cases_by_direction : grid cell traversed by the shadow ray
+    list_cases_by_direction = bresenham(ix, iy, x_top, y_top)
 
     ix = int(ix)
     iy = int(iy)
     z_source = DSM[iy, ix]
 
-    for x, y in line[1:]:
+    for x, y in list_cases_by_direction[1:]:
 
         if (
                 x < 0 or x >= DSM.shape[1] or
@@ -109,11 +109,11 @@ def process_cell_vegetation(ix, iy, alpha, psi, DSM, shadow_vegetation, dsm_cano
     x_end = ix - dx
     y_end = iy - dy
 
-    line = bresenham(ix, iy, x_end, y_end)
+    list_cases_by_direction = bresenham(ix, iy, x_end, y_end)
 
     ombre = False
 
-    for x, y in line[1:]:
+    for x, y in list_cases_by_direction[1:]:
 
         if (
                 x < 0 or x >= DSM.shape[1] or
