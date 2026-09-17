@@ -1,12 +1,18 @@
 import math
 
 # Def sunpos : The function calculates the sun's positions every three hours throughout the day for a given date and stores them in the 'time_list' array.
-# Parameters : latitude, tau angle, date
-# Outputs : elevations, azimuths, hour_angles, time_list
+# Source of this function : https://www.mdpi.com/2220-9964/10/9/583
+# Parameters : latitude, tau angle (time intervals), date
+# Outputs : elevations, azimuths, hour_angles (angular displacement of the sun east or west of the local meridian), time_list
 def sunpos(latitude_deg, tau_deg, date):
     phi = math.radians(latitude_deg)
     n_day_in_year = date.timetuple().tm_yday
+
+    # Delta : day angle
     Delta = (2.0 * math.pi * n_day_in_year) / 365.25
+
+    # delta : sun declination
+    # The constants are part of the formula proposed by the article that is the source of this function.
     delta = math.asin(
         0.3978 * math.sin(Delta - 1.4 + 0.0355 * math.sin(Delta - 0.0489))
     )
