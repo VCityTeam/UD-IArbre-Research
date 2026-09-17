@@ -69,8 +69,8 @@ def main():
     with open("Data/coord_shadow_sm1.txt", "w") as f:
         for X, Y, Z in shadow:
             f.write(f"{X+int(x_min)} {Y+int(y_min)} {Z}\n")
-    plot_shadow(shadow, time, time_index, x_min, y_min, day, month, year, "Method 1 Shadow Map")
-    georef_shadow_save(shadow, int(x_min), int(y_min), DSM, 1.0, "Method1")
+    save_plot_shadow(shadow, time, time_index, x_min, y_min, day, month, year, "Method 1 Shadow Map", "Method 1")
+    georef_shadow_save(shadow, int(x_min), int(y_min), DSM, 1.0, "Method1_georef")
 
 if __name__ == "__main__":
     main()

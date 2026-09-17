@@ -4,7 +4,7 @@ import rasterio
 from rasterio.transform import from_origin
 import numpy as np
 
-def plot_shadow(shadow, time, time_index, x_min, y_min, day, month, year, title):
+def save_plot_shadow(shadow, time, time_index, x_min, y_min, day, month, year, title, method_name):
     if shadow is None:
         print("Error: shadow is None.")
         return
@@ -36,17 +36,19 @@ def plot_shadow(shadow, time, time_index, x_min, y_min, day, month, year, title)
     plt.axis("equal")
     plt.legend()
     plt.title(f"{title}\nX_min : {x_min} Y_min : {y_min}\nPeriod : {time_index} Hour : {time[time_index]}\nDate : {day}-{month}-{year}")
-    print("plot ready")
-    plt.show()
 
-def georef_shadow_save(
-        shadow,
-        x_min,
-        y_min,
-        DSM,
-        resolution,
-        method_name
-):
+    Path("Data").mkdir(exist_ok=True)
+
+    plt.savefig(
+        Path("Data") / f"{method_name}.png",
+        dpi=300,
+        bbox_inches="tight",
+        format="png"
+    )
+
+    plt.close()
+
+def georef_shadow_save(shadow, x_min, y_min, DSM, resolution, method_name):
     if shadow is None:
         print("Error: shadow is None.")
         return
