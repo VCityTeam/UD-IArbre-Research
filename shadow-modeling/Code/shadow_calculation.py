@@ -73,3 +73,64 @@ def process_cell(ix, iy, z, alpha, psi, DSM,  shadow):
 
         if beta >= alpha:
             shadow.append((x, y, z_cell))
+
+# Def process_cell_vegetation : (vegetation) The function takes various parameters and tests whether a point is in shadow; if so, it adds the point to the 'shadow_vegetation' list
+# Parameters : ix (x position of the cell), iy (y position of the cell), alpha (solar elevation), psi (solar azimuth), DSM, shadow_vegetation list, DSM CANOPE TOP, DSM CANOPE BOTTOM, DTM
+def process_cell_vegetation(ix, iy, alpha, psi, DSM, shadow_vegetation, dsm_canope_top, dsm_canope_bottom, DTM):
+
+    if alpha <= 0:
+        return
+
+    ix = int(ix)
+    iy = int(iy)
+
+    z_source = dsm_canope_top[iy, ix]
+
+    if z_source == -np.inf:
+        return
+
+    h = z_source - DTM[iy, ix]
+
+    if h <= 0:
+        return
+
+    theta = psi - math.pi
+
+    D = min(
+        h / math.tan(alpha),
+        2 * max(DSM.shape)
+    )
+
+    dx = -D * math.sin(theta)
+    dy = -D * math.cos(theta)
+
+    x_end = ix - dx
+    y_end = iy - dy
+
+    line = bresenham(ix, iy, x_end, y_end)
+
+    ombre = False
+
+    for x, y in line[1:]:
+
+        if (
+                x < 0 or x >= DSM.shape[1] or
+                y < 0 or y >= DSM.shape[0]
+        ):
+            continue
+
+        d = np.hypot(x - ix, y - iy)
+
+        z_ray = z_source - d * math.tan(alpha)
+
+        z_top = dsm_canope_top[y, x]
+        z_bottom = dsm_canope_bottom[y, x]
+        z_sol = DTM[y, x]
+
+        if z_top != -np.inf:
+
+            if z_bottom <= z_ray <= z_top:
+                ombre = True
+
+        if ombre and z_sol < z_ray < z_bottom:
+            shadow_vegetation.append((x, y, z_sol))

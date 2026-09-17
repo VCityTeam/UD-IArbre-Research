@@ -1,4 +1,9 @@
 import numpy as np
+import laspy
+from scipy.spatial import cKDTree
+from scipy.stats import binned_statistic_2d
+from skimage.feature import peak_local_max
+from skimage.segmentation import watershed
 
 def capone_laz_generate(laz_file):
 
