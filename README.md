@@ -49,6 +49,9 @@ This repository gathers:
 ## Presentations
 - [Cartographie stratifiée de la végétation urbaine à Lyon par fusion d’orthophotos et de LiDAR](./presentations/UrbaTree-2026-06-09.pdf), Arthur Villarroya-Palau, John Samuel, Ludovic Darmet, Maxime Tribolet, Anthony Angelot, Gilles Gesquière, [UrbaTree](https://urbatree.sciencesconf.org/), June 9-10 2026, Rennes
 
+## Posters
+- **Croiser les données territoriales pour végétaliser la ville face au changement climatique**, Corentin Gautier , Arthur Villarroya-Palau , Remi Azar , Karima Ouadah , Nikolaos Vynios , John Samuel et Gilles Gesquière, Journées Scientifiques du PEPR Ville Durable Bâtiments Innovants (PEPR VDBI) 2026,  29 sept.-1 oct. 2026, Rennes
+
 ## Shared Assets
 
 - [assets/logos/](assets/logos): project and partner logos used in repository documents.
