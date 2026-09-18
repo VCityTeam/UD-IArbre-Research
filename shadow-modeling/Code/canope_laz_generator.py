@@ -5,6 +5,9 @@ from scipy.stats import binned_statistic_2d
 from skimage.feature import peak_local_max
 from skimage.segmentation import watershed
 
+# Def canope_laz_generate : The function generates the canopy LAZ file and produces various outputs.
+# Parameters : laz_file
+# Outputs :output_file, dsm_canope_top, dsm_canope_bottom, chm, dtm
 def capone_laz_generate(laz_file):
 
     las = laspy.read(laz_file)
