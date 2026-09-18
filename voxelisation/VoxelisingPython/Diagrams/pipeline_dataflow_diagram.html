@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voxelizer - Pipeline & Data-Flow Diagrams</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    margin:0; background:#0f1419; color:#e6edf3; }
+  header { padding:28px 24px; border-bottom:1px solid #22303c; background:#111a22; }
+  header h1 { margin:0 0 6px; font-size:22px; }
+  header p { margin:0; color:#9fb0c0; font-size:14px; max-width:75ch; }
+  nav { padding:14px 24px; border-bottom:1px solid #22303c; }
+  nav ul { list-style:none; display:flex; flex-wrap:wrap; gap:8px 18px; margin:0; padding:0; }
+  nav a { color:#58a6ff; text-decoration:none; font-size:14px; }
+  nav a:hover { text-decoration:underline; }
+  main { padding:8px 24px 60px; }
+  section { margin:34px 0; }
+  section h2 { font-size:18px; border-left:4px solid #1f6feb; padding-left:10px; }
+  .mermaid { background:#ffffff; border:1px solid #22303c; border-radius:10px;
+    padding:18px; overflow:auto; }
+  footer { padding:20px 24px; color:#7d8ea0; font-size:13px; border-top:1px solid #22303c; }
+  code { background:#1b2530; padding:1px 5px; border-radius:5px; }
+</style></head><body>
+<header>
+  <h1>Voxelizer &mdash; Pipeline &amp; Data-Flow Diagrams</h1>
+  <p>Interactive rendering of the eight diagrams describing the IA.rbre LiDAR voxelizer:
+     architecture, the struct-of-arrays data model, the two-stage numpy core, the three
+     voxelization paths, the stage-based output fan-out (with the streaming 3-D viewer and
+     the 3-D Tiles export), the module import graph, the crash-isolation &amp; recovery flow,
+     and the post-voxelization refinement / analysis / reconstruction layer with its
+     multi-viewer export targets (3-D Tiles &rarr; Unreal / Unity / Cesium / iTowns).</p>
+</header>
+<nav><ul><li><a href="#s1">1. Top-Level System Architecture</a></li><li><a href="#s2">2. Data Structures Hierarchy &amp; Memory Model</a></li><li><a href="#s3">3. Two-Stage Voxelization Core Algorithm</a></li><li><a href="#s4">4. Voxelization Paths & Sharded Pipeline</a></li><li><a href="#s5">5. Output & Visualization Pipelines</a></li><li><a href="#s6">6. Module Dependency Graph</a></li><li><a href="#s7">7. Stage-Isolated Execution & Recovery</a></li><li><a href="#s8">8. Refinement, Analysis, Reconstruction &amp; Multi-Viewer Export</a></li></ul></nav>
+<main><section id="s1"><h2>1. Top-Level System Architecture</h2><div class="mermaid">flowchart TD
+    subgraph EntryPoints [&quot;USER ENTRY POINTS&quot;]
+        A3[&quot;GUI (Tkinter)&lt;br&gt;gui_area.py / run_area.bat&quot;]
+        A1[&quot;CLI: single tile&lt;br&gt;python -m voxelizer single&quot;]
+        A2[&quot;CLI: area / bbox&lt;br&gt;python -m voxelizer.area_cli area&quot;]
+        A5[&quot;CLI: 3-D&lt;br&gt;viz3d_cli single | from-store | stream&quot;]
+        A6[&quot;Viewer server&lt;br&gt;serve_voxel_html / run_viewer.bat&quot;]
+        A7[&quot;Diagnostics wrapper&lt;br&gt;voxel_runner_diagnos.py -- ANY CLI&quot;]
+        A4[&quot;Python import&lt;br&gt;from voxelizer import ...&quot;]
+    end
+
+    subgraph Dispatch [&quot;Dispatch and control&quot;]
+        B1[&quot;pipeline.process_single_tile()&lt;br&gt;return_store=True: 3-D reuses the grid&quot;]
+        B2[&quot;area_cli.main()&quot;]
+        B7{&quot;--resume-from-store?&quot;}
+        B3{&quot;--shard?&quot;}
+        B5[&quot;run_area()  (GUI target)&quot;]
+        B4[&quot;GUI subprocess dispatch&lt;br&gt;crash-isolated child per job;&lt;br&gt;optional diagnostics wrap (--serve)&quot;]
+    end
+
+    subgraph Processing [&quot;Processing modes&quot;]
+        C4[&quot;preflight: --preflight-only /&lt;br&gt;--max-rss-mb watchdog (30% overhead estimate)&quot;]
+        B6{&quot;--stream?&quot;}
+        C1[&quot;area.process_area()&lt;br&gt;local tiles, one merged store&quot;]
+        C2[&quot;area.process_area_streamed()&lt;br&gt;download-voxelize-discard, merge&quot;]
+        C3[&quot;sharding.run_area_sharded()&lt;br&gt;O(1 tile) fold; isolated merge phase&lt;br&gt;(skippable: --columns-mode skip)&quot;]
+        C5[&quot;grouping (default ON)&lt;br&gt;store.grouped(): merge consecutive&lt;br&gt;same-class intervals; raw kept first&quot;]
+    end
+
+    subgraph Core [&quot;SHARED VOXELIZATION CORE (voxelize.py)&quot;]
+        D1[&quot;voxelize_laz()  whole-file&quot;]
+        D2[&quot;voxelize_laz_chunked()  streamed&quot;]
+        D3[&quot;voxelize()  in-memory arrays&quot;]
+    end
+
+    Data[&quot;ColumnStore (data_structures.py)&lt;br&gt;struct-of-arrays: 16 B/col + 13 B/interval&quot;]
+
+    subgraph Writer [&quot;Output writer&quot;]
+        W1{&quot;--isolate-stages?&lt;br&gt;(default ON)&quot;}
+        W2[&quot;_write_outputs_isolated()&lt;br&gt;store_raw/ mmap + stage_runner children&lt;br&gt;retry-on-native-fault, stages.json&quot;]
+        W3[&quot;_write_outputs()&lt;br&gt;historical in-process path&quot;]
+    end
+
+    subgraph Persist [&quot;Persisted grids (re-render sources)&quot;]
+        P1[&quot;store_raw/ (mmap, resume)  |  area_raw.npz&lt;br&gt;area.npz + area_manifest.json  |  shards/*.npz&quot;]
+    end
+
+    subgraph Outputs [&quot;Rendered outputs&quot;]
+        O3[&quot;stats.txt + stages.json&quot;]
+        O1[&quot;2-D maps (4x PNG)&quot;]
+        O4[&quot;columns/ diagnostics&quot;]
+        O2[&quot;legacy 3-D: full/roi HTML, .vxg, PLY, VTK&quot;]
+        O5[&quot;streaming 3-D: *_stream.html&lt;br&gt;+ .bin + .idx.json (full detail)&quot;]
+    end
+
+    A1 --&gt; B1
+    A2 --&gt; B2
+    A3 --&gt; B4
+    A4 --&gt; B1
+    A4 --&gt; C1
+    A4 --&gt; C2
+    A5 --&gt; D1
+    A5 --&gt; O2
+    A5 --&gt; O5
+
+    B4 -. spawns .-&gt; A1
+    B4 -. spawns .-&gt; A2
+    A7 -. wraps + monitors .-&gt; B4
+
+    B2 --&gt; B7
+    B7 -- yes: skip voxelization --&gt; W2
+    B7 -- no --&gt; B3
+    B3 -- yes --&gt; C3
+    B3 -- no --&gt; B5
+    B5 --&gt; C4
+    C4 --&gt; B6
+    B6 -- yes --&gt; C2
+    B6 -- no --&gt; C1
+    C1 --&gt; C5
+    C2 --&gt; C5
+    C5 --&gt; W1
+    W1 -- yes --&gt; W2
+    W1 -- no --&gt; W3
+
+    B1 --&gt; D1
+    B1 -. &quot;--viz3d / --viz3d-stream&quot; .-&gt; O2
+    B1 -. &quot; &quot; .-&gt; O5
+    C1 --&gt; D2
+    C1 --&gt; D3
+    C2 --&gt; D2
+    C3 --&gt; D2
+
+    D1 --&gt; Data
+    D2 --&gt; Data
+    D3 --&gt; Data
+
+    Data --&gt; W1
+    W2 --&gt; P1
+    W3 --&gt; P1
+    W2 --&gt; O3
+    W2 --&gt; O1
+    W2 --&gt; O4
+    W2 --&gt; O2
+    W2 --&gt; O5
+    W3 --&gt; O3
+    W3 --&gt; O1
+    W3 --&gt; O4
+    W3 --&gt; O2
+    W3 --&gt; O5
+    P1 -. &quot;from-store / --resume-from-store re-render&quot; .-&gt; O2
+    A6 -. &quot;serves .bin via HTTP Range 206&quot; .-&gt; O5
+
+    style Core fill:#2d3b4a,color:#fff,stroke:#fff
+    style Data fill:#1a5276,color:#fff,stroke:#fff
+    style Outputs fill:#1e8449,color:#fff
+    style Persist fill:#7d6608,color:#fff
+    style Writer fill:#6c3483,color:#fff</div></section><section id="s2"><h2>2. Data Structures Hierarchy &amp; Memory Model</h2><div class="mermaid">classDiagram
+    class ColumnStore {
+        +float x_min, y_min, z_min
+        +float cell_xy, cell_z
+        +ndarray~uint64~ _keys : packed (ix,iy), sorted
+        +ndarray~int64~ _off : per-column offsets
+        +ndarray~int32~ _zs : interval z_start
+        +ndarray~int32~ _ze : interval z_end (exclusive)
+        +ndarray~uint8~ _cl : ASPRS class
+        +ndarray~int32~ _ct : point count
+        +ndarray~int32~ _gi : ground index (lazy, cached, or None)
+        +_ColumnsView columns
+        +from_intervals() ColumnStore
+        +save() / load()  compressed .npz
+        +save_dir() / load_dir(mmap)  raw stage-exchange dir
+        +swap_to_dir_mmap()  free heap, keep API
+        +release_arrays()  unmap for dir deletion
+        +grouped(max_gap_cells) ColumnStore
+        +merge(other, *, inplace, atol)
+        +merge_many(stores) : one-pass batch fold (classmethod)
+        +stats() dict
+        +column_summaries(need_dom) dict
+        +interval_counts() ndarray
+        +key_bounds() tuple
+        +index_to_xyz()
+        +n_intervals int
+        +ground_idx int32 ndarray
+        +nbytes() int
+        +column_class_profile() dict
+        +class_presence() dict
+        +class_overlap_stats() dict
+        +_find(ix,iy) int : np.searchsorted (O log n)
+    }
+    class _ColumnsView {
+        +read-only Mapping
+        +__getitem__(ix,iy) Column
+        +get / items / keys / values
+        +keys() generator
+    }
+    class Column {
+        +ndarray~int32~ z_start
+        +ndarray~int32~ z_end
+        +ndarray~uint8~ cls
+        +ndarray~int32~ count
+        +iter_intervals() Interval
+    }
+    class Interval {
+        +int z_start_idx
+        +int z_end_idx (exclusive)
+        +int class_id
+        +int point_count
+        +height_voxels
+        +class_name
+    }
+
+    ColumnStore &quot;1&quot; *-- &quot;1&quot; _ColumnsView : columns property
+    _ColumnsView &quot;1&quot; --&gt; &quot;*&quot; Column : zero-copy array slices
+    Column &quot;1&quot; --&gt; &quot;*&quot; Interval : materialized on demand
+
+    note for ColumnStore &quot;Struct-of-arrays: ~16 B/column + ~13 B/interval,
+    30-50x smaller than the old dict layout (~874 B/col).
+    Two persistence formats: save() = portable compressed .npz;
+    save_dir() = one raw .npy per array + meta.json commit marker,
+    mmap-able so stage children attach zero-copy (clean, OS-evictable
+    pages). grouped() merges consecutive same-class intervals
+    (sparse-return defragmentation) preserving per-class point totals.&quot;</div></section><section id="s3"><h2>3. Two-Stage Voxelization Core Algorithm</h2><div class="mermaid">flowchart TD
+    subgraph Inputs [&quot;Raw point arrays&quot;]
+        I1[&quot;x, y, z : float64[N]&quot;]
+        I2[&quot;cls : uint8[N]&quot;]
+        I3[&quot;origin x0,y0,z0 + cell_xy, cell_z&quot;]
+    end
+
+    subgraph Stage1 [&quot;STAGE 1: _cells_from_points()&quot;]
+        S1[&quot;1. Voxel indices&lt;br&gt;ix=floor((x-x0)/cell_xy)&lt;br&gt;iy=floor((y-y0)/cell_xy)&lt;br&gt;iz=floor((z-z0)/cell_z)&quot;]
+        S2[&quot;2. Canonical sort&lt;br&gt;np.lexsort((cls, iz, iy, ix))&quot;]
+        S3[&quot;3. Boundaries via np.diff&lt;br&gt;on ix, iy, iz, cls&quot;]
+        S4[&quot;4. Collapse to unique cells&lt;br&gt;u_ix, u_iy, u_iz, u_cls, u_count&quot;]
+    end
+
+    subgraph Stage2 [&quot;STAGE 2: _store_from_cells()&quot;]
+        T1{&quot;aggregate?&quot;}
+        T2[&quot;Re-sort + sum duplicate cells&lt;br&gt;np.add.reduceat (streamed/area exactness)&quot;]
+        T3[&quot;Skip (cells already unique)&quot;]
+        T4[&quot;5. Vertical RLE&lt;br&gt;break where (ix,iy,cls) changes OR iz step != 1&quot;]
+        T5[&quot;6. ColumnStore.from_intervals&lt;br&gt;assume_canonical=True (no re-sort, no py loop)&quot;]
+    end
+
+    Post[&quot;OPTIONAL post-pass (area runs, default ON):&lt;br&gt;store.grouped() merges consecutive same-class&lt;br&gt;intervals per column - np.reduceat, no py loop&quot;]
+
+    Output([&quot;ColumnStore&lt;br&gt;struct-of-arrays&quot;])
+
+    I1 --&gt; S1
+    I2 --&gt; S1
+    I3 --&gt; S1
+    S1 --&gt; S2 --&gt; S3 --&gt; S4
+    S4 --&gt; T1
+    T1 -- &quot;True (concat of chunks/tiles)&quot; --&gt; T2 --&gt; T4
+    T1 -- &quot;False (whole-file)&quot; --&gt; T3 --&gt; T4
+    T4 --&gt; T5 --&gt; Output
+    Output -. area pipeline .-&gt; Post -.-&gt; Output
+
+    style Stage1 fill:#34495e,color:#fff
+    style Stage2 fill:#2c3e50,color:#fff
+    style Output fill:#1a5276,color:#fff
+    style Post fill:#7d6608,color:#fff</div></section><section id="s4"><h2>4. Voxelization Paths & Sharded Pipeline</h2><div class="mermaid">flowchart LR
+    File[(&quot;.laz / .las file&quot;)]
+
+    subgraph PathA [&quot;Path A: Whole-file (voxelize_laz)&quot;]
+        A1[&quot;io_laz.read_laz(path)&quot;] --&gt; A2[&quot;voxelize()&quot;] --&gt; A3[&quot;_cells_from_points()&quot;] --&gt; A4[&quot;_store_from_cells(aggregate=False)&quot;]
+    end
+
+    subgraph PathB [&quot;Path B: Streamed one file (voxelize_laz_chunked)&quot;]
+        B1[&quot;read_laz_header() -&gt; origin&quot;] --&gt; B2[&quot;read_laz_chunks()&quot;]
+        B2 --&gt; B3[&quot;per chunk: clip_bbox + keep_classes&lt;br&gt;then _cells_from_points()&quot;]
+        B3 --&gt; B4[&quot;concatenate cell parts&quot;]
+        B4 --&gt; B5[&quot;_store_from_cells(aggregate=True)&quot;]
+    end
+
+    subgraph PathC [&quot;Path C: Sharded area (run_area_sharded) - O(1 tile) RAM, crash-resilient&quot;]
+        C0{&quot;--resume-shards and&lt;br&gt;matching shard on disk?&quot;}
+        C0 -- &quot;yes: reuse&quot; --&gt; CR[&quot;ColumnStore.load(shards/&amp;lt;stem&amp;gt;.npz)&lt;br&gt;lattice validated; no download, no decode&quot;]
+        C0 -- no --&gt; C1[&quot;download / local tile&quot;]
+        C1 --&gt; CI{&quot;--isolate-tiles?&quot;}
+        CI -- no --&gt; C2[&quot;voxelize_laz_chunked() = Path B&quot;]
+        CI -- &quot;yes: child process&quot; --&gt; CW[&quot;shard_worker subprocess&lt;br&gt;a native decoder crash costs ONE tile:&lt;br&gt;retry once (--retry-lazrs), else&lt;br&gt;record in failed_tiles.json + continue&quot;]
+        C2 --&gt; C3[&quot;atomic save: _tmp_*.npz -&gt; shards/&amp;lt;stem&amp;gt;.npz&quot;]
+        CW --&gt; C3b[&quot;parent reloads the child's shard&quot;]
+        C3 --&gt; C4[&quot;aggregates.add(tile.stats())&quot;]
+        C3b --&gt; C4
+        CR --&gt; C4
+        C4 --&gt; C5[&quot;viz.scatter_summaries(mosaic)&quot;]
+        C5 --&gt; C6[&quot;del tile (free RAM)&quot;]
+    end
+
+    File --&gt; PathA
+    File --&gt; PathB
+    File --&gt; PathC
+
+    A4 --&gt; OutA([&quot;ColumnStore (one tile)&quot;])
+    B5 --&gt; OutB([&quot;ColumnStore (one tile)&quot;])
+    OutB -. &quot;process_area: merge disjoint tiles&lt;br&gt;+ check_rss_budget watchdog&lt;br&gt;(RamBudgetExceeded -&gt; PARTIAL outputs)&quot; .-&gt; Merged([&quot;one area ColumnStore&lt;br&gt;then grouped() by default&quot;])
+
+    C6 --&gt; C7[&quot;manifest.json + mosaic PNGs&quot;]
+    C7 --&gt; OutC([&quot;shards/*.npz + partial-safe stats;&lt;br&gt;3-D: ROI from intersecting shards,&lt;br&gt;full view streamed shard-by-shard&quot;])
+
+    style PathA fill:#2874a6,color:#fff
+    style PathB fill:#1e8449,color:#fff
+    style PathC fill:#7d3c98,color:#fff
+    style Merged fill:#1a5276,color:#fff</div></section><section id="s5"><h2>5. Output & Visualization Pipelines</h2><div class="mermaid">flowchart TD
+    CS([&quot;ColumnStore&lt;br&gt;(grouped by default; area_raw.npz saved first)&quot;])
+
+    CS --&gt; Stats[&quot;stats stage&lt;br&gt;ColumnStore.stats() -&gt; stats.txt&quot;]
+
+    CS --&gt; Save[&quot;persist_npz stage&lt;br&gt;save() -&gt; area.npz + area_manifest.json&quot;]
+    Save -. &quot;viz3d_cli from-store (ColumnStore.load)&quot; .-&gt; Vis3D
+
+    CS --&gt; Diag[&quot;col_diag stage&lt;br&gt;column_diagnostics.write_column_diagnostics()&quot;]
+    Diag --&gt; D1[&quot;diagnostics/columns_samples.png&quot;]
+    Diag --&gt; D2[&quot;diagnostics/columns_top_complex.png&quot;]
+    Diag --&gt; D3[&quot;diagnostics/histogram_intervals.png&quot;]
+    Diag --&gt; D5[&quot;diagnostics/columns_by_class.png&quot;]
+    Diag --&gt; D4[&quot;per_column/col_*.png (top / all,&lt;br&gt;capped + blk_/ fan-out on large runs)&quot;]
+
+    CS --&gt; Raster[&quot;maps stage&lt;br&gt;visualization.plot_tile_map()&quot;]
+    Raster --&gt; R1[&quot;column_summaries(need_dom)&quot;]
+    R1 --&gt; R2[&quot;make_rasters + scatter_summaries()&lt;br&gt;np.maximum.at / minimum.at / add.at&quot;]
+    R2 --&gt; R3[&quot;colorize_rasters() (pixel-budget guarded)&lt;br&gt;height_mode: default | relative | absolute&quot;]
+    R3 --&gt; V1[&quot;area_max_height.png&quot;]
+    R3 --&gt; V2[&quot;area_max_points_class.png&quot;]
+    R3 --&gt; V3[&quot;area_orthophoto_class.png&quot;]
+    R3 --&gt; V4[&quot;area_n_intervals.png&quot;]
+
+    CS --&gt; Vis3D[&quot;viz3d_roi / viz3d_full stages&lt;br&gt;render_store_3d (vectorized collector)&quot;]
+    Vis3D --&gt; V3D1[&quot;_collect_voxel_geometry()&lt;br&gt;auto-thin if &gt; max_boxes; ROI = full detail&quot;]
+    V3D1 --&gt; V3D2{&quot;export backend&quot;}
+    V3D2 -- HTML --&gt; V3D3[&quot;Three.js InstancedMesh&lt;br&gt;*_full.html / *_roi.html&quot;]
+    V3D2 -- PyVista --&gt; V3D4[&quot;interactive VTK window&quot;]
+    V3D2 -- PLY --&gt; V3D5[&quot;binary PLY&quot;]
+    V3D1 -. cache .-&gt; V3D6[&quot;.vxg grid (export_grid / load_grid)&quot;]
+
+    CS --&gt; Stream[&quot;viz3d_stream stage&lt;br&gt;tiled_exporter.export_tiled_from_store()&quot;]
+    Stream --&gt; ST1[&quot;write_tiled_payload: one tile-row band&lt;br&gt;at a time - EVERY interval, never thinned&quot;]
+    ST1 --&gt; ST2[&quot;*_stream.html + .bin (32 B/record,&lt;br&gt;tile-contiguous) + .idx.json (per-tile AABB&lt;br&gt;+ byte offset/count); small .bin inlined base64&quot;]
+    ST2 --&gt; Serve[&quot;serve_voxel_html: HTTP Range / 206,&lt;br&gt;?v=size-mtime payloads cached immutable&lt;br&gt;(unversioned: revalidate), CORS, keep-alive&quot;]
+    Serve --&gt; Page[&quot;view-dependent page: probe-point residency,&lt;br&gt;frustum demotion, eviction hysteresis,&lt;br&gt;impostor far field - max_instances = GPU budget&quot;]
+
+    ST2 --&gt; Tiles[&quot;tileset_cli / tileset_exporter&lt;br&gt;convert_to_3d_tiles_lod() DEFAULT&lt;br&gt;convert_to_3d_tiles() legacy flat (--flat)&quot;]
+    Tiles --&gt; TilesOut[&quot;OGC 3D Tiles 1.1: tileset.json&lt;br&gt;+ tile_*.glb (EXT_mesh_gpu_instancing,&lt;br&gt;one unit box per class, TRANSLATION+SCALE)&lt;br&gt;ECEF root.transform + quadtree LOD baked in&quot;]
+    TilesOut --&gt; Viewers[&quot;Cesium / iTowns (native)&lt;br&gt;Unreal / Unity (Cesium plugins)&quot;]
+
+    style CS fill:#1a5276,color:#fff
+    style Raster fill:#117a65,color:#fff
+    style Vis3D fill:#6c3483,color:#fff
+    style Save fill:#7d6608,color:#fff
+    style Stream fill:#7d3c98,color:#fff
+    style Tiles fill:#0e6655,color:#fff
+    style TilesOut fill:#1e8449,color:#fff</div></section><section id="s6"><h2>6. Module Dependency Graph</h2><div class="mermaid">flowchart TD
+    %% Convention: A --&gt; B means &quot;A imports B&quot;.
+    %% Dotted edge = lazy / in-function import (cycle break or optional dep).
+
+    Main[&quot;__main__.py&quot;]
+    GUI[&quot;gui_area.py&quot;]
+    AreaCLI[&quot;area_cli.py&quot;]
+    Viz3DCLI[&quot;viz3d_cli.py&quot;]
+    Serve[&quot;serve_voxel_html.py&quot;]
+    Diagno[&quot;voxel_runner_diagnos.py&lt;br&gt;(lives inside voxelizer/; wraps CLIs with&lt;br&gt;CPU/RAM/disk monitoring)&quot;]
+
+    StageR[&quot;stage_runner.py&quot;]
+    AreaOut[&quot;area_outputs.py&lt;br&gt;(shared writers + stage isolation;&lt;br&gt;breaks the old area_cli/sharding cycle)&quot;]
+    Pipe[&quot;pipeline.py&quot;]
+    Area[&quot;area.py&quot;]
+    Shard[&quot;sharding.py&quot;]
+    Worker[&quot;shard_worker.py&quot;]
+    Preflight[&quot;preflight.py&quot;]
+    Viz[&quot;visualization.py&quot;]
+    Diag[&quot;column_diagnostics.py&quot;]
+    Voxel[&quot;voxelize.py&quot;]
+    DS[&quot;data_structures.py&quot;]
+    Rep3D[&quot;visualizer3d.py&quot;]
+    Tiled[&quot;tiled_exporter.py&quot;]
+    DLl[&quot;download_laz.py&quot;]
+    DLo[&quot;download_orthos.py&quot;]
+
+    Base[&quot;classes_config.py&quot;]
+    IO[&quot;io_laz.py&quot;]
+    Run[&quot;run_utils.py&quot;]
+    Com[&quot;_download_common.py&quot;]
+    CliC[&quot;cli_common.py&quot;]
+
+    %% single-tile CLI
+    Main --&gt; Pipe
+    Main -. lazy .-&gt; Run
+    Main --&gt; CliC
+    Main -. lazy .-&gt; Viz3DCLI
+    Main -. lazy .-&gt; Tiled
+
+    %% GUI (spawns CLIs as subprocesses; lazy imports for in-proc test paths)
+    GUI --&gt; Run
+    GUI -. lazy .-&gt; Pipe
+    GUI -. lazy .-&gt; AreaCLI
+    GUI -. lazy .-&gt; Preflight
+    GUI -. lazy .-&gt; Viz3DCLI
+    GUI -. &quot;subprocess wrap&quot; .-&gt; Diagno
+
+    %% area CLI hub
+    AreaCLI --&gt; Area
+    AreaCLI --&gt; DS
+    AreaCLI --&gt; Voxel
+    AreaCLI --&gt; CliC
+    AreaCLI --&gt; AreaOut
+    AreaCLI -. lazy .-&gt; Pipe
+    AreaCLI -. lazy .-&gt; Viz
+    AreaCLI -. lazy .-&gt; Diag
+    AreaCLI -. lazy .-&gt; Preflight
+    AreaCLI -. lazy .-&gt; DLl
+    AreaCLI -. lazy .-&gt; Run
+    AreaCLI -. lazy .-&gt; Shard
+    Shard -. &quot;spawn (--isolate-tiles)&quot; .-&gt; Worker
+    Worker --&gt; IO
+    Worker --&gt; Voxel
+    AreaCLI -. lazy .-&gt; Rep3D
+    AreaCLI -. lazy .-&gt; Tiled
+
+    %% stage children
+    StageR -. lazy .-&gt; DS
+    StageR -. per stage .-&gt; Pipe
+    StageR -. per stage .-&gt; Viz
+    StageR -. per stage .-&gt; Diag
+    StageR -. per stage .-&gt; AreaCLI
+    StageR -. per stage .-&gt; Tiled
+
+    %% 3-D CLI
+    Viz3DCLI --&gt; DS
+    Viz3DCLI --&gt; Rep3D
+    Viz3DCLI --&gt; Voxel
+    Viz3DCLI -. lazy .-&gt; Tiled
+
+    %% mid layer
+    Pipe --&gt; DS
+    Pipe --&gt; Voxel
+    Pipe -. lazy .-&gt; Viz
+    Pipe -. lazy .-&gt; Diag
+
+    Area --&gt; DS
+    Area --&gt; IO
+    Area --&gt; Voxel
+    Area --&gt; Com
+    Area --&gt; Preflight
+
+    Shard --&gt; Com
+    Shard --&gt; DS
+    Shard --&gt; IO
+    Shard --&gt; Preflight
+    Shard --&gt; Voxel
+    Shard --&gt; Viz
+    Shard --&gt; Base
+    Shard -. lazy .-&gt; Area
+    Shard -. lazy .-&gt; AreaOut
+    Shard -. lazy .-&gt; Pipe
+    Shard -. lazy .-&gt; Diag
+
+    %% shared output writers (the cycle break): eager on the data layer,
+    %% lazy on every renderer so optional deps stay optional
+    AreaOut --&gt; DS
+    AreaOut -. lazy .-&gt; Pipe
+    AreaOut -. lazy .-&gt; Viz
+    AreaOut -. lazy .-&gt; Diag
+    AreaOut -. lazy .-&gt; Rep3D
+    AreaOut -. lazy .-&gt; Tiled
+
+    Preflight -. lazy .-&gt; Com
+    Preflight -. lazy .-&gt; IO
+    Preflight -. lazy .-&gt; Area
+
+    Viz --&gt; Base
+    Viz --&gt; DS
+    Diag --&gt; Base
+    Diag --&gt; DS
+    Diag --&gt; Viz
+    Rep3D --&gt; Base
+    Rep3D --&gt; DS
+    Tiled --&gt; Base
+    Tiled --&gt; DS
+    Voxel --&gt; DS
+    Voxel --&gt; IO
+    DS --&gt; Base
+    DLl --&gt; Com
+    DLo --&gt; Com
+
+    %% -- Refinement / analysis / reconstruction layer (top-level, library-only) --
+    Resolve[&quot;resolve.py&quot;]
+    Denoise[&quot;denoise.py&quot;]
+    Absorb[&quot;absorb.py&quot;]
+    GroundIdx[&quot;ground_index.py&quot;]
+    Decoder[&quot;decoder.py&quot;]
+    RayTrace[&quot;ray_trace.py&quot;]
+    Recon[&quot;reconstruct.py&quot;]
+
+    Resolve --&gt; DS
+    Resolve --&gt; Base
+    Denoise --&gt; DS
+    Denoise --&gt; Decoder
+    Absorb --&gt; DS
+    Absorb --&gt; Base
+    GroundIdx --&gt; DS
+    GroundIdx --&gt; Base
+    Decoder --&gt; DS
+    Decoder --&gt; GroundIdx
+    RayTrace --&gt; DS
+    RayTrace --&gt; Decoder
+    Recon --&gt; DS
+    DS -. &quot;lazy _gi cache&quot; .-&gt; GroundIdx
+
+    %% -- 3-D Tiles export (top-level) --
+    TilesetExp[&quot;tileset_exporter.py&quot;]
+    TilesetCLI[&quot;tileset_cli.py&quot;]
+    TilesetExp --&gt; Base
+    TilesetCLI -. lazy .-&gt; DS
+    TilesetCLI -. lazy .-&gt; Tiled
+    TilesetCLI -. lazy .-&gt; TilesetExp
+
+    classDef entry fill:#1e8449,color:#fff,stroke:#fff;
+    classDef core fill:#2d3b4a,color:#fff,stroke:#fff;
+    classDef store fill:#1a5276,color:#fff,stroke:#fff;
+    classDef leaf fill:#5d6d7e,color:#fff;
+    classDef standalone fill:#922b21,color:#fff;
+    classDef refine fill:#0e6655,color:#fff,stroke:#fff;
+    classDef tiles fill:#7d3c98,color:#fff,stroke:#fff;
+    classDef shared fill:#b9770e,color:#fff,stroke:#fff;
+    class AreaOut shared;
+    class Main,GUI,AreaCLI,Viz3DCLI,Serve entry;
+    class Voxel core;
+    class DS store;
+    class Base,IO,Run,Com,CliC leaf;
+    class Diagno standalone;
+    class Resolve,Denoise,Absorb,GroundIdx,Decoder,RayTrace,Recon refine;
+    class TilesetExp,TilesetCLI tiles;</div></section><section id="s7"><h2>7. Stage-Isolated Execution & Recovery</h2><div class="mermaid">flowchart TD
+    Start([&quot;run_area(): merged + grouped store&quot;])
+
+    Start --&gt; SD[&quot;store.save_dir(store_raw/)&lt;br&gt;one raw .npy per array; meta.json written LAST&lt;br&gt;as the commit marker&quot;]
+    SD --&gt; SW[&quot;parent: store.swap_to_dir_mmap(store_raw/)&lt;br&gt;~6 GB dirty heap -&gt; clean file-backed pages&quot;]
+    SW --&gt; PL[&quot;stage list: stats, persist_npz, maps, col_diag,&lt;br&gt;then viz3d_roi + viz3d_full OR viz3d_stream&lt;br&gt;(params.json + run_params.json written)&quot;]
+
+    PL --&gt; Loop{&quot;for each stage&quot;}
+    Loop --&gt; Spawn[&quot;spawn child: python -m voxelizer.stage_runner&lt;br&gt;ColumnStore.load_dir(mmap=True) READ-ONLY&lt;br&gt;per-stage faulthandler log + timeout&quot;]
+    Spawn --&gt; Exit{&quot;exit code?&quot;}
+    Exit -- &quot;0 OK&quot; --&gt; Rec[&quot;record attempt -&gt; stages/&amp;lt;stage&amp;gt;.result.json&quot;]
+    Exit -- &quot;native fault&lt;br&gt;(signal / NTSTATUS &amp;gt;= 0xC0000000)&quot; --&gt; Retry{&quot;attempt 1?&quot;}
+    Exit -- &quot;ordinary Python error&quot; --&gt; Rec
+    Retry -- yes --&gt; Mit[&quot;retry once with thread-cap mitigations&lt;br&gt;(OPENBLAS/OMP/MKL/NUMEXPR = 4)&quot;]
+    Mit --&gt; Spawn
+    Retry -- no --&gt; Rec
+    Rec --&gt; Loop
+
+    Loop -- done --&gt; Man[&quot;stages.json manifest&lt;br&gt;(per-stage attempts, exit decode, wall time)&quot;]
+    Man --&gt; Pol{&quot;--intermediates policy&quot;}
+    Pol -- &quot;auto + all OK&quot; --&gt; Del[&quot;delete store_raw/, area_raw.npz, templaz/&lt;br&gt;(deliverables + stages/ never touched)&quot;]
+    Pol -- &quot;auto + any failure&quot; --&gt; Keep[&quot;keep everything + print exact&lt;br&gt;--resume-from-store command&quot;]
+    Pol -- keep / delete --&gt; Explicit[&quot;explicit policy&lt;br&gt;(--keep-raw-store overrides)&quot;]
+
+    Keep -.-&gt; Resume[&quot;later: area_cli area --resume-from-store store_raw/&lt;br&gt;geometry read from run_params.json;&lt;br&gt;--only-stage restricts to named stage(s)&quot;]
+    Resume -.-&gt; PL
+
+    Crash[&quot;_crash_test stage: deliberate SIGSEGV child&lt;br&gt;verifies containment end-to-end&quot;] -.-&gt; Spawn
+
+    style Start fill:#1a5276,color:#fff
+    style SD fill:#7d6608,color:#fff
+    style Man fill:#2d3b4a,color:#fff
+    style Del fill:#1e8449,color:#fff
+    style Keep fill:#922b21,color:#fff</div></section><section id="s8"><h2>8. Refinement, Analysis, Reconstruction &amp; Multi-Viewer Export</h2><div class="mermaid">flowchart TD
+    Raw[&quot;raw ColumnStore&lt;br&gt;(area_raw.npz - measurement of record)&quot;]
+
+    subgraph Refine [&quot;Refinement chain (optional, composable)&quot;]
+        R1[&quot;denoise: min_points_filter&lt;br&gt;+ morphological_filter&quot;]
+        R2[&quot;absorb_interior()&lt;br&gt;vegetation -&gt; building envelope&lt;br&gt;(z-range 8-neighbour + cardinal escape)&quot;]
+        R3[&quot;resolve()&lt;br&gt;collapse cross-class overlaps&lt;br&gt;-&gt; one label per voxel (majority)&quot;]
+    end
+
+    subgraph Analyse [&quot;Ground index + emptiness analysis&quot;]
+        G1[&quot;ground_index&lt;br&gt;compute_ground_indices / fill_ground_holes&lt;br&gt;(cached on store as _gi)&quot;]
+        D1[&quot;decoder&lt;br&gt;classify_voxel / classify_gap:&lt;br&gt;class | MEASURED_AIR -1 |&lt;br&gt;OPAQUE_INTERIOR -2 | SUBSURFACE -3&quot;]
+        RT[&quot;ray_trace / ray_columns&lt;br&gt;ColumnGridDDA + CeilingDDA&lt;br&gt;full 3-D Amanatides-Woo (shade / sky-view)&quot;]
+    end
+
+    subgraph Export [&quot;Terminal consumers&quot;]
+        RC[&quot;reconstruct&lt;br&gt;store_to_points / store_to_las / store_to_laz&quot;]
+        TE[&quot;tiled_exporter.export_tiled_from_store()&lt;br&gt;-&gt; .bin + .idx.json (band-at-a-time)&quot;]
+        TS[&quot;tileset_exporter&lt;br&gt;convert_to_3d_tiles_lod() (default)&lt;br&gt;-&gt; tileset.json + tile_*.glb&lt;br&gt;(EXT_mesh_gpu_instancing)&quot;]
+    end
+
+    subgraph Viewers [&quot;Multi-viewer targets&quot;]
+        VC[&quot;Cesium (Cesium3DTileset)&quot;]
+        VI[&quot;iTowns (C3DTilesLayer) - native Lambert&quot;]
+        VU[&quot;Unreal (Cesium for Unreal)&quot;]
+        VN[&quot;Unity (Cesium for Unity)&quot;]
+        VP[&quot;Unreal LiDAR plugin / Unity Pcx&lt;br&gt;(point cloud, from LAZ)&quot;]
+    end
+
+    Raw --&gt; R1 --&gt; R2 --&gt; R3
+    R3 --&gt; G1
+    Raw -. &quot;also usable directly&quot; .-&gt; G1
+    G1 --&gt; D1
+    D1 --&gt; RT
+    R3 --&gt; RC
+    R3 --&gt; TE
+    TE --&gt; TS
+    RC --&gt;|&quot;LAS/LAZ&quot;| VP
+
+    TS --&gt;|&quot;IMPLEMENTED: ECEF root.transform&lt;br&gt;(EPSG:3946 -&gt; ECEF, RAF geoid applied;&lt;br&gt;--no-geoid opts out) + quadtree LOD&lt;br&gt;(2x coarsening/level, REPLACE refine)&quot;| Hub{{&quot;georeferenced&lt;br&gt;3D Tiles hub&quot;}}
+    Hub --&gt; VI
+    Hub --&gt; VC
+    Hub --&gt; VU
+    Hub --&gt; VN
+
+    style Raw fill:#1a5276,color:#fff
+    style Refine fill:#0e6655,color:#fff
+    style Analyse fill:#6c3483,color:#fff
+    style Export fill:#7d3c98,color:#fff
+    style Viewers fill:#1e8449,color:#fff
+    style Hub fill:#b9770e,color:#fff</div></section></main>
+<footer>Rendered client-side with Mermaid. Editable source lives in
+  <code>pipeline_dataflow_diagram.md</code>; static images in <code>diagrams/</code>;
+  usage in <code>HowToUse.md</code>.</footer>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({ startOnLoad: true, theme: "default", flowchart: { useMaxWidth: true, htmlLabels: true, curve: "basis" } });
+</script>
+</body></html>

@@ -1,0 +1,65 @@
+/**
+@defgroup t0_socle T0 - Socle : services de bas niveau
+@brief Modules sans dependance interne : codes de classes ASPRS, lecture LAS/LAZ par morceaux,
+estimateur memoire et budget RAM, position du soleil, lanceurs et telechargement des tuiles.
+
+Dix modules, plus la facade du paquet (@ref voxelizer, le fichier voxelizer/__init__.py),
+rattachee ici pour que chaque module figure dans un Sujet : elle n'appartient a aucun des cinq
+niveaux du tableau de la section 1, puisqu'elle les reexporte tous. Aucun des dix n'importe un
+autre niveau ; ils sont la base sur laquelle tout le reste s'appuie.
+*/
+
+/**
+@defgroup t1_donnees T1 - Donnees : la structure et ses exporteurs
+@brief La structure en colonnes de plages (ColumnStore), les deux exporteurs qui la
+transforment en 3D Tiles ou en flux tuile pour le visualiseur web, et leurs helpers partages.
+
+Quatre modules. @ref voxelizer.data_structures porte la structure elle-meme : six tableaux
+NumPy, 16 octets par colonne et 13 par plage. @ref voxelizer.viz_common regroupe la
+geometrie, les couleurs et le format d'enregistrement communs aux exporteurs.
+*/
+
+/**
+@defgroup t2_algos T2 - Algorithmes
+@brief Tout ce qui transforme ou lit une structure : voxelisation, indice de sol, decodeur
+des trois formes de vide, post-traitements, parcours de rayons, physique, rendu, statistiques
+en flux.
+
+Quinze modules. C'est ici que vivent la quantification, le regroupement des plages et le
+decodeur qui qualifie chaque voxel vide.
+*/
+
+/**
+@defgroup t3_orchestr T3 - Orchestration
+@brief Executions, etapes et isolation des pannes : une tuile, une emprise, une emprise
+fragmentee, la fusion hors memoire, et les diagnostics.
+
+Dix modules. @ref voxelizer.sharding traite l'emprise fragment par fragment et
+@ref voxelizer.merge_streaming fusionne par bandes en memoire bornee.
+*/
+
+/**
+@defgroup t4_entrees T4 - Consommateurs
+@brief Les points d'entree manipules par l'utilisateur : lignes de commande, interface
+graphique et serveurs locaux.
+
+Neuf modules. @ref voxelizer.area_cli est le pipeline complet, des tuiles LAZ aux sorties.
+*/
+
+/**
+@page doc_couverture Portee de cette documentation
+
+Les cinq niveaux ci-dessus (Sujets) reprennent le tableau de la section 1 du document
+d'architecture. Ce sont des roles, pas des profondeurs d'import : la liste "Level 0 a 4"
+du docstring de @ref voxelizer classe les modules par profondeur d'import et ne coincide
+donc pas toujours avec ces niveaux.
+
+Les tableaux de parametres (@c \@param, @c \@return) couvrent les fonctions necessaires
+pour relancer le pipeline et reproduire les experiences, et non les 542 fonctions du paquet :
+58 definitions reparties sur 24 modules les portent, dont 45 fonctions de module, 12 methodes
+de classe et une classe d'exception, pour 344 lignes @c \@param. Leur portee depasse donc la
+table de la section 4 du document d'architecture, qui ne nomme pas de methode de classe. Pour
+les fonctions hors de cet ensemble, la description en prose du docstring reste la reference.
+Ces tableaux sont une reference structuree, distincte des recits d'incidents retires des
+docstrings du coeur ; ils sont la part de volume documentaire assumee.
+*/

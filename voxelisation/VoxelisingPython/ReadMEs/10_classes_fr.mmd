@@ -1,0 +1,116 @@
+---
+title: Les classes du voxeliseur et leurs interactions
+---
+classDiagram
+    direction LR
+
+    class ColumnStore {
+        <<data_structures>>
+        x_min, y_min, z_min : origine en m, EPSG 3946
+        cell_xy, cell_z : taille de cellule en m
+        _keys : uint64[n_col] clé ix,iy
+        _off : int64[n_col+1] décalage
+        _zs : int32[n_plages] début
+        _ze : int32[n_plages] fin
+        _cl : uint8[n_plages] classe
+        _ct : int32[n_plages] échos
+        columns / n_intervals
+        from_intervals()
+        grouped(max_gap_cells)
+        merge(autre, inplace)
+        merge_many(stores)
+        save() / load()
+        save_dir() / load_dir(mmap)
+        swap_to_dir_mmap()
+        ensure_dense_index()
+        stats()
+    }
+    class _ColumnsView {
+        <<Mapping>>
+        [ix, iy] -> Column
+        keys() KeysView
+    }
+    class Column {
+        z_start, z_end : int32[]
+        cls : uint8[]
+        count : int32[]
+        iter_intervals()
+    }
+    class Interval {
+        z_start_idx, z_end_idx
+        class_id, point_count
+        height_voxels()
+        class_name()
+    }
+    ColumnStore "1" --> "1" _ColumnsView : columns
+    _ColumnsView --> "*" Column : vue par colonne
+    Column --> "*" Interval : iter_intervals
+
+    class StatsFold
+    class IntervalHistogramFold
+    class TopNFold
+    class CategoryFold
+    class ClassFirstFold
+    StatsFold ..> ColumnStore : add(lot) / result()
+    IntervalHistogramFold ..> ColumnStore
+    TopNFold ..> ColumnStore
+    CategoryFold ..> ColumnStore
+    ClassFirstFold ..> ColumnStore
+
+    class ColumnGridDDA {
+        <<ray_trace>>
+        store : ColumnStore
+        trace(origin, direction, config) RayHit
+    }
+    class CeilingDDA {
+        <<ray_columns>>
+        trace() plafond par colonne
+    }
+    class DDAConfig
+    class RayHit
+    ColumnGridDDA <|-- CeilingDDA
+    ColumnGridDDA ..> DDAConfig : parametre par defaut de trace()
+    ColumnGridDDA ..> RayHit
+    ColumnGridDDA ..> ColumnStore : lit (décodeur)
+
+    class Extinction {
+        <<transmittance>>
+        k(classe)
+    }
+    class TransmittanceResult {
+        <<transmittance>>
+        tau, path_by_class, blocked_by
+        blocked : bool
+    }
+    class SunPosition {
+        <<solar>>
+        elevation_deg, azimuth_deg
+        is_up : bool
+    }
+    class SunHoursResult {
+        <<sun_hours>>
+        summary()
+    }
+    TransmittanceResult ..> Extinction : rendu par transmittance(), qui prend une Extinction
+    note for SunHoursResult "produit par la fonction sun_hours.compute_sun_hours, qui appelle CeilingDDA, solar.day_arc et transmittance ; la classe elle-meme ne depend d'aucune des trois"
+
+    class ShardSet {
+        <<shard_diagnostics>>
+        n_columns() / n_intervals()
+        load(rec) ColumnStore
+        owner_of(keys)
+    }
+    class SweepResult
+    class DiagnosticsMonitor {
+        <<voxel_runner_diagnos>>
+        start() / stop() / note_crash()
+    }
+    class RamBudgetExceeded {
+        <<preflight>>
+    }
+    class PostprocessError {
+        <<postprocess_cli>>
+    }
+    ShardSet ..> ColumnStore : load (.npz)
+    note for SweepResult "produit par la fonction libre shard_diagnostics.sweep_shards, qui prend un ShardSet en entree ; ShardSet ne reference jamais SweepResult"
+    note for PostprocessError "la seule exception publique hors de l'ensemble dessine ; levee quand une passe de post-traitement rend un resultat que son propre contrat interdit"

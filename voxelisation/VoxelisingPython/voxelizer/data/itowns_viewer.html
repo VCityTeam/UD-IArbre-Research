@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Voxel 3D Tiles viewer (iTowns)</title>
+<!--
+  Symmetric counterpart to cesium_viewer.html: the SAME tileset.json, rendered
+  by iTowns instead of CesiumJS, so the two engines can be compared on one
+  export without touching the data.
+
+  The version is PINNED (2.44.0) rather than tracking "latest" for one reason:
+  iTowns renamed the 3D Tiles entry point mid-life. Up to and including 2.44 a
+  tileset is a C3DTilesSource fed to a C3DTilesLayer; the newer builds expose
+  OGC3DTilesLayer (a 3d-tiles-renderer wrapper) with a different constructor.
+  An unpinned CDN url would therefore change API under a page that cannot be
+  re-tested offline. The loader below still feature-detects both spellings, so
+  a deliberate bump of the pin keeps working, but the pin is what makes the
+  page reproducible.
+
+  This page needs the network: iTowns is fetched from unpkg. Offline it draws
+  the "library did not load" message below and nothing else - the tiles
+  themselves are local and are served by the same origin as this page.
+-->
+<script src="https://unpkg.com/itowns@2.44.0/dist/itowns.js"></script>
+<style>
+  html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: #000; }
+  #viewerDiv { width: 100%; height: 100%; margin: 0; padding: 0; position: relative; }
+  #info { position: absolute; top: 8px; left: 8px; color: #0f0; font: 13px monospace;
+          background: rgba(0,0,0,0.7); padding: 6px 10px; z-index: 10; white-space: pre; }
+  #help { position: absolute; bottom: 8px; left: 8px; color: #aaa; font: 12px monospace;
+          background: rgba(0,0,0,0.6); padding: 4px 8px; z-index: 10; }
+</style>
+</head>
+<body>
+<div id="viewerDiv"></div>
+<div id="info">loading tileset ...</div>
+<div id="help">left-drag rotate | right-drag pan | wheel zoom | ctrl+left-drag tilt</div>
+<script>
+async function main() {
+  const info = document.getElementById("info");
+  try {
+    if (typeof itowns === "undefined") {
+      info.textContent =
+        "ERROR: the iTowns library did not load.\n" +
+        "This page fetches iTowns from unpkg, so it needs network access.\n" +
+        "The tileset itself is local, but the Cesium page (/viewer.html)\n" +
+        "loads its engine from a CDN too: both viewers need the network on\n" +
+        "first load, and neither is a fallback for the other offline.";
+      return;
+    }
+
+    // ?tileset=<url> overrides the default sibling tileset.json, exactly as
+    // the Cesium page does, so both engines accept the same links.
+    const params = new URLSearchParams(location.search);
+    const url = new URL(params.get("tileset") || "./tileset.json",
+                        location.href).href;
+
+    // Place the camera from the tileset's own georeferencing rather than from
+    // a hard-coded city: root.transform is the ENU->ECEF matrix the exporter
+    // wrote, and its translation column is the dataset origin in ECEF.
+    let lon = 4.7416, lat = 45.7327;      // Lyon fallback (dataset centre)
+    let range = 3000;
+    try {
+      const meta = await (await fetch(url)).json();
+      const m = meta && meta.root && meta.root.transform;
+      if (m && m.length === 16) {
+        const ecef = new itowns.Coordinates("EPSG:4978", m[12], m[13], m[14]);
+        const geo = ecef.as("EPSG:4326");
+        lon = geo.longitude;
+        lat = geo.latitude;
+      }
+    } catch (e) {
+      info.textContent = "tileset.json unreadable, using default view: " + e;
+    }
+
+    const viewerDiv = document.getElementById("viewerDiv");
+    const placement = {
+      coord: new itowns.Coordinates("EPSG:4326", lon, lat, 0),
+      range: range,
+      tilt: 30,
+    };
+    // No imagery/elevation layers are added: like the Cesium page, this shows
+    // the voxels alone, in their own georeferenced frame, so nothing has to be
+    // fetched from an external tile service to get a picture.
+    const view = new itowns.GlobeView(viewerDiv, placement);
+
+    let layer;
+    if (itowns.OGC3DTilesLayer) {
+      // Newer builds: one layer object owns its source.
+      layer = new itowns.OGC3DTilesLayer("voxels", {
+        source: new itowns.OGC3DTilesSource({ url: url }),
+      });
+    } else {
+      // 2.44 and earlier: C3DTilesSource + C3DTilesLayer.
+      layer = new itowns.C3DTilesLayer("voxels", {
+        name: "voxels",
+        source: new itowns.C3DTilesSource({ url: url }),
+        // Same reasoning as the Cesium page's maximumScreenSpaceError = 48:
+        // the leaves carry hundreds of thousands of instances each, so a
+        // stricter error selects a set no GPU here can hold. iTowns' sseThreshold
+        // is the equivalent knob (higher = coarser = fewer tiles resident).
+        sseThreshold: 48,
+      }, view);
+    }
+    itowns.View.prototype.addLayer.call(view, layer);
+
+    info.textContent = "tileset: " + url + "\nengine: iTowns " +
+                       (itowns.REVISION || "(unknown revision)");
+    window._view = view;
+    window._layer = layer;
+  } catch (e) {
+    info.textContent = "ERROR: " + (e && e.message ? e.message : e);
+    console.error(e);
+  }
+}
+main();
+</script>
+</body>
+</html>

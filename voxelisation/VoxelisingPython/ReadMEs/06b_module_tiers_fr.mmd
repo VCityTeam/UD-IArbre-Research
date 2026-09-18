@@ -1,0 +1,19 @@
+%%{init: {'flowchart': {'wrappingWidth': 620}}}%%
+%% GENERATED - do not edit by hand.
+%% Les cinq niveaux narratifs de la section 4.1 du rapport. Le graphe complet
+%% des 48 modules est 06_module_dependencies_fr.mmd, généré à partir des mêmes imports.
+flowchart TD
+    T0["<b>Socle</b> - services de bas niveau<br><br>classes_config, io_laz, cli_common, run_utils, preflight, solar, launchers, downloads"]
+    T1["<b>Données</b> - la structure et ses exporteurs<br><br>data_structures (ColumnStore), viz_common, tileset_exporter, tiled_exporter"]
+    T2["<b>Algorithmes</b> - tout ce qui transforme une structure<br><br>voxelize, ground_index, decoder, resolve, denoise, absorb, ray_trace, ray_columns, transmittance, sun_hours, surface_model, reconstruct, visualization, visualizer3d, store_streaming"]
+    T3["<b>Orchestration</b> - exécutions, étapes, isolation des pannes<br><br>pipeline, area, sharding, merge_streaming, area_outputs, stage_runner, shard_worker, column_diagnostics, shard_diagnostics, voxel_runner_diagnos"]
+    T4["<b>Consommateurs</b> - les points d'entrée manipulés par l'utilisateur<br><br>__main__, area_cli, viz3d_cli, tileset_cli, archive_cli, postprocess_cli, gui_area, serve_voxel_html, serve_tiles"]
+    T0 --> T1
+    T1 --> T2
+    T2 --> T3
+    T3 --> T4
+    style T0 fill:#2d3b4a,color:#fff,stroke:#fff
+    style T1 fill:#1a5276,color:#fff,stroke:#fff
+    style T2 fill:#6c3483,color:#fff,stroke:#fff
+    style T3 fill:#7d6608,color:#fff,stroke:#fff
+    style T4 fill:#1e8449,color:#fff,stroke:#fff

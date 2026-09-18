@@ -1,0 +1,26 @@
+# Root gitignore (2026-09-14). VoxelisingPython/ has its own nested gitignore.
+
+# Unreal Engine project (tilesexport/UEViz/IarbreVoxels): only sources, Config/,
+# Content/ and the .uproject are versioned. Everything the editor or the build
+# regenerates is transient, and the Cesium for Unreal plugin is installed
+# separately (v2.28.0, see tilesexport/UEViz/README.md), never committed.
+tilesexport/UEViz/IarbreVoxels/Binaries/
+tilesexport/UEViz/IarbreVoxels/Intermediate/
+tilesexport/UEViz/IarbreVoxels/Saved/
+tilesexport/UEViz/IarbreVoxels/DerivedDataCache/
+tilesexport/UEViz/IarbreVoxels/Build/
+tilesexport/UEViz/IarbreVoxels/.vs/
+tilesexport/UEViz/IarbreVoxels/.idea/
+tilesexport/UEViz/IarbreVoxels/*.sln
+tilesexport/UEViz/IarbreVoxels/*.code-workspace
+tilesexport/UEViz/IarbreVoxels/Plugins/CesiumForUnreal/
+
+# Editor and OS droppings
+.vs/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Doxygen: the generated site is built locally with docs/make_docs.cmd or .sh and never versioned
+VoxelisingPython/docs/doxygen_warnings.log
+VoxelisingPython/docs/doxygen/

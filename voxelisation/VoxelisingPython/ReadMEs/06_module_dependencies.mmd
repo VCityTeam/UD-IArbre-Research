@@ -1,0 +1,235 @@
+---
+config:
+  {
+    "layout": "elk",
+    "elk": {
+      "mergeEdges": true,
+      "nodePlacementStrategy": "BRANDES_KOEPF",
+      "cycleBreakingStrategy": "GREEDY"
+    },
+    "themeVariables": {
+      "fontSize": "56px"
+    },
+    "flowchart": {
+      "padding": 4,
+      "diagramPadding": 4,
+      "useMaxWidth": false
+    }
+  }
+---
+%% GENERATED - do not edit by hand.
+%% Levels are the longest dependency path from a leaf, computed from
+%% the real import graph, so this cannot drift from the code.
+flowchart TD
+    subgraph L0["Level 0"]
+        _download_common["_download_common.py"]
+        classes_config["classes_config.py"]
+        cli_common["cli_common.py"]
+        io_laz["io_laz.py"]
+        launchers["launchers.py"]
+        run_utils["run_utils.py"]
+        solar["solar.py"]
+        voxel_runner_diagnos["voxel_runner_diagnos.py (entry point)"]
+    end
+    subgraph L1["Level 1"]
+        download_laz["download_laz.py"]
+        download_orthos["download_orthos.py"]
+        ground_index["ground_index.py"]
+        preflight["preflight.py"]
+        serve_tiles["serve_tiles.py"]
+        serve_voxel_html["serve_voxel_html.py"]
+        viz_common["viz_common.py"]
+    end
+    subgraph L2["Level 2"]
+        data_structures["data_structures.py"]
+        gui_area["gui_area.py (entry point)"]
+        tileset_exporter["tileset_exporter.py"]
+    end
+    subgraph L3["Level 3"]
+        absorb["absorb.py"]
+        decoder["decoder.py"]
+        denoise["denoise.py"]
+        merge_streaming["merge_streaming.py"]
+        resolve["resolve.py"]
+        store_streaming["store_streaming.py"]
+        surface_model["surface_model.py"]
+        tiled_exporter["tiled_exporter.py"]
+        visualizer3d["visualizer3d.py"]
+        voxelize["voxelize.py"]
+    end
+    subgraph L4["Level 4"]
+        area["area.py"]
+        postprocess_cli["postprocess_cli.py"]
+        ray_trace["ray_trace.py"]
+        reconstruct["reconstruct.py"]
+        shard_worker["shard_worker.py (entry point)"]
+        tileset_cli["tileset_cli.py (entry point)"]
+        transmittance["transmittance.py"]
+        visualization["visualization.py"]
+        viz3d_cli["viz3d_cli.py (entry point)"]
+    end
+    subgraph L5["Level 5"]
+        archive_cli["archive_cli.py"]
+        column_diagnostics["column_diagnostics.py"]
+        ray_columns["ray_columns.py"]
+    end
+    subgraph L6["Level 6"]
+        pipeline["pipeline.py"]
+        sun_hours["sun_hours.py"]
+    end
+    subgraph L7["Level 7"]
+        __main__["__main__.py (entry point)"]
+        area_outputs["area_outputs.py"]
+        shard_diagnostics["shard_diagnostics.py"]
+    end
+    subgraph L8["Level 8"]
+        sharding["sharding.py"]
+        stage_runner["stage_runner.py"]
+    end
+    subgraph L9["Level 9"]
+        area_cli["area_cli.py (entry point)"]
+    end
+    __main__ --> cli_common
+    __main__ --> pipeline
+    __main__ --> run_utils
+    __main__ --> serve_tiles
+    __main__ --> serve_voxel_html
+    __main__ --> tiled_exporter
+    __main__ --> viz3d_cli
+    absorb --> classes_config
+    absorb --> data_structures
+    archive_cli --> data_structures
+    archive_cli --> io_laz
+    archive_cli --> reconstruct
+    area --> _download_common
+    area --> data_structures
+    area --> io_laz
+    area --> preflight
+    area --> voxelize
+    area_cli --> _download_common
+    area_cli --> area
+    area_cli --> area_outputs
+    area_cli --> cli_common
+    area_cli --> data_structures
+    area_cli --> download_laz
+    area_cli --> io_laz
+    area_cli --> merge_streaming
+    area_cli --> preflight
+    area_cli --> run_utils
+    area_cli --> sharding
+    area_cli --> store_streaming
+    area_cli --> voxelize
+    area_outputs --> column_diagnostics
+    area_outputs --> data_structures
+    area_outputs --> launchers
+    area_outputs --> pipeline
+    area_outputs --> store_streaming
+    area_outputs --> tiled_exporter
+    area_outputs --> visualization
+    area_outputs --> visualizer3d
+    column_diagnostics --> classes_config
+    column_diagnostics --> data_structures
+    column_diagnostics --> store_streaming
+    column_diagnostics --> visualization
+    column_diagnostics --> viz_common
+    data_structures --> classes_config
+    data_structures --> ground_index
+    decoder --> classes_config
+    decoder --> data_structures
+    decoder --> ground_index
+    denoise --> data_structures
+    download_laz --> _download_common
+    download_orthos --> _download_common
+    ground_index --> classes_config
+    ground_index --> data_structures
+    gui_area --> preflight
+    gui_area --> run_utils
+    merge_streaming --> data_structures
+    pipeline --> column_diagnostics
+    pipeline --> data_structures
+    pipeline --> visualization
+    pipeline --> voxelize
+    postprocess_cli --> absorb
+    postprocess_cli --> data_structures
+    postprocess_cli --> denoise
+    postprocess_cli --> resolve
+    postprocess_cli --> store_streaming
+    preflight --> _download_common
+    preflight --> area
+    preflight --> io_laz
+    ray_columns --> data_structures
+    ray_columns --> ray_trace
+    ray_trace --> data_structures
+    ray_trace --> decoder
+    reconstruct --> data_structures
+    reconstruct --> io_laz
+    reconstruct --> voxelize
+    resolve --> classes_config
+    resolve --> data_structures
+    serve_tiles --> cli_common
+    serve_voxel_html --> cli_common
+    shard_diagnostics --> column_diagnostics
+    shard_diagnostics --> data_structures
+    shard_diagnostics --> merge_streaming
+    shard_diagnostics --> pipeline
+    shard_diagnostics --> store_streaming
+    shard_worker --> io_laz
+    shard_worker --> voxelize
+    sharding --> _download_common
+    sharding --> area
+    sharding --> area_outputs
+    sharding --> classes_config
+    sharding --> data_structures
+    sharding --> io_laz
+    sharding --> merge_streaming
+    sharding --> pipeline
+    sharding --> preflight
+    sharding --> run_utils
+    sharding --> shard_diagnostics
+    sharding --> store_streaming
+    sharding --> visualization
+    sharding --> voxelize
+    stage_runner --> area_outputs
+    stage_runner --> column_diagnostics
+    stage_runner --> data_structures
+    stage_runner --> launchers
+    stage_runner --> pipeline
+    stage_runner --> store_streaming
+    stage_runner --> tiled_exporter
+    stage_runner --> visualization
+    store_streaming --> classes_config
+    store_streaming --> data_structures
+    sun_hours --> data_structures
+    sun_hours --> ray_columns
+    sun_hours --> solar
+    sun_hours --> transmittance
+    surface_model --> classes_config
+    surface_model --> data_structures
+    tiled_exporter --> classes_config
+    tiled_exporter --> data_structures
+    tiled_exporter --> viz_common
+    tileset_cli --> data_structures
+    tileset_cli --> tiled_exporter
+    tileset_cli --> tileset_exporter
+    tileset_exporter --> classes_config
+    tileset_exporter --> launchers
+    tileset_exporter --> viz_common
+    transmittance --> classes_config
+    transmittance --> data_structures
+    transmittance --> decoder
+    visualization --> classes_config
+    visualization --> data_structures
+    visualization --> pipeline
+    visualization --> store_streaming
+    visualization --> viz_common
+    visualizer3d --> classes_config
+    visualizer3d --> data_structures
+    visualizer3d --> viz_common
+    viz3d_cli --> cli_common
+    viz3d_cli --> data_structures
+    viz3d_cli --> tiled_exporter
+    viz3d_cli --> visualizer3d
+    viz3d_cli --> voxelize
+    viz_common --> classes_config
+    voxelize --> data_structures
+    voxelize --> io_laz
