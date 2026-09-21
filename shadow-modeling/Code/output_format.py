@@ -40,7 +40,7 @@ def save_plot_shadow(shadow, time, time_index, x_min, y_min, day, month, year, t
     Path("Data").mkdir(exist_ok=True)
 
     plt.savefig(
-        Path("Data") / f"{method_name}.png",
+        Path("/app/Data") / f"{method_name}.png",
         dpi=300,
         bbox_inches="tight",
         format="png"

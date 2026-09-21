@@ -89,7 +89,7 @@ def main():
         for X, Y, Z in shadow_all:
             f.write(f"{X+int(x_min)} {Y+int(y_min)} {Z}\n")
 
-    save_plot_shadow(shadow_all, time, time_index, x_min, y_min, day, month, year, "Method 2 Global Shadow Map", "Method 2")
+    save_plot_shadow(shadow_all, time, time_index, x_min, y_min, day, month, year, "Method 2 Global Shadow Map", "Method2")
     georef_shadow_save(shadow_all, int(x_min), int(y_min), DSM, 1.0, "Method2_georef")
 
 if __name__ == "__main__":
