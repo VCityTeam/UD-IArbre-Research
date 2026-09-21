@@ -60,5 +60,9 @@ The tile positions are available on the website of **[DataGrandLyon](https://dat
 
 The generated shadow map, depending on the chosen method **Method 1 or 2**, is saved in **TIFF** format in the **`Data`** folder located at the project root.
 
+## Team
+- Karima Ouadah
+- John Samuel
+- Gilles Gesquière
 
 
