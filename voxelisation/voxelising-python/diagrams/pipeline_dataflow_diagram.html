@@ -32,11 +32,11 @@
 <nav><ul><li><a href="#s1">1. Top-Level System Architecture</a></li><li><a href="#s2">2. Data Structures Hierarchy &amp; Memory Model</a></li><li><a href="#s3">3. Two-Stage Voxelization Core Algorithm</a></li><li><a href="#s4">4. Voxelization Paths & Sharded Pipeline</a></li><li><a href="#s5">5. Output & Visualization Pipelines</a></li><li><a href="#s6">6. Module Dependency Graph</a></li><li><a href="#s7">7. Stage-Isolated Execution & Recovery</a></li><li><a href="#s8">8. Refinement, Analysis, Reconstruction &amp; Multi-Viewer Export</a></li></ul></nav>
 <main><section id="s1"><h2>1. Top-Level System Architecture</h2><div class="mermaid">flowchart TD
     subgraph EntryPoints [&quot;USER ENTRY POINTS&quot;]
-        A3[&quot;GUI (Tkinter)&lt;br&gt;gui_area.py / run_area.bat&quot;]
+        A3[&quot;GUI (Tkinter)&lt;br&gt;gui_area.py / scripts/run_area.bat&quot;]
         A1[&quot;CLI: single tile&lt;br&gt;python -m voxelizer single&quot;]
         A2[&quot;CLI: area / bbox&lt;br&gt;python -m voxelizer.area_cli area&quot;]
         A5[&quot;CLI: 3-D&lt;br&gt;viz3d_cli single | from-store | stream&quot;]
-        A6[&quot;Viewer server&lt;br&gt;serve_voxel_html / run_viewer.bat&quot;]
+        A6[&quot;Viewer server&lt;br&gt;serve_voxel_html / serve_tiles / scripts/run_viewer.bat&quot;]
         A7[&quot;Diagnostics wrapper&lt;br&gt;voxel_runner_diagnos.py -- ANY CLI&quot;]
         A4[&quot;Python import&lt;br&gt;from voxelizer import ...&quot;]
     end

@@ -118,7 +118,7 @@ reasons are recorded here so the decision is not mistaken for an oversight.
 commands the Quickstart documents. It is not a second implementation of
 anything: it builds the same argument lists and runs them as a child process
 (`python -m voxelizer.area_cli area ...`), so the pipeline it drives is the
-one command line drives. It is launched by `run_area.bat`, `scripts/run_area.sh`
+one command line drives. It is launched by `scripts/run_area.bat`, `scripts/run_area.sh`
 and the Docker GUI service, it is documented in `how-to-use.md` and the report,
 and 40 tests (`tests/test_gui_area.py`) cover its pure helpers and its
 command construction. It
@@ -126,7 +126,9 @@ is the entry point a non-programmer on the team uses. Two unreachable helpers
 inside it were removed; the interface itself is a delivered feature, and
 removing it would delete a working surface rather than simplify the code.
 
-**The six test and experiment trees** do different jobs and are kept apart on
+**The six test and experiment trees** - kept, like the whole test
+workspace, in the private VCity monorepo (`Projects/IArbre/Stage-voxelisation`),
+not in this delivery - do different jobs and are kept apart on
 purpose:
 
 | Tree | What it holds | Why it is separate |

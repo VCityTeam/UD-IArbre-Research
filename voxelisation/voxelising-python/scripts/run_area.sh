@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 #  Launches the voxelizer GUI (Tkinter): the Linux/macOS twin of
-#  the package root's run_area.bat.
+#  run_area.bat in this same directory.
 #
 #    * Single file (drag & drop / browse) -> whole-file
 #      laspy.read path, launched as a `python -m voxelizer

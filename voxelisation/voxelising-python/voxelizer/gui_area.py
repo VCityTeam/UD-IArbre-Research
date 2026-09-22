@@ -1439,7 +1439,7 @@ def build_app(root) -> dict:
                 for line in p.stdout:
                     text = line.rstrip("\n")
                     log_q.put(text)
-                    # Also echo to the real console (the window run_area.bat
+                    # Also echo to the real console (the window scripts/run_area.bat
                     # opened) so the diagnostics ticks appear in the terminal
                     # too, not only in this log. sys.stdout is None under
                     # pythonw (no console) - guard for that.

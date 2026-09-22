@@ -612,7 +612,9 @@ cells get finer) and the shadow workload's ground-hit rays up to ~225x faster,
 1x at 1 m cells where the reference walker already stopped on the first solid
 voxel (`Experiments/ray_benchmark.json`; single-machine timings, quoted as
 orders of magnitude), with identical results asserted against
-the reference walker by `tests/test_ray_columns_equivalence.py`. The column
+the reference walker by `tests/test_ray_columns_equivalence.py` (the tests/
+and Experiments/ evidence cited through this guide live in the private
+VCity monorepo, `Projects/IArbre/Stage-voxelisation`). The column
 binary search the old text described remains a legitimate future optimisation,
 just not the thing the code does today.
 

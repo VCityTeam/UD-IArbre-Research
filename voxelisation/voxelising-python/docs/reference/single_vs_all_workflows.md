@@ -14,7 +14,7 @@ column cross-sections for debugging.
 python -m voxelizer single inputs/laz/18410_51825.laz -o outputs/Run4/single --cell-xy 1.0 --cell-z 0.5 --columns-mode diag
 
 # Or via the .bat (opens the area-voxelizer GUI, which includes a single-file tab)
-run_area.bat
+scripts/run_area.bat
 ```
 
 ## Data Flow

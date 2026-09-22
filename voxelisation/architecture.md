@@ -34,7 +34,8 @@ voxelisation/
     │                               sorties ne sont pas versionnées)
     ├── entire-lyon-outputs/        point de montage des exécutions
     │                               Métropole (vide livré)
-    ├── scripts/, run_area.bat, run_viewer.bat / .sh,
+    ├── scripts/                    lanceurs : run_area (.bat, .sh),
+    │                               run_viewer (.bat, .sh), serve_run (.cmd, .sh)
     ├── docker/                     Dockerfile, docker-compose.yml,
     │                               docker-entrypoint.sh et les jumeaux
     │                               dockerdownload / dockerruncpu (.cmd, .sh)

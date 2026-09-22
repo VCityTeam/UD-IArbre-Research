@@ -5,11 +5,11 @@
 #    The browser is always opened: this script passes --open itself,
 #    then appends whatever arguments you give it.
 #
-#    ./run_viewer.sh                          (latest run)
-#    ./run_viewer.sh outputs/Run3/area_output (specific run)
+#    ./scripts/run_viewer.sh                          (latest run)
+#    ./scripts/run_viewer.sh outputs/Run3/area_output (specific run)
 # ============================================================
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 # Pick the right Python interpreter
 if [ -x ".venv/bin/python" ]; then

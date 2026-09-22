@@ -9,11 +9,11 @@ rem    The browser is always opened: this script passes --open itself,
 rem    then appends whatever arguments you give it.
 rem
 rem    Examples:
-rem      run_viewer.bat                          (latest run)
-rem      run_viewer.bat outputs\Run3\area_output (specific run)
+rem      scripts\run_viewer.bat                          (latest run)
+rem      scripts\run_viewer.bat outputs\Run3\area_output (specific run)
 rem ============================================================
 setlocal enabledelayedexpansion
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 rem -- Pick the right Python interpreter ------------------------
 if exist ".venv\Scripts\python.exe" (

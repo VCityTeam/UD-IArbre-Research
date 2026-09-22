@@ -180,7 +180,6 @@ voxelising-python/             The deliverable code and Python package
   execution-steps.md           Command-line reference
   how-to-use.md                Narrative tutorial
   requirements.txt             Pinned Python dependencies
-  run_area.bat, run_viewer.*   Windows and Unix launchers
 docs/                          Companion design, problem-solving, and source docs
 ```
 
@@ -193,7 +192,7 @@ Once the Quickstart above works, these are the next commands by task. Add
 `--preflight-only` to an area command first to see predicted RAM, or `--shard`
 for areas beyond RAM.
 
-The GUI (both modes, pre-flight dialog, resume support): `run_area.bat`
+The GUI (both modes, pre-flight dialog, resume support): `scripts/run_area.bat`
 or `python -m voxelizer.gui_area`.
 
 Clean a finished store with the semantic passes, then feed the result to

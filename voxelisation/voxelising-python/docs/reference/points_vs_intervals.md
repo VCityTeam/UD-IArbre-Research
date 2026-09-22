@@ -34,7 +34,8 @@ y 5182500.0-5182999.99 and z 247.08-448.81 m, with a median z of 366.5 m.
 
 Across the whole Grand Lyon 2023 corpus (2,842 tiles), a tile holds
 anywhere from 7,676 to 60,937,237 points - median 16.2 million, mean
-18.3 million (`tests/diagtests/genstats/LAZ_STATS.md`, section 1). The
+18.3 million (`tests/diagtests/genstats/LAZ_STATS.md`, section 1; that
+frozen census is kept in the private monorepo). The
 file `18410_51825.laz` is the largest of them, with 60.9 million points.
 
 Points are **not** the voxelizer's output. They're the input. The

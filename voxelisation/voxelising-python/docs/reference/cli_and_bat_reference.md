@@ -4,8 +4,8 @@
 
 | Bat file | What it does |
 | --- | --- |
-| `run_area.bat` | Opens the area voxelizer Tkinter GUI for coordinate-driven multi-tile runs |
-| `run_viewer.bat` | Runs `voxelizer.serve_voxel_html --open` on the latest run under `outputs/`, or on a directory passed as an argument, and opens the streaming 3-D viewer |
+| `scripts/run_area.bat` | Opens the area voxelizer Tkinter GUI for coordinate-driven multi-tile runs |
+| `scripts/run_viewer.bat` | Runs `voxelizer.serve_voxel_html --open` on the latest run under `outputs/`, or on a directory passed as an argument, and opens the streaming 3-D viewer |
 
 A finished run also carries its own generated launchers - `view_stream.cmd`
 beside a `*_stream.html`, and `view_cesium.cmd` / `view_itowns.cmd` beside a

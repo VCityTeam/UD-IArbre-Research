@@ -59,7 +59,7 @@ services:
       # During development that mirror was a local scratch directory on fast
       # storage holding the full Grand Lyon 2023 inventory (2,842 tiles,
       # 51,912,212,206 points - the count matches the Genstats corpus record
-      # LAZ_STATS.md exactly), with a second archival copy on slower storage.
+      # (LAZ_STATS.md, kept with the private workspace's corpus census) exactly), with a second archival copy on slower storage.
       # Complete in count but not proven clean byte for byte: one tile in
       # that mirror was later found bit-corrupted and had to be re-fetched
       # (docs/problem-solving.md sections 1.4 and 6.4, at the delivery

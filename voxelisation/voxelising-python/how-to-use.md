@@ -28,7 +28,7 @@ grid, then get statistics, 2-D maps, per-column diagnostics, and interactive
 
 ### The GUI - easiest way in
 
-Double-click **`run_area.bat`** (Windows) or run:
+Double-click **`scripts/run_area.bat`** (Windows) or run:
 
 ```
 python -m voxelizer.gui_area
@@ -110,7 +110,7 @@ python -m voxelizer serve outputs\Run1\area_output
 It reads the directory to decide which server to start (streaming viewer or
 3D Tiles), opens a browser, and is only ambiguous if the directory holds
 both, in which case pass `--kind stream` or `--kind tiles`.
-`run_viewer.bat` serves the most recent streaming run directly through
+`scripts/run_viewer.bat` serves the most recent streaming run directly through
 `python -m voxelizer.serve_voxel_html --open`. The `scripts/` folder holds
 one-purpose launchers around the same verb - drag-and-drop serving, the
 Cesium and iTowns tiles pages, and Linux/macOS twins of the root
@@ -427,7 +427,7 @@ python -m voxelizer.serve_voxel_html [DIR] [--port 8000] [--bind ADDR] [--open]
   With no arguments it auto-detects the most recent run folder holding a
   `*_stream.html`. `--port 0` asks the operating system for a free port, so
   several runs can be served at once, and the console prints the URL it got.
-  `run_viewer.bat` wraps this with `--open`, and the `view_stream.cmd`
+  `scripts/run_viewer.bat` wraps this with `--open`, and the `view_stream.cmd`
   written beside the page does the same with `--port 0` for that one folder.
 * `--tile-m` (default 64) sets the spatial tile size: smaller tiles cull
   more finely; larger ones make fewer, bigger requests.

@@ -21,7 +21,7 @@ rem  Stop terminates the job cleanly (optionally wrapped by
 rem  voxel_runner_diagnos for live CPU/RAM diagnostics).
 rem ============================================================
 setlocal enabledelayedexpansion
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 rem -- Pick the right Python interpreter ------------------------
 if exist ".venv\Scripts\python.exe" (

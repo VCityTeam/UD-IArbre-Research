@@ -32,11 +32,11 @@ The count is scoped to this diagram and does not contradict the report's Section
 ```mermaid
 flowchart TD
     subgraph EntryPoints ["USER ENTRY POINTS"]
-        A3["GUI (Tkinter)<br>gui_area.py / run_area.bat"]
+        A3["GUI (Tkinter)<br>gui_area.py / scripts/run_area.bat"]
         A1["CLI: single tile<br>python -m voxelizer single"]
         A2["CLI: area / bbox<br>python -m voxelizer.area_cli area"]
         A5["CLI: 3-D<br>viz3d_cli single | from-store | stream"]
-        A6["Viewer servers<br>serve_voxel_html / serve_tiles / run_viewer.bat"]
+        A6["Viewer servers<br>serve_voxel_html / serve_tiles / scripts/run_viewer.bat"]
         A7["Diagnostics wrapper<br>voxel_runner_diagnos.py -- ANY CLI"]
         A4["Python import<br>from voxelizer import ..."]
     end
