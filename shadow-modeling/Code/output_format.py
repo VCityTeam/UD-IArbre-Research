@@ -106,10 +106,10 @@ def georef_shadow_save(shadow, x_min, y_min, DSM, resolution, method_name):
             height=height,
             width=width,
             count=1,
-            dtype="uint8",
+            dtype="float32",
             crs="EPSG:3946",
             transform=transform,
-            nodata=0
+            nodata=-9999
     ) as dst:
 
         dst.write(shadow_raster, 1)

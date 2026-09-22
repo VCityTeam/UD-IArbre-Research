@@ -46,7 +46,7 @@ def main():
         date=date
     )
 
-    time_index = user_sun_phase_choice(alpha_list, time)
+    time_index, time_index_end = user_sun_phase_choice(alpha_list, time)
 
     print("\nValeurs :")
     print("elevation value :", alpha_list[time_index])

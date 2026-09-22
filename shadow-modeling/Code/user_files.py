@@ -15,13 +15,16 @@ def user_sun_phase_choice(alpha_list, horaire_list):
         for i in range(start_index, len(alpha_list)):
             print(f"{i} : {horaire_list[i]}")
 
-        user_time_index = input("\nEnter the index of the desired time: ")
+        user_time_index = input("\nEnter the index of the start: ")
+        user_time_index_end = input("\nEnter the index of the end: ")
 
-        if user_time_index.isdigit():
+        if user_time_index.isdigit() and user_time_index_end.isdigit():
             user_time_index = int(user_time_index)
+            user_time_index_end = int(user_time_index_end)
 
-            if start_index <= user_time_index < len(alpha_list):
-                return user_time_index
+            if start_index <= user_time_index < len(alpha_list) and start_index <= user_time_index_end <= len(alpha_list):
+                if user_time_index < user_time_index_end:
+                    return user_time_index, user_time_index_end
 
         print(f"Invalid entry. Please enter a number between {start_index} and {len(alpha_list)-1}.")
 
