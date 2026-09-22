@@ -9,6 +9,7 @@ from sunpositions import *
 from user_files import *
 from output_format import *
 from canope_laz_generator import *
+from Tiff_generator import *
 
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Purpose : This program generates a 2.5D urban cast-shadow map and improves the calculation of vegetation shadows.
@@ -38,7 +39,7 @@ def main():
 
     alpha_list, psi_list, omega, time = sunpos(
         latitude_deg=45.75, # latitude of Lyon
-        tau_deg= 45, # time intervals 
+        tau_deg= 15, # time intervals  15 -> 1h, 45 -> 3h
         date=date
     )
 
@@ -85,12 +86,32 @@ def main():
         axis=0
     )
 
+    points_building = load_point_cloud(laz_file, 4)
+    DSM_building_only, xmin_building, ymin_building, resolution_building = build_dsm(points_building)
+    DSM_building = np.full(dtm.shape, -np.inf, dtype=np.float32)
+    offset_x = int((xmin_building - int(x_min)) / resolution_building)
+    offset_y = int((ymin_building - int(y_min)) / resolution_building)
+    h, w = DSM_building_only.shape
+    DSM_building[
+        offset_y:offset_y + h,
+        offset_x:offset_x + w
+    ] = DSM_building_only
+
     with open("Data/coord_shadow_sm2.txt", "w") as f:
         for X, Y, Z in shadow_all:
             f.write(f"{X+int(x_min)} {Y+int(y_min)} {Z}\n")
 
     save_plot_shadow(shadow_all, time, time_index, x_min, y_min, day, month, year, "Method 2 Global Shadow Map", "Method2")
     georef_shadow_save(shadow_all, int(x_min), int(y_min), DSM, 1.0, "Method2_georef")
+
+    tif_generator(int(x_min), int(y_min), DSM_building, dtm, 1.0, "DSM_building")
+
+    tif_generator(int(x_min), int(y_min), dsm_canope_top, dtm, 1.0, "DSM_vegetation_top")
+
+    bottom = np.asarray(dsm_canope_bottom, dtype=np.float32)
+    bottom[~np.isfinite(bottom)] = 0
+    tif_generator(int(x_min), int(y_min), bottom, dtm, 1.0, "DSM_vegetation_bottom")
+
 
 if __name__ == "__main__":
     main()
