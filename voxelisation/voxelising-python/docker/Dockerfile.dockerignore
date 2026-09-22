@@ -1,0 +1,53 @@
+# ===================================================================
+#  Build-context ignore for the IA.rbre voxeliser
+#
+#  This is the Dockerfile-specific ignore (BuildKit reads
+#  <Dockerfile>.dockerignore beside the Dockerfile). The build context
+#  stays the package root (see docker-compose.yml), so the patterns
+#  below are relative to that root.
+#
+#  Keeps heavy runtime data out of the build context. The image
+#  contains only the code + dependencies; data is bind-mounted at
+#  runtime via docker-compose.yml.
+# ===================================================================
+
+# Version control
+.git
+.gitignore
+
+# Python caches and virtual environments
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.venv
+.ruff_cache
+.pytest_cache
+
+# Heavy runtime data - mounted in via docker-compose, never baked into
+# the image. inputs/laz is ~209 GB and outputs/ is regenerable, so they
+# stay out of the build context to keep
+# `docker compose -f docker/docker-compose.yml build` fast.
+inputs/laz
+inputs/ortho
+outputs
+
+# Old/test data not needed for Docker. The OldHistory pattern is harmless
+# in a checkout that does not contain that directory.
+OldHistory
+tests/diagtests
+
+# Windows batch files (not needed in Linux container)
+*.bat
+*.cmd
+*.rar
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+
+# Documentation (not needed in container)
+docs/reference
+*.md

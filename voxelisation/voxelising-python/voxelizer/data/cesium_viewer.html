@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Voxel 3D Tiles viewer</title>
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Cesium.js"></script>
+<link href="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Widgets/widgets.css" rel="stylesheet" />
+<style>
+  html, body, #cesiumContainer { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: #000; }
+  #info { position: absolute; top: 8px; left: 8px; color: #0f0; font: 13px monospace;
+          background: rgba(0,0,0,0.7); padding: 6px 10px; z-index: 10; white-space: pre; }
+  #help { position: absolute; bottom: 8px; left: 8px; color: #aaa; font: 12px monospace;
+          background: rgba(0,0,0,0.6); padding: 4px 8px; z-index: 10; }
+</style>
+</head>
+<body>
+<div id="cesiumContainer"></div>
+<div id="info">loading tileset ...</div>
+<div id="help">left-drag rotate | shift+left-drag orbit screen centre | right-drag pan sideways + tilt | middle-drag tilt | wheel zoom | keys: O = overview, C = close-up</div>
+<script>
+async function main() {
+  const info = document.getElementById("info");
+  try {
+    // No Cesium ion account needed: the globe/imagery are disabled and the
+    // tileset renders in its own georeferenced frame.
+    Cesium.Ion.defaultAccessToken = undefined;
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+      globe: false, baseLayerPicker: false, animation: false, timeline: false,
+      geocoder: false, homeButton: false, sceneModePicker: false,
+      navigationHelpButton: false, fullscreenButton: false, infoBox: false,
+      selectionIndicator: false, skyBox: false, skyAtmosphere: false,
+      // Render on demand, not every frame. Cesium's default
+      // (requestRenderMode: false) redraws continuously whatever the scene
+      // holds, so a parked camera over a static tileset still pinned the GPU
+      // at 100 percent. With this on, a frame is drawn when something
+      // actually changes - the camera moves, or a tile finishes streaming.
+      // maximumRenderTimeChange: Infinity stops the clock alone from
+      // requesting frames; nothing here is time-animated.
+      requestRenderMode: true,
+      maximumRenderTimeChange: Infinity,
+    });
+    viewer.scene.backgroundColor = Cesium.Color.BLACK;
+
+    // ?tileset=<url> overrides the default sibling tileset.json
+    const params = new URLSearchParams(location.search);
+    const url = params.get("tileset") || "./tileset.json";
+
+    const tileset = await Cesium.Cesium3DTileset.fromUrl(url);
+
+    // Cesium's default maximumScreenSpaceError of 16 crashes the renderer on
+    // this data, and the reason is instance count rather than bytes: CesiumJS
+    // allocates one pick ID per instance into a JS Map capped at 2^24
+    // (16,777,216) entries. Our leaves carry ~271k instances each (median;
+    // 602k at the worst), so at 16 a close-up selects 87 tiles = 28.0 M
+    // instances and street level 99 tiles = 31.3 M - 1.7x to 1.9x past that
+    // ceiling, which ends as "Aw, Snap! Out of Memory".
+    //   48 -> close-up 7.6 M (45% of cap), street 13.5 M (80%). Holds.
+    //   32 -> close-up 13.1 M, but street 17.8 M, still 1.1x over. Not enough.
+    // 48 is also what the Unreal integration already prescribed, which
+    // hit the same wall at 34 GiB. Measured by replaying the client's REPLACE
+    // traversal over the tileset's own bounding volumes and summing the
+    // instances of the selected set against the cap.
+    tileset.maximumScreenSpaceError = 48;
+
+    // Bound what stays resident across a long fly-through, so memory does not
+    // creep up tile by tile even while each individual view is within budget.
+    tileset.cacheBytes = 512 * 1024 * 1024;
+    tileset.maximumCacheOverflowBytes = 256 * 1024 * 1024;
+
+    viewer.scene.primitives.add(tileset);
+
+    // Spell the navigation out instead of inheriting Cesium's globe defaults.
+    // Stock bindings put zoom on RIGHT_DRAG and tilt on MIDDLE_DRAG, which
+    // reads as "two buttons both zoom, and nothing rotates" on a local model,
+    // and it contradicted the help line this page has always displayed.
+    const ctrl = viewer.scene.screenSpaceCameraController;
+    ctrl.rotateEventTypes = [Cesium.CameraEventType.LEFT_DRAG];
+    ctrl.tiltEventTypes = [Cesium.CameraEventType.MIDDLE_DRAG];
+    // Right-drag and shift+left-drag are handled by hand below, so take them
+    // away from the built-in controller or both bindings fire at once.
+    ctrl.zoomEventTypes = [Cesium.CameraEventType.WHEEL,
+                           Cesium.CameraEventType.PINCH];
+    ctrl.lookEventTypes = [];
+
+    // Stop the camera from entering the geometry. This is a crash guard, not a
+    // comfort setting: once the camera is inside a tile's bounding box its
+    // distance is zero, so the screen-space error is infinite and that subtree
+    // refines to full-detail leaves no matter how high maximumScreenSpaceError
+    // is. Holding the camera outside the boxes keeps the selected set bounded.
+    ctrl.minimumZoomDistance = 25.0;
+    ctrl.enableCollisionDetection = true;
+
+    // ---- Local-model navigation -------------------------------------------
+    // Cesium's built-in "rotate" orbits the centre of the Earth, which for a
+    // 3 km model reads as the whole scene sliding away rather than turning.
+    // Both gestures below pivot on the point under the middle of the screen -
+    // the thing you are looking at - which is what makes a local model feel
+    // like an object on a turntable.
+    const scene = viewer.scene;
+    const canvas = scene.canvas;
+
+    // The pivot: whatever the centre pixel is pointing at. pickPosition needs
+    // a depth texture; where that is unavailable, or the centre is pointed at
+    // empty sky, fall back to the tileset's own centre so the gesture still
+    // does something sensible instead of throwing.
+    const screenCentre = new Cesium.Cartesian2();
+    function pivotPoint() {
+      screenCentre.x = canvas.clientWidth / 2;
+      screenCentre.y = canvas.clientHeight / 2;
+      if (scene.pickPositionSupported) {
+        const p = scene.pickPosition(screenCentre);
+        if (Cesium.defined(p)) return p;
+      }
+      return Cesium.Cartesian3.clone(tileset.boundingSphere.center);
+    }
+
+    // Metres covered by one pixel at the pivot's distance, so a drag moves the
+    // scene by the amount the cursor moved rather than a fixed step.
+    function metresPerPixel(pivot) {
+      const d = Cesium.Cartesian3.distance(scene.camera.positionWC, pivot);
+      const fovY = scene.camera.frustum.fovy ?? Cesium.Math.toRadians(60);
+      return (2 * d * Math.tan(fovY / 2)) / canvas.clientHeight;
+    }
+
+    const handler = new Cesium.ScreenSpaceEventHandler(canvas);
+    const scratch = {
+      right: new Cesium.Cartesian3(), up: new Cesium.Cartesian3(),
+      move: new Cesium.Cartesian3(), tmp: new Cesium.Cartesian3(),
+    };
+
+    // --- right-drag: pan horizontally, staying level ---
+    let panning = null;
+    handler.setInputAction((e) => { panning = { pos: e.position.clone(), pivot: pivotPoint() }; },
+                           Cesium.ScreenSpaceEventType.RIGHT_DOWN);
+    handler.setInputAction(() => { panning = null; },
+                           Cesium.ScreenSpaceEventType.RIGHT_UP);
+    handler.setInputAction((e) => {
+      if (!panning) return;
+      const dx = e.endPosition.x - panning.pos.x;
+      const dy = e.endPosition.y - panning.pos.y;
+      panning.pos = e.endPosition.clone();
+      const cam = scene.camera;
+      // "Horizontal" means the local horizontal plane at the pivot, not the
+      // camera's own plane - otherwise looking down turns panning into a dive.
+      // Sideways is a true translation, taken in the pivot's local frame so it
+      // stays level rather than banking with the camera.
+      const up = Cesium.Cartesian3.normalize(
+        Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(panning.pivot, scratch.tmp),
+        scratch.up);
+      const right = Cesium.Cartesian3.normalize(
+        Cesium.Cartesian3.cross(cam.directionWC, up, scratch.right), scratch.right);
+      const mpp = metresPerPixel(panning.pivot);
+      // drag right -> the scene slides right, so the camera moves left.
+      Cesium.Cartesian3.multiplyByScalar(right, -dx * mpp, scratch.move);
+      Cesium.Cartesian3.add(cam.position, scratch.move, cam.position);
+
+      // Vertically this tilts rather than translates: the camera swings up and
+      // over the pivot at a constant distance, which is the "look at it from
+      // higher up" gesture, not a lift.
+      if (dy !== 0) {
+        const frame = Cesium.Transforms.eastNorthUpToFixedFrame(panning.pivot);
+        cam.lookAtTransform(frame);
+        const step = -dy * 0.005;
+        cam.rotateUp(step);
+        const arm = Cesium.Cartesian3.normalize(cam.position, new Cesium.Cartesian3());
+        const elevation = Math.acos(Cesium.Math.clamp(arm.z, -1, 1));
+        if (elevation < Cesium.Math.toRadians(2) ||
+            elevation > Cesium.Math.toRadians(88)) {
+          cam.rotateUp(-step);
+        }
+        cam.lookAtTransform(Cesium.Matrix4.IDENTITY);
+      }
+      scene.requestRender();
+    }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+    // --- shift+left-drag: orbit about the screen-centre point ---
+    let orbiting = null;
+    handler.setInputAction((e) => { orbiting = { pos: e.position.clone(), pivot: pivotPoint() }; },
+                           Cesium.ScreenSpaceEventType.LEFT_DOWN,
+                           Cesium.KeyboardEventModifier.SHIFT);
+    handler.setInputAction(() => { orbiting = null; },
+                           Cesium.ScreenSpaceEventType.LEFT_UP,
+                           Cesium.KeyboardEventModifier.SHIFT);
+    handler.setInputAction((e) => {
+      if (!orbiting) return;
+      const dx = e.endPosition.x - orbiting.pos.x;
+      const dy = e.endPosition.y - orbiting.pos.y;
+      orbiting.pos = e.endPosition.clone();
+      const cam = scene.camera;
+      // Orbiting is just "rotate in a frame centred on the pivot": install that
+      // frame, turn, then hand the camera back to the world frame.
+      const frame = Cesium.Transforms.eastNorthUpToFixedFrame(orbiting.pivot);
+      cam.lookAtTransform(frame);
+      cam.rotateRight(dx * 0.005);
+      // Clamp the vertical swing so the camera cannot swing over the top and
+      // leave the scene upside down. Inside this frame the camera's own
+      // position is the orbit arm, so the angle between it and the frame's up
+      // axis (local Z) is the elevation; keep it inside 2..88 degrees.
+      const step = -dy * 0.005;
+      cam.rotateUp(step);
+      const arm = Cesium.Cartesian3.normalize(cam.position, new Cesium.Cartesian3());
+      const elevation = Math.acos(Cesium.Math.clamp(arm.z, -1, 1));
+      if (elevation < Cesium.Math.toRadians(2) ||
+          elevation > Cesium.Math.toRadians(88)) {
+        cam.rotateUp(-step);            // undo: the swing left the usable band
+      }
+      cam.lookAtTransform(Cesium.Matrix4.IDENTITY);
+      scene.requestRender();
+    }, Cesium.ScreenSpaceEventType.MOUSE_MOVE, Cesium.KeyboardEventModifier.SHIFT);
+
+    let failed = 0;
+    tileset.tileFailed.addEventListener(() => { failed++; });
+
+    // With the LOD pyramid, framing the whole area only fetches the coarse
+    // overview levels; refinement streams in as you zoom.
+    await viewer.zoomTo(tileset);
+
+    const overview = () => viewer.zoomTo(tileset);
+    const closeUp = () => {
+      const c = tileset.boundingSphere.center.clone();
+      const up = Cesium.Cartesian3.normalize(c, new Cesium.Cartesian3());
+      const eye = Cesium.Cartesian3.add(
+        c, Cesium.Cartesian3.multiplyByScalar(up, 250, new Cesium.Cartesian3()),
+        new Cesium.Cartesian3());
+      viewer.camera.setView({ destination: eye,
+                              orientation: { heading: 0.3, pitch: -0.9, roll: 0 } });
+    };
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "o" || e.key === "O") overview();
+      if (e.key === "c" || e.key === "C") closeUp();
+    });
+
+    viewer.scene.postRender.addEventListener(() => {
+      const s = tileset.statistics;
+      info.textContent =
+        `tiles selected: ${s.selected}` +
+        `\npending: ${s.numberOfPendingRequests}  processing: ${s.numberOfTilesProcessing}` +
+        `\ngeometry: ${(s.geometryByteLength / 1048576).toFixed(1)} MB` +
+        `\nfailed: ${failed}`;
+    });
+    window._tileset = tileset;
+    window._viewer = viewer;
+  } catch (e) {
+    info.textContent = "ERROR: " + (e && e.message ? e.message : e);
+    console.error(e);
+  }
+}
+main();
+</script>
+</body>
+</html>

@@ -27,11 +27,6 @@ The main objectives are:
 * Experiment with shadow-casting algorithms (or volumetric ray casting) that account for interactions between voxels representing different territorial elements.
 * Compare the results with existing 2D and 2.5D approaches (digital surface models, solar radiation rasters, etc.) in order to assess improvements in accuracy, realism, and interpretability.
 
-## Team 
-- Nikolaos Vynios
-- John Samuel
-- Gilles Gesquière
-
 ## The deliverable
 
 Master's internship deliverables for the **IA.rbre** project (LIRIS, Lyon):
@@ -46,11 +41,12 @@ metropolis scale on one machine.
 ## Quickstart
 
 Requires **Python 3.13 or newer** (3.11 is explicitly unsupported, it corrupts
-its own heap under numpy load - see the problem log).
+its own heap under numpy load - see the problem log,
+[`docs/problem-solving.md`](docs/problem-solving.md)).
 
 ```
-pip install -r VoxelisingPython/requirements.txt
-cd VoxelisingPython
+pip install -r voxelising-python/requirements.txt
+cd voxelising-python
 python -m voxelizer single your_tile.laz --output-dir outputs/test1
 ```
 
@@ -94,7 +90,7 @@ faultlog is opened before its stage starts and stays empty when the stage
 succeeds, so an empty one is the normal case and one with content is the record
 of a stage that died.
 
-Everything else is optional. [`ExecutionSteps.md`](VoxelisingPython/ExecutionSteps.md)
+Everything else is optional. [`execution-steps.md`](voxelising-python/execution-steps.md)
 lists every command-line entry point in the package and tags each one `[CORE]`,
 `[OPTIONAL]` or `[ADVANCED / EDGE CASE]`; three of its 25 sections carry the
 core tag, the two commands above and the tile downloaders of section 11.
@@ -105,100 +101,92 @@ and which nobody runs by hand. Sharded runs for areas beyond RAM,
 LAS/LAZ round trips, 3D Tiles export, the streaming viewer, the GUI and the
 verification suite are all in the optional and advanced sections. The full
 walkthrough is
-[`VoxelisingPython/HowToUse.md`](VoxelisingPython/HowToUse.md).
+[`voxelising-python/how-to-use.md`](voxelising-python/how-to-use.md).
 
 ## For the code review (start here)
 
-- [`ARCHITECTURE.md`](ARCHITECTURE.md) (French): file and module organisation in five
-  tiers, the classes and their interactions, the execution flow from the LAZ tiles
-  to the outputs, and the functions and exact commands needed to rerun the pipeline,
-  the experiments and the tests.
-- [`VoxelisingPython/ReadMEs/12_workflow_schema.md`](VoxelisingPython/ReadMEs/12_workflow_schema.md)
-  (with the rendered `12_workflow_schema.svg`): what calls what, in order, with what
-  data, for the two commands that matter.
-- Generated API documentation (Doxygen, with call graphs and linked sources):
-  the site is generated locally, it is not versioned. From `VoxelisingPython/docs/`,
-  run `make_docs.cmd` (Windows) or `make_docs.sh` (Linux), then open
-  `docs/doxygen/html/index.html`.
-- Diagrams: `VoxelisingPython/ReadMEs/01_*.svg` to `10_*.svg` and
-  `12_workflow_schema.svg`, in particular `10_classes_fr.svg` and the
-  workflow schema.
-- Tests, recorded experiments and the re-verification suite are not in this
-  directory: `VoxelisingPython/tests/`, `VoxelisingPython/Experiments/` and
-  `VoxelisingPython/code_verification/` are kept in the VCity monorepo
-  (`Projects/IArbre/Stage-voxelisation`), where the suite gives 671 passed and
-  2 skipped.
-- [`VoxelisingPython/ReadMEs/02_visualization_formats.md`](VoxelisingPython/ReadMEs/02_visualization_formats.md):
-  why the kept duplications stay (three 3-D exporters, two Three.js templates,
-  the GUI, the validation trees, the downloaders).
+- [`architecture.md`](architecture.md) (French): the package layout, execution flow,
+  data model, and commands that reproduce the documented workflow.
+- [`voxelising-python/docs/reference/12_workflow_schema.md`](voxelising-python/docs/reference/12_workflow_schema.md)
+  and its SVG: the call sequence and data exchanged by the two main commands.
+- Generated API documentation: build it from `voxelising-python/docs/` with
+  `make_docs.cmd` on Windows or `make_docs.sh` on Linux, then open
+  `voxelising-python/docs/doxygen/html/index.html`.
+- Architecture diagrams are in `voxelising-python/docs/reference/`.
+- [`voxelising-python/docs/reference/02_visualization_formats.md`](voxelising-python/docs/reference/02_visualization_formats.md)
+  explains the retained viewer and export formats.
+
+Every guide shipped in the delivery is indexed below; nothing is left
+reachable only by browsing the tree.
+
+## Reference guides
+
+Top-level documents: this README,
+[`architecture.md`](architecture.md) (French, the reviewer's map),
+[`voxelising-python/execution-steps.md`](voxelising-python/execution-steps.md)
+(flat CLI reference, 25 tagged sections) and
+[`voxelising-python/how-to-use.md`](voxelising-python/how-to-use.md)
+(narrative tutorial). The companion documents behind the report live under
+[`docs/`](docs/) (table at the end of this README).
+
+Topic guides and diagrams, all under `voxelising-python/docs/reference/`:
+
+| Guide | What it covers |
+|---|---|
+| [`voxelizer-documentation.md`](voxelising-python/docs/reference/voxelizer-documentation.md) | The long-form reference: data model, algorithm, every stage, exports, serving |
+| [`cli_and_bat_reference.md`](voxelising-python/docs/reference/cli_and_bat_reference.md) | Every CLI verb and generated `.cmd` launcher, tabulated |
+| [`12_workflow_schema.md`](voxelising-python/docs/reference/12_workflow_schema.md) (+ `.svg`) | What calls what, in order, for the two core commands |
+| [`02_visualization_formats.md`](voxelising-python/docs/reference/02_visualization_formats.md) | Why each kept viewer/export format stays |
+| [`visualizer3d_workflow.md`](voxelising-python/docs/reference/visualizer3d_workflow.md) | The streaming Three.js viewer end to end |
+| [`single_vs_all_workflows.md`](voxelising-python/docs/reference/single_vs_all_workflows.md) | Single tile vs area vs sharded area, when to use which |
+| [`columns_gridding_voxels.md`](voxelising-python/docs/reference/columns_gridding_voxels.md) | Columns, the grid, and how voxels derive from both |
+| [`points_vs_intervals.md`](voxelising-python/docs/reference/points_vs_intervals.md) | Points vs run-length intervals, and what each buys |
+| [`pipeline_py_explanation.md`](voxelising-python/docs/reference/pipeline_py_explanation.md) | Line-by-line walkthrough of the single-tile pipeline |
+| [`laz_roundtrip_design.md`](voxelising-python/docs/reference/laz_roundtrip_design.md) | The exact LAZ round trip and shard archiving design |
+| [`las_1_2_vs_1_4_classification.md`](voxelising-python/docs/reference/las_1_2_vs_1_4_classification.md) | LAS 1.2 vs 1.4 classification semantics |
+| [`lidar-classification.md`](voxelising-python/docs/reference/lidar-classification.md) | The ASPRS class table the corpus uses |
+| numbered `01`-`10` `.svg` (+ `.mmd` sources) | Architecture, data, algorithm, export and class diagrams; `06*` are the module dependency graphs |
+
+Pipeline diagrams:
+[`voxelising-python/diagrams/pipeline_dataflow_diagram.md`](voxelising-python/diagrams/pipeline_dataflow_diagram.md)
+(eight Mermaid diagrams; the
+[standalone page](voxelising-python/diagrams/pipeline_dataflow_diagram.html)
+renders them) and the plain-language
+[`pipeline_overview_simple.md`](voxelising-python/diagrams/pipeline_overview_simple.md).
+
+Launcher scripts: [`voxelising-python/scripts/README.md`](voxelising-python/scripts/README.md).
+Docker workflow: [`voxelising-python/docker/`](voxelising-python/docker)
+(`Dockerfile`, `docker-compose.yml`, entrypoint, download/run wrappers).
 
 ## What is in this repository
 
 ```
-VoxelisingPython/            The deliverable code
-  voxelizer/                 The Python package (49 modules): LAZ reading,
-                             voxelization, area pipeline, sharding,
-                             out-of-core shard merge and from-shard
-                             diagnostics, stage isolation, decoder, ground
-                             index, denoising, ray tracing, solar geometry,
-                             sun hours, 2.5-D surface comparison, 2-D/3-D
-                             rendering, streaming viewer and its HTTP
-                             server, 3D Tiles export and its server, exact
-                             LAZ round trip and shard archiving,
-                             post-processing CLI, GUI
-  scripts/                   Launcher scripts (serve_run, serve_tiles for
-                             CesiumJS/iTowns, run_area) for the common flows
-  ReadMEs/                   Reader-facing documentation: the voxelizer guide,
-                             workflow notes, and the numbered architecture SVGs
-  HowToUse.md                Narrative tutorial (GUI and CLI, with examples)
-  ExecutionSteps.md          Flat CLI reference covering every entry point,
-                             each section tagged CORE / OPTIONAL / ADVANCED
-  notes.md                   Scratch notes kept with the code
-  requirements.txt           Pinned dependencies (Python 3.13+)
-  inputs/                    quickhelpers/ holds the two Grand Lyon inventory
-                             JSONs the downloaders read; laz/ is where tiles
-                             land (empty here - the corpus is not tracked)
-  Dockerfile, docker-compose.yml, docker/, dockerruncpu.cmd, dockerdownload.cmd
-                             Containerised CPU pipeline (8 GB memory cap);
-                             dockerdownload.cmd fetches tiles into inputs/laz
-  run_area.bat               Double-click launcher for the GUI (Windows)
-  run_viewer.bat / .sh       Serve and open the streaming 3-D viewer. A
-                             finished run also carries its own generated
-                             view_*.cmd / launch_unreal.cmd launchers
-  Diagrams/                  Pipeline / dataflow diagrams, plus a plain-language
-                             overview (pipeline_overview_simple.md)
-  outputs/                   Where local runs land (empty here - run outputs are
-                             not tracked; the Quickstart regenerates one)
-  EntireLyonOutputs/         Where whole-metropolis run outputs persist on the
-                             host - docker-compose bind-mounts this directory
-                             into the container (empty here - runs are not
-                             tracked)
-tilesexport/                 The 3D Tiles delivery end of the pipeline
-  AssistingRuns/             Local visualisation kit: HTTP server with the
-                             bundled CesiumJS viewer page, plus docs 00-04
-                             (export internals, serving, troubleshooting,
-                             migration to other Cesium clients)
-  UEViz/                     Unreal Engine 5.8 visualisation: pipeline and
-                             experiment docs, editor-driving tools, and the
-                             IarbreVoxels project source (the Cesium for
-                             Unreal plugin and the exported tilesets are
-                             not carried - see the READMEs there)
-Presentations/
-  Pres1/                     Mid-term presentation, English (PDF)
-  Soutenance/                The defence material, six files:
-    Nikolaos_internship-report_EN.pdf
-    Nikolaos_internship-report_FR.pdf
-                             The internship report, English and French editions
-    ProblemSolving.md        Every problem hit and how it was solved
-    DESIGN_DECISIONS.md      Why each choice was made and what it costs
-    BIBLIOGRAPHY_AND_REFERENCES.md
-                             The source of record for every citation. These
-                             three are the companion documents the report
-                             builds on (see below)
-    soutenance_FR_Vynios.pdf The defence slides, French (59 pages)
-notes.md                     Top-level scratch notes
+voxelising-python/             The deliverable code and Python package
+  voxelizer/                   LAZ reading, voxelization, area processing,
+                               sharding, diagnostics, ray tracing, solar
+                               analysis, visualization, and 3D Tiles export
+  docs/                        Doxygen configuration and reference material
+    reference/                 Guides, workflow notes, diagrams, and the
+                               LiDAR classification reference
+  diagrams/                    Pipeline and data-flow diagrams
+  scripts/                     Cross-platform launcher scripts
+  inputs/                      Download inventories and empty input mounts
+  outputs/                     Empty runtime output mount
+  entire-lyon-outputs/         Empty whole-metropolis output mount
+  docker/                       Containerized CPU and GUI workflow:
+                               Dockerfile, docker-compose.yml,
+                               docker-entrypoint.sh, and the
+                               dockerdownload / dockerruncpu wrappers
+  execution-steps.md           Command-line reference
+  how-to-use.md                Narrative tutorial
+  requirements.txt             Pinned Python dependencies
+  run_area.bat, run_viewer.*   Windows and Unix launchers
+docs/                          Companion design, problem-solving, and source docs
 ```
 
+The public branch does not include the full test and experiment workspace. The
+files in this branch are the deliverable package, its reproducibility guides,
+and the empty runtime mount points needed by the documented commands.
 ## Going further
 
 Once the Quickstart above works, these are the next commands by task. Add
@@ -229,7 +217,7 @@ yourself, then export a viewer from it (`--viz3d-stream` on `area_cli`, or
 `tileset_cli from-store` on the resulting `area.npz`).
 
 The flat reference is
-[`VoxelisingPython/ExecutionSteps.md`](VoxelisingPython/ExecutionSteps.md).
+[`voxelising-python/execution-steps.md`](voxelising-python/execution-steps.md).
 
 ## The data
 
@@ -237,7 +225,7 @@ The corpus is the Grand Lyon 2023 airborne LiDAR: **2,842 LAZ tiles,
 ~51.9 billion points**, LAS 1.2 point format 1, ASPRS classes, EPSG:3946.
 The tiles are open data and are not stored in this repository;
 `python -m voxelizer.download_laz` fetches them by bounding box using the
-inventory JSON in `VoxelisingPython/inputs/quickhelpers/`.
+inventory JSON in `voxelising-python/inputs/quickhelpers/`.
 
 ## The design in one paragraph
 
@@ -256,17 +244,15 @@ inferred rather than measured: an airborne laser records nothing below
 the first opaque surface, so everything under the measured ground is a
 deduction from the ground index.
 
-## The report and its companion documents
+## Companion documentation
 
-The internship report lives in `Presentations/Soutenance/` (PDF).
-It builds on three standalone companion documents in the same directory,
-which are the record of the work behind it:
+The public branch keeps the supporting documents under `docs/`:
 
-| Document | What it holds |
+| Document | What it contains |
 |---|---|
-| `ProblemSolving.md` | Every significant problem hit during the internship and how it was solved - data traps, scale walls, crash forensics, environment traps, and the correctness sweeps |
-| `DESIGN_DECISIONS.md` | The why behind every debatable design choice: alternatives considered, what was picked, and what each choice costs |
-| `BIBLIOGRAPHY_AND_REFERENCES.md` | The source of record for every reference: all sources consulted, the cited subset, and where each is used in the report |
+| [`problem-solving.md`](docs/problem-solving.md) | Problems encountered and the resolutions that remain relevant to the delivered package. |
+| [`design-decisions.md`](docs/design-decisions.md) | The main design choices and their trade-offs. |
+| [`bibliography-and-references.md`](docs/bibliography-and-references.md) | Sources used by the documentation and implementation. |
 
 ## Team
 
