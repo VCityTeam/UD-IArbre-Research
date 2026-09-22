@@ -115,3 +115,69 @@ def georef_shadow_save(shadow, x_min, y_min, DSM, resolution, method_name):
         dst.write(shadow_raster, 1)
 
     print(f"GeoTIFF saved: {output_file}")
+
+def multiple_hours_shadow_save_tiff_format(lenght, shadow, x_min, y_min, DSM, resolution, method_name):
+    if shadow is None or len(shadow) == 0:
+        print("Error: shadow is empty.")
+        return
+
+    height, width = DSM.shape
+    shadow_count = np.zeros(
+        (height, width),
+        dtype=np.uint16
+    )
+
+    for shad in shadow:
+
+        shad = np.asarray(shad)
+        for point in shad:
+
+            x = int(point[0])
+            y = int(point[1])
+
+            if 0 <= x < width and 0 <= y < height:
+                row = height - 1 - y
+
+                shadow_count[row, x] += 1
+
+    shadow_raster = 255 - (
+            shadow_count / lenght * 255
+    )
+
+    shadow_raster = np.clip(
+        shadow_raster,
+        0,
+        255
+    ).astype(np.uint8)
+
+    x_origin = x_min
+    y_origin = y_min + height * resolution
+
+    transform = from_origin(
+        x_origin,
+        y_origin,
+        resolution,
+        resolution
+    )
+
+    output_dir = Path("Data")
+    output_dir.mkdir(exist_ok=True)
+
+    output_file = output_dir / f"GeoRef_{method_name}_Shadow.tif"
+
+    with rasterio.open(
+            output_file,
+            "w",
+            driver="GTiff",
+            height=height,
+            width=width,
+            count=1,
+            dtype="float32",
+            crs="EPSG:3946",
+            transform=transform,
+            nodata=-9999
+    ) as dst:
+
+        dst.write(shadow_raster, 1)
+
+    print(f"GeoTIFF saved: {output_file}")
