@@ -36,10 +36,6 @@ def user_sun_phase_choice(alpha_list, horaire_list):
         user_time_index = input("\nEnter the index of the start: ").strip()
         if single_projection == "n":
             user_time_index_end = input("\nEnter the index of the end: ")
-#
-            print(user_time_index, type(user_time_index))
-            print(user_time_index_end, type(user_time_index_end))
-#
             if user_time_index.isdigit() and user_time_index_end.isdigit():
                 user_time_index = int(user_time_index)
                 user_time_index_end = int(user_time_index_end)
@@ -50,10 +46,6 @@ def user_sun_phase_choice(alpha_list, horaire_list):
 
         else :
             user_time_index_end = 99
-#
-            print(user_time_index, type(user_time_index))
-            print(user_time_index_end, type(user_time_index_end))
-#
             if user_time_index.isdigit() :
                 user_time_index = int(user_time_index)
                 user_time_index_end = int(user_time_index_end)
