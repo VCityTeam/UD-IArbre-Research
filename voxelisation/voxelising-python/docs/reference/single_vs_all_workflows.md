@@ -110,7 +110,22 @@ outputs/Run4/single/
         col_ix0339_iy0319.png
         col_ix0353_iy0286.png
         ...
+  shards/                       (only with --shards; one level up from <stem>/)
+    18410_51825.npz
+    manifest.json
 ```
+
+With `--shards` the tile's `ColumnStore` is also persisted next to the tile
+folder as `<output-dir>/shards/<tile_stem>.npz` plus a `manifest.json`, the
+same shard format an area run writes (`voxelizer.shards/2`). The save is
+`ColumnStore.save()` of the store the run already built - no second decode -
+and the manifest's one record carries the same extents and counts the area
+pipeline records per tile, so the folder is a valid input to
+`merge_streaming`, `shard_diagnostics` and `archive_cli`. Because one run
+writes one shard, each tile wants its own `--output-dir`; the store keeps the
+tile's own grid origin, so a single-tile shard is self-contained but not
+mergeable with a shard on a different origin. See `how-to-use.md` section 2 and
+`execution-steps.md` section 1.
 
 ## Beyond one tile: the area and sharded workflows
 
@@ -175,6 +190,9 @@ under `docs/` at the delivery root.
 - Supports `--cell-xy` and `--cell-z` parameters
 - Auto-increments `Run<N>` to avoid overwriting previous results
 - Same `columns_mode` options (`all`/`top`/`diag`/`skip`)
+- `--shards` saves the tile's store as `shards/<tile_stem>.npz` +
+  `shards/manifest.json`, the same shard format an area run writes, so one file
+  becomes a shard the shard tooling can read
 - `--viz3d` renders the singleton Three.js viewers; `--viz3d-stream` renders
   the streaming viewer, which carries every interval and bounds the GPU
   working set at view time instead of decimating the payload

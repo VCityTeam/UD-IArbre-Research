@@ -92,18 +92,37 @@ faultlog is opened before its stage starts and stays empty when the stage
 succeeds, so an empty one is the normal case and one with content is the record
 of a stage that died.
 
-### The two copy-paste commands
+### The three copy-paste commands
 
-For a run that stays out of RAM, use one of these two instead of the in-memory
-area command above. Run them from `voxelising-python/`, after the setup at the
-top. Both keep the per-tile `shards/<tile>.npz` and write the merged
+For a run that stays out of RAM, use one of the two area commands below instead
+of the in-memory area command above. Run all three from `voxelising-python/`,
+after the setup at the top. The first is the single-file case: one tile, named
+by its path rather than by coordinates, and it keeps that tile's shard. The two
+area commands keep the per-tile `shards/<tile>.npz` and write the merged
 `area.npz` with `area_manifest.json`, `stats.txt`, the four `area_*.png` maps,
-`columns/`, `stages.json` and the streaming 3-D viewer. The second additionally
+`columns/`, `stages.json` and the streaming 3-D viewer; the third additionally
 downloads the tiles it needs as part of the run, and keeps `store_raw/` and
-`area_raw.npz`. Append `--preflight-only` to either command first to size the
+`area_raw.npz`. Append `--preflight-only` to an area command first to size the
 machine.
 
-1. Shards, merged store, and the streaming viewer `.bin`:
+1. One tile, saved as a shard, plus the streaming viewer:
+
+```
+python -m voxelizer single path/to/tile.laz --output-dir outputs/test-single \
+    --cell-xy 0.5 --cell-z 0.5 --shards --viz3d-stream --tile-m 64
+```
+
+`--shards` writes the tile's voxel store as `shards/<tile_stem>.npz` with a
+`shards/manifest.json`, the same shard format the area commands use, so a
+single-file run is readable by the shard tooling (`merge_streaming`,
+`shard_diagnostics`, `archive_cli`) exactly as one tile of an area run is. One
+run writes one shard, so give each tile its own `--output-dir` (the default
+auto-numbering already does). `--viz3d-stream` writes `<tile_stem>_stream.html`
+with a sidecar `.bin` + `.idx.json` once the payload exceeds
+`--inline-threshold-mb` (default 64; pass `--inline-threshold-mb 0` to always
+keep the `.bin`).
+
+2. The same shard output for a whole area, as the merged store:
 
 ```
 python -m voxelizer.area_cli area --xmin 1831000 --ymin 5176500 \
@@ -115,12 +134,10 @@ python -m voxelizer.area_cli area --xmin 1831000 --ymin 5176500 \
 
 `--shard` voxelizes each tile into its own `shards/<tile>.npz`,
 `--merge-shards` folds them into `area.npz`, and `--viz3d-stream` writes
-`area_stream.html` with a sidecar `area_stream.bin` + `area_stream.idx.json`
-once the payload exceeds `--inline-threshold-mb` (default 64; pass
-`--inline-threshold-mb 0` to always keep the `.bin`). `--viz3d-stream` is
-refused without `--merge-shards`.
+`area_stream.html` with its sidecar `area_stream.bin` + `area_stream.idx.json`.
+`--viz3d-stream` is refused without `--merge-shards`.
 
-2. The same run, downloading the tiles first:
+3. The same area run, downloading the tiles first:
 
 ```
 python -m voxelizer.area_cli area --xmin 1831000 --ymin 5176500 \
@@ -131,14 +148,15 @@ python -m voxelizer.area_cli area --xmin 1831000 --ymin 5176500 \
     --viz3d-stream --tile-m 64 --keep-raw-store --keep-area-raw
 ```
 
-Same artifacts as command 1, plus the tiles fetched by `--download` and, with
+Same artifacts as command 2, plus the tiles fetched by `--download` and, with
 the two keep flags, the `store_raw/` memory-mapped copy and the pre-grouping
 `area_raw.npz` that `--intermediates auto` deletes after a fully successful run.
 
 Everything else is optional. [`execution-steps.md`](voxelising-python/execution-steps.md)
 lists every command-line entry point in the package and tags each one `[CORE]`,
 `[OPTIONAL]` or `[ADVANCED / EDGE CASE]`; three of its 25 sections carry the
-core tag, the two commands above and the tile downloaders of section 11.
+core tag: the single-tile pipeline command 1 drives, the area pipeline
+commands 2 and 3 drive, and the tile downloaders of section 11.
 Seventeen modules of the package carry a `__main__` guard; fifteen of them have
 a section of their own, and the two left out are the internal child processes
 `voxelizer.shard_worker` and `voxelizer.stage_runner`, which the area CLI spawns

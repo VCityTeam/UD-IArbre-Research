@@ -187,6 +187,7 @@ python -m voxelizer single LAZ_FILE [--output-dir DIR] [OPTIONS]
 | `--columns-top-n N` | `50` | How many columns to keep when the mode is `top` |
 | `--height-mode` | `default` | Vertical reference of the max-height map only: `default` auto-contrasts the tops, `relative` shows height above each column's own lowest occupied voxel (nDSM/CHM-style), `absolute` shows true altitude from the tile floor (DSM) |
 | `--delete-laz` | off | Delete the source file after successful voxelization |
+| `--shards` | off | Also save the tile's store as `<DIR>/shards/<tile_stem>.npz` + `shards/manifest.json`, the shard format an area run writes. One run writes one shard, so use a fresh `--output-dir` per tile |
 | `--viz3d` | off | Also render the interactive Three.js HTML viewers into `<out>/<tile_stem>/` |
 | `--viz3d-stream` | off | Render the streaming HTML viewer instead, which handles 200M+ boxes |
 | `--max-boxes N` | `5000000` | Box budget for the full 3-D view, auto-thinned by striding above it. Must be positive; for an uncapped export use the streaming viewer |
@@ -247,6 +248,9 @@ outputs\Run1\single\
             per_column\             (only in 'all' or 'top' mode)
                 col_ix0000_iy0324.png
                 ...
+    shards\                         (only with --shards; one level up from <tile_stem>)
+        <tile_stem>.npz
+        manifest.json
 ```
 
 ## Examples
@@ -268,6 +272,18 @@ outputs\Run1\single\
 ```cmd
 .venv\Scripts\python.exe -m voxelizer single tile.laz -o outputs\Run1\single --cell-xy 0.5 --cell-z 0.2 --columns-mode skip
 ```
+
+### Save the tile as a shard, with the streaming viewer
+
+```cmd
+.venv\Scripts\python.exe -m voxelizer single tile.laz -o outputs\Run1\single --shards --viz3d-stream --tile-m 64
+```
+
+The `shards\` folder this writes is the same format `area_cli area --shard`
+leaves, so `python -m voxelizer.merge_streaming --shards-dir
+outputs\Run1\single\shards --out-store-dir <dir>` and `python -m
+voxelizer.shard_diagnostics --shards-dir outputs\Run1\single\shards --out-dir
+<dir>` read it unchanged.
 
 ---
 

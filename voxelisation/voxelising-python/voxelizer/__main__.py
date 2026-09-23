@@ -6,7 +6,7 @@ viewing a finished run.
 
     python -m voxelizer single PATH --output-dir DIR [--cell-xy F] [--cell-z F]
         [--columns-mode {diag,top,all,skip}] [--columns-top-n N]
-        [--height-mode {default,relative,absolute}] [--delete-laz]
+        [--height-mode {default,relative,absolute}] [--delete-laz] [--shards]
         [--viz3d [--max-boxes N] [--roi-size M] [--roi-cx M] [--roi-cy M]
                  [--no-full] [--no-roi]]
         [--viz3d-stream [--tile-m 64] [--max-instances N]
@@ -14,7 +14,10 @@ viewing a finished run.
 
         Voxelize one LAZ file. Writes DIR/<tile_stem>/*.png and
         DIR/<tile_stem>/stats.txt. DIR defaults to
-        outputs/RunN/single/ with auto-incrementing Run number.
+        outputs/RunN/single/ with auto-incrementing Run number. With
+        --shards, also writes the tile's store as DIR/shards/<tile_stem>.npz
+        + DIR/shards/manifest.json, the same shard format an area run leaves
+        in shards/ (see sharding.save_single_tile_shard).
 
     python -m voxelizer serve DIR [--kind {stream,tiles}] [--port N]
         [--bind HOST] [--no-open] [--open-viewer {cesium,itowns}]
@@ -231,6 +234,11 @@ def _build_parser() -> argparse.ArgumentParser:
                         "(DSM). Default 'default'.")
     s.add_argument("--delete-laz", action="store_true",
                    help="Delete the source .laz file after successful voxelization.")
+    s.add_argument("--shards", action="store_true",
+                   help="Also save the tile's voxel store as a shard: "
+                        "<out>/shards/<tile_stem>.npz + shards/manifest.json, "
+                        "the same format an area run writes. One run writes "
+                        "one shard, so use a fresh --output-dir per tile.")
 
     # --- 3-D HTML viewer (all options mirror the area CLI / viz3d_cli) ----
     s.add_argument("--viz3d", action="store_true",
@@ -329,6 +337,17 @@ def main(argv=None) -> None:
             height_mode=args.height_mode,
             return_store=True,
         )
+
+        # Persist the shard set, if asked. Written from the store already in
+        # memory, so this costs a save and no second decode; the shard is raw
+        # (ungrouped) like every area shard, and the manifest records the
+        # grouping a later merge would apply.
+        if args.shards:
+            from .sharding import save_single_tile_shard
+            save_single_tile_shard(
+                store, args.output_dir, args.laz_file.stem,
+                stats=stats, height_mode=args.height_mode,
+            )
 
         """
         3-D HTML viewer(s), if requested. Rendered from the same tile; the

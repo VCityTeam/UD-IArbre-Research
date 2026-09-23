@@ -140,7 +140,7 @@ Every run writes into an auto-numbered directory `outputs/Run<N>/`
 | `area_raw.npz` | The pre-grouping store (written when grouping is on; **deleted again on success** under the default `--intermediates auto` - pass `--keep-area-raw` to retain it) |
 | `store_raw/` | The memory-mappable directory copy of the store that the isolated stages attach to; kept with `--keep-raw-store`, which is what `--resume-from-store` needs |
 | `stages.json`, `stages/` | Per-stage execution manifest, plus `params.json` and, for every stage that ran, a `<stage>.result.json` and a `<stage>.faultlog`. The faultlog is opened before its stage starts, so a stage that succeeded leaves an empty one and only a faultlog with content records a death (area runs) |
-| `shards/` | Per-tile `.npz` shards in shard mode, with `manifest.json` (lattice + grouping provenance), `run_config.json` (the parameter guard `--resume-shards` checks) and `failed_tiles.json` when a tile was lost |
+| `shards/` | Per-tile `.npz` shards, with `manifest.json` (lattice + grouping provenance), `run_config.json` (the parameter guard `--resume-shards` checks) and `failed_tiles.json` when a tile was lost. Written by the area commands in shard mode, and by `single --shards`, which writes one shard for the one tile |
 | `*_full.html`, `*_roi.html` | Legacy 3-D viewers (with `--viz3d`) |
 | `*_stream.html` (+ `.bin`, `.idx.json`) | Full-detail streaming 3-D viewer (with `--viz3d-stream`) |
 | `view_stream.cmd` | Generated launcher written beside a streaming viewer: one double-click serves the folder on an OS-chosen free port and opens the page |
@@ -152,6 +152,7 @@ python -m voxelizer single TILE.laz [-o DIR]
     [--cell-xy 0.5] [--cell-z 0.5]
     [--columns-mode diag|top|all|skip] [--columns-top-n 50]
     [--height-mode default|relative|absolute]
+    [--shards]
     [--viz3d [--max-boxes 5000000] [--roi-size 200] [--roi-cx X] [--roi-cy Y] [--no-full] [--no-roi]]
     [--viz3d-stream [--tile-m 64] [--max-instances 4000000] [--inline-threshold-mb 64]]
     [--delete-laz]
@@ -165,6 +166,11 @@ python -m voxelizer single TILE.laz [-o DIR]
 * `--height-mode` - what the height map shows: `default` auto-contrasts the
   column tops; `relative` is height above each column's own ground
   (nDSM/CHM, terrain removed); `absolute` is true altitude (DSM).
+* `--shards` - also save the tile's store as `shards/<tile_stem>.npz` plus
+  `shards/manifest.json`, the shard format the area commands write, so the
+  single tile is readable by `merge_streaming`, `shard_diagnostics` and
+  `archive_cli` like one tile of an area run. One run writes one shard, so use
+  a fresh `--output-dir` per tile.
 * `--viz3d` - also render the interactive Three.js viewers. The tile is
   voxelized **once**; the 3-D render reuses the same grid.
 * `--delete-laz` - remove the source file after a successful run (applied

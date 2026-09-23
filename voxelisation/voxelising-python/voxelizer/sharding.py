@@ -266,6 +266,114 @@ def _atomic_shard_save(store, shard_path: Path) -> None:
     os.replace(tmp, shard_path)
 
 
+def save_single_tile_shard(store, out_dir, tile_stem, *,
+                           stats: dict | None = None,
+                           height_mode: str = "default",
+                           keep_classes=None,
+                           group_intervals: bool = True,
+                           group_gap: float | None = None,
+                           epsg: int = DEFAULT_EPSG) -> Path | None:
+    """Write one already-voxelized tile as a shard set (``single --shards``).
+
+    The single-file front end of the shard format. ``python -m voxelizer
+    single`` already holds the tile's ``ColumnStore`` in memory; this is what
+    turns that one store into the same on-disk shape an area run leaves in
+    ``shards/`` - one ``.npz`` (``ColumnStore.save``) plus the
+    ``manifest.json`` the shard tooling reads (schema ``voxelizer.shards/2``,
+    per-shard extents, provenance). Nothing here is new to the format: the
+    record is built exactly as ``run_area_sharded``'s per-tile loop builds it,
+    so ``merge_streaming``, ``shard_diagnostics`` and ``archive_cli`` consume
+    a single-tile folder and an area folder identically.
+
+    The store keeps the grid origin ``process_single_tile`` gave it (the
+    tile's own data minimum; see ``voxelize.voxelize`` with ``origin=None``).
+    A single-tile shard is therefore self-contained and complete, but it sits
+    on its own lattice: ``merge_streaming._check_grid`` refuses to merge it
+    with a shard built on a different origin, so a corpus assembled from
+    several ``single --shards`` runs over different tiles is a set of
+    one-shard sets, not one mergeable set. Rebuild an area as one mergeable
+    set with ``area_cli area --shard``.
+
+    One run writes one shard, so ``manifest.json`` describes this run alone:
+    it is overwritten on every call, and any other ``.npz`` already sitting in
+    ``shards/`` is left on disk but unlisted (a warning names them). Give
+    each tile its own run directory - the default auto-incrementing
+    ``outputs/RunN/single/`` does exactly that - or use ``area_cli area`` for
+    many tiles in one folder.
+
+    @param store The voxelized tile (``ColumnStore`` with occupied columns).
+    @param out_dir Run directory; shards go into ``<out_dir>/shards/``.
+    @param tile_stem File name stem of the source tile, used for the shard name.
+    @param stats The store's ``stats()`` dict when the caller already has it
+        (``process_single_tile`` returns it); recomputed when None.
+    @param height_mode Recorded in the manifest's header block.
+    @param keep_classes Recorded in the provenance block (None keeps all).
+        ``single`` does not filter by class, so this is None in practice.
+    @param group_intervals / @param group_gap Recorded in the provenance block
+        as the settings a later merge or shard sweep would apply. The shard
+        itself is always raw (ungrouped), exactly as in the area pipeline.
+    @param epsg EPSG code recorded in the provenance block.
+    @return The shard path, or None when the tile has no occupied column
+        (an empty tile leaves no shard, matching the area pipeline).
+    """
+    out_dir = Path(out_dir)
+    shards_dir = out_dir / "shards"
+    shards_dir.mkdir(parents=True, exist_ok=True)
+    shard_path = shards_dir / f"{tile_stem}.npz"
+
+    kb = store.key_bounds()
+    if kb is None or not len(store.columns):
+        # Empty tile: no shard, and any stale same-named file goes - a later
+        # consumer trusts file existence (archive_cli globs *.npz,
+        # --resume-shards adopts by name), so silence here would let another
+        # run's data be read as this tile's.
+        shard_path.unlink(missing_ok=True)
+        logger.warning("tile %s has no occupied column - no shard written.",
+                       tile_stem)
+        return None
+
+    _atomic_shard_save(store, shard_path)
+    if stats is None:
+        stats = store.stats()
+
+    x0, y0, z0 = float(store.x_min), float(store.y_min), float(store.z_min)
+    cxy, cz = float(store.cell_xy), float(store.cell_z)
+    record = {
+        "file": shard_path.name,
+        "n_columns": len(store.columns),
+        "n_intervals": int(stats["n_intervals"]),
+        "ix_min": kb[0], "iy_min": kb[1], "ix_max": kb[2], "iy_max": kb[3],
+        "x0_m": x0 + kb[0] * cxy, "y0_m": y0 + kb[1] * cxy,
+        "x1_m": x0 + (kb[2] + 1) * cxy,
+        "y1_m": y0 + (kb[3] + 1) * cxy,
+    }
+    (shards_dir / "manifest.json").write_text(json.dumps({
+        "schema": "voxelizer.shards/2",
+        "bbox": [record["x0_m"], record["y0_m"], record["x1_m"], record["y1_m"]],
+        "clip": False, "cell_xy": cxy, "cell_z": cz,
+        "origin": [x0, y0, z0],
+        "height_mode": height_mode,
+        "aborted": False, "tiles_done": 1, "tiles_total": 1,
+        "resumed_tiles": 0, "n_failed_tiles": 0,
+        "shards_are_raw": True,
+        **make_provenance(group_intervals=group_intervals,
+                          group_gap=group_gap, keep_classes=keep_classes,
+                          epsg=epsg, run_order=_run_order()),
+        "shards": [record],
+    }, indent=2), encoding="utf-8")
+
+    unlisted = [p.name for p in sorted(shards_dir.glob("*.npz"))
+                if p.name != shard_path.name]
+    if unlisted:
+        logger.warning("shards/ already held %d shard(s) this manifest does "
+                       "not describe (%s); one run writes one shard, so use a "
+                       "fresh --output-dir per tile.", len(unlisted),
+                       ", ".join(unlisted))
+    logger.info("saved shard %s + %s", shard_path.name,
+                shards_dir / "manifest.json")
+    return shard_path
+
+
 def _try_load_shard(shard_path: Path, *, cell_xy, cell_z, x0, y0, z0):
     """Load an existing shard for resume, or return None to re-voxelize.
 

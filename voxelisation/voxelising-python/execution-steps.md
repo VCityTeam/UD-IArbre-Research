@@ -40,6 +40,20 @@ Voxelize one LAZ file.  Writes 2-D maps, column diagnostics, stats.
   `--columns-top-n` (default 50) sizing the `top` ranking.
 - `--height-mode`: `default`, `relative` or `absolute`.
 - `--delete-laz`: remove the .laz file after a successful run.
+- `--shards`: also save the tile's voxel store as
+  `<output-dir>/shards/<tile_stem>.npz` plus `shards/manifest.json`, the same
+  shard format an area run writes (`voxelizer.shards/2`, raw store plus the
+  lattice and provenance the shard tooling reads). One run writes one shard, so
+  give each tile its own `--output-dir`; the folder is then readable by
+  `merge_streaming`, `shard_diagnostics` and `archive_cli` exactly like one tile
+  of an area run. The store keeps the tile's own grid origin (its data minimum),
+  so a single-tile shard is self-contained but not mergeable with a shard built
+  on a different origin - use `area_cli area --shard` for a mergeable set.
+
+    python -m voxelizer single PATH/TO/TILE.laz \
+        --output-dir outputs/Run1/single \
+        --cell-xy 0.5 --cell-z 0.5 \
+        --shards --viz3d-stream --tile-m 64
 
 The two 3-D viewers are separate runs.  Given both flags at once the
 streaming viewer wins and `--viz3d` is ignored, so pass one or the other.  The
