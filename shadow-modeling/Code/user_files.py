@@ -2,6 +2,7 @@ from datetime import datetime
 import requests
 import json
 from pathlib import Path
+import sys
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Author : Karima Ouadah < ouadkarima@outlook.com >
@@ -32,19 +33,34 @@ def user_sun_phase_choice(alpha_list, horaire_list):
         for i in range(start_index, len(alpha_list)):
             print(f"{i} : {horaire_list[i]}")
 
-        user_time_index = input("\nEnter the index of the start: ")
+        user_time_index = input("\nEnter the index of the start: ").strip()
         if single_projection == "n":
             user_time_index_end = input("\nEnter the index of the end: ")
+#
+            print(user_time_index, type(user_time_index))
+            print(user_time_index_end, type(user_time_index_end))
+#
+            if user_time_index.isdigit() and user_time_index_end.isdigit():
+                user_time_index = int(user_time_index)
+                user_time_index_end = int(user_time_index_end)
+
+                if start_index <= user_time_index < len(alpha_list) and start_index <= user_time_index_end <= len(alpha_list):
+                    if user_time_index < user_time_index_end:
+                        return user_time_index, user_time_index_end
+
         else :
             user_time_index_end = 99
+#
+            print(user_time_index, type(user_time_index))
+            print(user_time_index_end, type(user_time_index_end))
+#
+            if user_time_index.isdigit() :
+                user_time_index = int(user_time_index)
+                user_time_index_end = int(user_time_index_end)
 
-        if user_time_index.isdigit() and user_time_index_end.isdigit():
-            user_time_index = int(user_time_index)
-            user_time_index_end = int(user_time_index_end)
-
-            if start_index <= user_time_index < len(alpha_list) and start_index <= user_time_index_end <= len(alpha_list):
-                if user_time_index < user_time_index_end:
-                    return user_time_index, user_time_index_end
+                if start_index <= user_time_index < len(alpha_list) and start_index <= user_time_index_end:
+                    if user_time_index < user_time_index_end:
+                        return user_time_index, user_time_index_end
 
         print(f"Invalid entry. Please enter a number between {start_index} and {len(alpha_list)-1}.")
 
@@ -70,6 +86,10 @@ def user_entry_data():
 
 def user_laz_api(url_api, user_x_min, user_y_min):
     answer = requests.get(url_api, verify=False)
+    if answer.status_code != 200:
+        print("API invalid response. Please try again later.")
+        sys.exit(1)
+
     data = answer.json()
 
     for value in data["values"]:

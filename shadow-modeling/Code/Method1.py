@@ -23,6 +23,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 def main():
     url = "https://data.grandlyon.com/fr/datapusher/ws/grandlyon/ima_gestion_images.imamnt2023laz500mcc46/all.json?maxfeatures=-1&start=1&filename=nuage-de-points-lidar-2023-de-la-metropole-de-lyon"
 
+    shadow_all_period = []
     year, month, day = user_date_choice()
     date = datetime(year, month, day)
     x_min, y_min = user_entry_data()
@@ -47,30 +48,51 @@ def main():
     )
 
     time_index, time_index_end = user_sun_phase_choice(alpha_list, time)
+    N = time_index_end - time_index
 
     print("\nValeurs :")
-    print("elevation value :", alpha_list[time_index])
-    print("azimuth value :", psi_list[time_index])
-    print("hour angle value :", omega[time_index])
+    print("elevation value :", alpha_list)
+    print("azimuth value :", psi_list)
+    print("hour angle value :", omega)
     print("\n")
 
-    alpha = math.radians(alpha_list[time_index])
-    psi = math.radians(psi_list[time_index])
-    shadow = []
-    print("begin traverse")
-    traverse(
-        bvh,
-        alpha,
-        psi,
-        DSM,
-        shadow
-    )
-    shadow = np.asarray(shadow)
-    with open("Data/coord_shadow_sm1.txt", "w") as f:
-        for X, Y, Z in shadow:
-            f.write(f"{X+int(x_min)} {Y+int(y_min)} {Z}\n")
-    save_plot_shadow(shadow, time, time_index, x_min, y_min, day, month, year, "Method 1 Shadow Map", "Method1")
-    georef_shadow_save(shadow, int(x_min), int(y_min), DSM, 1.0, "Method1_georef")
+    # shadow for a period of time
+    if time_index_end != 99:
+        alpha = math.radians(alpha_list[time_index])
+        psi = math.radians(psi_list[time_index])
+        shadow = []
+        print("begin traverse")
+        traverse(
+            bvh,
+            alpha,
+            psi,
+            DSM,
+            shadow
+        )
+        shadow = np.asarray(shadow)
+        shadow_all_period.append(shadow)
+
+        multiple_hours_shadow_save_tiff_format(N+1, shadow_all_period, int(x_min), int(y_min), DSM, 1.0, "Method1_multiple_hours_shadow")
+
+    # shadow for a single time
+    else:
+        alpha = math.radians(alpha_list[time_index])
+        psi = math.radians(psi_list[time_index])
+        shadow = []
+        print("begin traverse")
+        traverse(
+            bvh,
+            alpha,
+            psi,
+            DSM,
+            shadow
+        )
+        shadow = np.asarray(shadow)
+        with open("Data/coord_shadow_sm1.txt", "w") as f:
+            for X, Y, Z in shadow:
+                f.write(f"{X+int(x_min)} {Y+int(y_min)} {Z}\n")
+        save_plot_shadow(shadow, time, time_index, x_min, y_min, day, month, year, "Method 1 Shadow Map", "Method1")
+        georef_shadow_save(shadow, int(x_min), int(y_min), DSM, 1.0, f"Method1_georef_{time[time_index]}")
 
 if __name__ == "__main__":
     main()
