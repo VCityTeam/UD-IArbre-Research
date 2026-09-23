@@ -1,5 +1,9 @@
 import math
 
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Author : Karima Ouadah < ouadkarima@outlook.com >
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 # Def sunpos : The function calculates the sun's positions every three hours throughout the day for a given date and stores them in the 'time_list' array.
 # Source of this function : https://www.mdpi.com/2220-9964/10/9/583
 # Parameters : latitude, tau angle (time intervals), date

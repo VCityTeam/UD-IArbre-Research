@@ -1,6 +1,10 @@
 import math
 import numpy as np
 
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Author : Karima Ouadah < ouadkarima@outlook.com >
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 # Def bresenham : The function calculates the cells traversed by a line between a starting cell and the cell where the shadow ends.
 # Parameters : x_cell, y_cell, x_project_end, y_project_end
 # Outputs : Returns the coordinates of the cells traversed by the shadow as a list points(x, y)

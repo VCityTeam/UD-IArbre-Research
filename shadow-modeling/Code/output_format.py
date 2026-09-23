@@ -4,6 +4,10 @@ import rasterio
 from rasterio.transform import from_origin
 import numpy as np
 
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Author : Karima Ouadah < ouadkarima@outlook.com >
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 def save_plot_shadow(shadow, time, time_index, x_min, y_min, day, month, year, title, method_name):
     if shadow is None:
         print("Error: shadow is None.")
