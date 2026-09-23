@@ -74,7 +74,7 @@ flowchart TD
     end
 
     subgraph Persist ["Persisted grids (re-render sources)"]
-        P1["store_raw/ (mmap, resume)  |  area_raw.npz<br>area.npz + area_manifest.json  |  shards/*.npz"]
+        P1["store_raw/ (mmap, resume)  |  area_raw.npz<br>area.npz + area_manifest.json  |  shards/*.npz<br>(single: --keep-raw-store and --shards too)"]
     end
 
     subgraph Outputs ["Rendered outputs"]
@@ -153,7 +153,7 @@ flowchart TD
 
 ### 2. Data Structures Hierarchy & Memory Model
 
-The memory-efficient **struct-of-arrays** layout, now with **two persistence formats**: `save()`/`load()` (portable compressed `.npz`) and `save_dir()`/`load_dir(mmap=True)` (raw stage-exchange directory - one plain `.npy` per array plus a `meta.json` commit marker - that stage children attach to zero-copy). `swap_to_dir_mmap()` lets the parent free its heap copy while keeping the store readable; `grouped()` merges consecutive same-class intervals (the sparse-return defragmentation step).
+The memory-efficient **struct-of-arrays** layout, now with **two persistence formats**: `save()`/`load()` (portable compressed `.npz`) and `save_dir()`/`load_dir(mmap=True)` (raw stage-exchange directory - one plain `.npy` per array plus a `meta.json` commit marker - that stage children attach to zero-copy). `load_any()` takes either form, which is what the exporters (`tileset_cli from-store`, `viz3d_cli from-store` / `stream`, `postprocess_cli`) call. `swap_to_dir_mmap()` lets the parent free its heap copy while keeping the store readable; `grouped()` merges consecutive same-class intervals (the sparse-return defragmentation step).
 
 ```mermaid
 classDiagram
@@ -171,6 +171,7 @@ classDiagram
         +from_intervals() ColumnStore
         +save() / load()  compressed .npz
         +save_dir() / load_dir(mmap)  raw stage-exchange dir
+        +load_any(mmap)  .npz OR raw dir (the exporters' entry)
         +swap_to_dir_mmap()  free heap, keep API
         +release_arrays()  unmap for dir deletion
         +grouped(max_gap_cells) ColumnStore
@@ -344,7 +345,7 @@ flowchart TD
     CS --> Stats["stats stage -> stats.txt<br>ColumnStore.stats() in RAM;<br>stats_streaming folds on a mmap store"]
 
     CS --> Save["persist_npz stage<br>save() -> area.npz + area_manifest.json"]
-    Save -. "viz3d_cli from-store (ColumnStore.load)" .-> Vis3D
+    Save -. "viz3d_cli from-store (ColumnStore.load_any: .npz or store_raw/)" .-> Vis3D
 
     CS --> Diag["col_diag stage<br>column_diagnostics.write_column_diagnostics()"]
     Diag --> D1["diagnostics/columns_samples.png"]
@@ -400,7 +401,7 @@ Static import boundaries. **An arrow `A --> B` means "A imports B."** Dotted edg
 
 **`area_outputs.py`** holds the output writers and the per-stage isolation machinery that `area_cli` and `sharding` both need. That is what retired the old `area_cli`<->`sharding` cycle - `sharding` no longer imports `area_cli` at all, and the one remaining edge between the hubs (`area_cli` -> `sharding`, lazy) is a plain one-way dispatch. Also present: the **refinement / analysis / reconstruction layer** (`resolve`, `denoise`, `absorb`, `ground_index`, `decoder`, `ray_trace`, `reconstruct`) and the **3-D Tiles exporters** (`tileset_exporter`, `tileset_cli`) - all top-level modules that build only on `data_structures`, `classes_config`, and each other. `reconstruct` additionally imports `io_laz` (it reads files back now, not just writes them), and `archive_cli` sits on top of `reconstruct` + `data_structures` + `io_laz` (it takes the archive's default EPSG from `io_laz.DEFAULT_EPSG`).
 
-New since the last revision, six modules of the streaming and serving generation plus the ray-query family: **`merge_streaming.py`** is the band-partitioned out-of-core merge that `sharding` dispatches to (and `area_cli` imports eagerly for its `--merge-band-intervals` default); **`store_streaming.py`** holds the bounded-RAM reductions that the stage children, the map rasters, the column diagnostics and the postprocess CLI use on memory-mapped stores; **`shard_diagnostics.py`** computes the full columns/ + stats surface from shards without merging them; **`serve_tiles.py`** serves exported tilesets (reached via `python -m voxelizer serve`); **`launchers.py`** writes the one-click `view_*.cmd` files beside a run's viewers and imports nothing from the package; **`postprocess_cli.py`** is the CLI over the refinement chain. The ray-query family: `ray_columns` (the ceiling-bounded DDA, over `ray_trace`), `transmittance` (the Beer-Lambert walk, over `decoder`), and `sun_hours` (solar-position sampling over `ray_columns` + `transmittance` + `solar`). The generated `06_module_dependencies.mmd` is the authoritative import graph (47 modules, 138 edges); this drawing stays curated and grouped.
+New since the last revision, six modules of the streaming and serving generation plus the ray-query family: **`merge_streaming.py`** is the band-partitioned out-of-core merge that `sharding` dispatches to (and `area_cli` imports eagerly for its `--merge-band-intervals` default); **`store_streaming.py`** holds the bounded-RAM reductions that the stage children, the map rasters, the column diagnostics and the postprocess CLI use on memory-mapped stores; **`shard_diagnostics.py`** computes the full columns/ + stats surface from shards without merging them; **`serve_tiles.py`** serves exported tilesets (reached via `python -m voxelizer serve`); **`launchers.py`** writes the one-click `view_*.cmd` files beside a run's viewers and imports nothing from the package; **`postprocess_cli.py`** is the CLI over the refinement chain. The ray-query family: `ray_columns` (the ceiling-bounded DDA, over `ray_trace`), `transmittance` (the Beer-Lambert walk, over `decoder`), and `sun_hours` (solar-position sampling over `ray_columns` + `transmittance` + `solar`). The generated `06_module_dependencies.mmd` is the authoritative import graph (48 modules, 147 edges); this drawing stays curated and grouped.
 
 ```mermaid
 flowchart TD

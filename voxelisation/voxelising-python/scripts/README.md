@@ -9,7 +9,7 @@ relative paths in arguments resolve from there, and each one picks the
 
 | Script | Purpose |
 |---|---|
-| `run_area.bat` | The GUI (Windows): single file or area by coordinates; the Export & Serve tab covers 3-D Tiles export and serving from a finished run. |
+| `run_area.bat` | The GUI (Windows): single file or area by coordinates; the Export & Serve tab covers 3-D Tiles export and serving from a finished run, and the Store Tools tab covers the store-level CLIs (post-process, reconstruct, archive, merge, shard diagnostics, 3-D from a store). |
 | `run_area.sh` | Linux/macOS twin of `run_area.bat`, same dialog. |
 
 ## Viewers and servers

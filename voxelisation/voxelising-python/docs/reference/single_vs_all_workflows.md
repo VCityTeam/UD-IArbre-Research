@@ -113,6 +113,10 @@ outputs/Run4/single/
   shards/                       (only with --shards; one level up from <stem>/)
     18410_51825.npz
     manifest.json
+  store_raw/                    (only with --keep-raw-store; one level up from <stem>/)
+    keys.npy off.npy zs.npy ze.npy cl.npy ct.npy
+    meta.json
+    run_params.json
 ```
 
 With `--shards` the tile's `ColumnStore` is also persisted next to the tile
@@ -124,8 +128,16 @@ pipeline records per tile, so the folder is a valid input to
 `merge_streaming`, `shard_diagnostics` and `archive_cli`. Because one run
 writes one shard, each tile wants its own `--output-dir`; the store keeps the
 tile's own grid origin, so a single-tile shard is self-contained but not
-mergeable with a shard on a different origin. See `how-to-use.md` section 2 and
-`execution-steps.md` section 1.
+mergeable with a shard on a different origin.
+
+With `--keep-raw-store` the grid is written as the raw memory-mappable
+directory `<output-dir>/store_raw/` plus its `run_params.json` - the same pair
+an area run's output stages attach to, and the pair `area_cli
+--resume-from-store` re-enters. From there one tile can re-run its output
+stages (or be turned into a full `area.npz` for the 3-D Tiles and LAS/LAZ
+exporters) without decoding the LAZ again. `--keep-classes` filters the tile
+before voxelization, exactly as it does for an area run. See `how-to-use.md`
+section 2 and `execution-steps.md` section 1.
 
 ## Beyond one tile: the area and sharded workflows
 
@@ -193,6 +205,10 @@ under `docs/` at the delivery root.
 - `--shards` saves the tile's store as `shards/<tile_stem>.npz` +
   `shards/manifest.json`, the same shard format an area run writes, so one file
   becomes a shard the shard tooling can read
+- `--keep-raw-store` writes the raw `store_raw/` directory + `run_params.json`,
+  so `area_cli --resume-from-store` re-runs its output stages later with no
+  second decode
+- `--keep-classes` filters to the listed ASPRS codes before voxelization
 - `--viz3d` renders the singleton Three.js viewers; `--viz3d-stream` renders
   the streaming viewer, which carries every interval and bounds the GPU
   working set at view time instead of decimating the payload

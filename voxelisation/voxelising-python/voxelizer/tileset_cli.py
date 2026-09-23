@@ -13,8 +13,14 @@ CLI entry point for 3-D Tiles export.
         [--flat]  [--no-geoid]  [--vertical-crs EPSG:5720]                    \
         [--height-offset M]
 
-``from-store`` chains all three steps internally: load .npz, produce the
-tiled payload, convert to tileset.json + tile_*.glb.
+``from-store`` chains all three steps internally: load the store, produce the
+tiled payload, convert to tileset.json + tile_*.glb. Its store argument is a
+``.npz`` or a raw ``store_raw/`` directory (the memory-mappable form, attached
+by ``ColumnStore.load_any``): pass the directory to export straight from a kept
+raw store with no ``.npz`` round trip, or when the run that wrote it suppressed
+``area.npz`` with ``--no-save-store``. Feed ``from-store`` a grouped
+``area.npz`` or an ungrouped store - both are valid stores; the tileset just
+differs in box count.
 
 ``from-payload`` reuses an existing ``.idx.json`` + ``.bin`` (from a previous
 ``export_tiled_from_store`` call) - useful if you already generated the
@@ -43,7 +49,8 @@ def _run_from_store(
     region: tuple[float, float, float, float] | None = None,
     flat: bool = False,
 ) -> Path:
-    """Load a ``ColumnStore`` from ``.npz``, produce tiled payload,
+    """Load a ``ColumnStore`` from a ``.npz`` OR a raw store directory
+    (``store_raw/``, attached by memory map), produce tiled payload,
     convert to 3-D Tiles (LOD pyramid by default), return path to
     ``tileset.json``."""
     from .data_structures import ColumnStore
@@ -54,7 +61,7 @@ def _run_from_store(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info("Loading store %s ...", npz_path)
-    store = ColumnStore.load(npz_path)
+    store = ColumnStore.load_any(npz_path)
     if not store.columns:
         raise RuntimeError("Loaded store is empty - nothing to export.")
 
@@ -143,7 +150,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "from-store",
         help="Load .npz, produce tiled payload, convert to 3-D Tiles.")
     fs.add_argument("npz", type=Path,
-                    help="Path to a ColumnStore .npz (e.g. area.npz).")
+                    help="Path to a ColumnStore .npz (e.g. area.npz), or a raw "
+                         "store directory (store_raw/) attached by memory map.")
     fs.add_argument("--out-dir", "-o", type=Path, required=True,
                     help="Output directory for tileset.json + tile_*.glb.")
     fs.add_argument("--tile-m", type=float, default=100.0,

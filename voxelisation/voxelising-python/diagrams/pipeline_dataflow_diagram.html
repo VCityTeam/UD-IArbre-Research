@@ -74,7 +74,7 @@
     end
 
     subgraph Persist [&quot;Persisted grids (re-render sources)&quot;]
-        P1[&quot;store_raw/ (mmap, resume)  |  area_raw.npz&lt;br&gt;area.npz + area_manifest.json  |  shards/*.npz&quot;]
+        P1[&quot;store_raw/ (mmap, resume)  |  area_raw.npz&lt;br&gt;area.npz + area_manifest.json  |  shards/*.npz&lt;br&gt;(single: --keep-raw-store and --shards too)&quot;]
     end
 
     subgraph Outputs [&quot;Rendered outputs&quot;]
@@ -161,6 +161,7 @@
         +from_intervals() ColumnStore
         +save() / load()  compressed .npz
         +save_dir() / load_dir(mmap)  raw stage-exchange dir
+        +load_any(mmap)  .npz OR raw dir (the exporters' entry)
         +swap_to_dir_mmap()  free heap, keep API
         +release_arrays()  unmap for dir deletion
         +grouped(max_gap_cells) ColumnStore
@@ -300,7 +301,7 @@
     CS --&gt; Stats[&quot;stats stage&lt;br&gt;ColumnStore.stats() -&gt; stats.txt&quot;]
 
     CS --&gt; Save[&quot;persist_npz stage&lt;br&gt;save() -&gt; area.npz + area_manifest.json&quot;]
-    Save -. &quot;viz3d_cli from-store (ColumnStore.load)&quot; .-&gt; Vis3D
+    Save -. &quot;viz3d_cli from-store (ColumnStore.load_any: .npz or store_raw/)&quot; .-&gt; Vis3D
 
     CS --&gt; Diag[&quot;col_diag stage&lt;br&gt;column_diagnostics.write_column_diagnostics()&quot;]
     Diag --&gt; D1[&quot;diagnostics/columns_samples.png&quot;]

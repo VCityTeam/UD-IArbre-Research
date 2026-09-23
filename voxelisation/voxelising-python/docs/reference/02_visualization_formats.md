@@ -15,7 +15,7 @@ what the three genuinely share.
 |---|---|---|---|
 | `visualizer3d.py` | one self-contained `.html` (Three.js `InstancedMesh`, voxel data base64-inlined), a binary `.ply`, a live PyVista window, a `.vxg` grid cache | a browser with no server; CloudCompare or any PLY reader | default `--viz3d` on `__main__` and `area_cli`; the `viz3d_roi` and `viz3d_full` stages via `area_outputs.render_area_3d`; `sharding.render_full_from_shards` |
 | `tiled_exporter.py` | `.bin` payload (32-byte records, tile-contiguous) plus `.idx.json` and a streaming `.html` view-dependent viewer | the streaming viewer, and `tileset_exporter` | `--viz3d-stream`; the `viz3d_stream` stage |
-| `tileset_exporter.py` | `tileset.json` and per-tile `.glb` using `EXT_mesh_gpu_instancing`, as a quadtree LOD pyramid | CesiumJS, iTowns, Cesium for Unreal | `python -m voxelizer.tileset_cli from-store` |
+| `tileset_exporter.py` | `tileset.json` and per-tile `.glb` using `EXT_mesh_gpu_instancing`, as a quadtree LOD pyramid | CesiumJS, iTowns, Cesium for Unreal | `python -m voxelizer.tileset_cli from-store` (store as `.npz` or `store_raw/` directory) |
 
 Each exists because the format above it cannot do its job: a base64 page
 cannot hold a metropolis, a `.bin` payload is not a standard, and a 3D Tiles
@@ -114,7 +114,7 @@ The review also listed the graphical interface and the overlapping test trees
 as cleanup targets. Neither is a viewer, so neither belongs above, but the
 reasons are recorded here so the decision is not mistaken for an oversight.
 
-**The graphical interface** (`gui_area.py`, 2 570 lines) wraps the two
+**The graphical interface** (`gui_area.py`, 4 120 lines) wraps the two
 commands the Quickstart documents. It is not a second implementation of
 anything: it builds the same argument lists and runs them as a child process
 (`python -m voxelizer.area_cli area ...`), so the pipeline it drives is the

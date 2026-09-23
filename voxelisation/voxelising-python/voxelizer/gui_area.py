@@ -39,20 +39,34 @@ In area mode the viewers are rendered straight from the merged area store; in
 file mode they come from ``viz3d_cli`` on the dropped tile.
 
 The "Export & Serve" tab covers what happens AFTER a run: exporting a finished
-store to 3-D Tiles (``tileset_cli from-store``) and putting either kind of
-output in front of a browser (``serve_voxel_html`` for a streaming viewer,
-``serve_tiles`` for a tileset). Both exporters already write their own
-double-clickable ``.cmd`` launchers beside the artifacts, so those buttons are
-for ad-hoc viewing from the window that is already open. A served directory
-keeps a child process alive until it is stopped, so servers are tracked
-separately from the job and terminated when the window closes.
+store to 3-D Tiles (``tileset_cli from-store``, from a ``.npz`` OR a raw
+``store_raw/`` directory - the store-form selector picks which when a run holds
+both) and putting either kind of output in front of a browser
+(``serve_voxel_html`` for a streaming viewer, ``serve_tiles`` for a tileset).
+Both exporters already write their own double-clickable ``.cmd`` launchers
+beside the artifacts, so those buttons are for ad-hoc viewing from the window
+that is already open. A served directory keeps a child process alive until it
+is stopped, so servers are tracked separately from the job and terminated when
+the window closes.
+
+The "Store Tools" tab is the other after-run surface: the store-level CLIs that
+take a finished store (a ``.npz`` or a raw ``store_raw/`` directory) or a
+``shards/`` set and do one thing to it - ``postprocess_cli`` (denoise, absorb,
+resolve, group), ``reconstruct`` (store <-> LAS/LAZ), ``archive_cli`` (pack /
+unpack shards as exact LAZ), ``merge_streaming`` (out-of-core shard merge),
+``shard_diagnostics`` (columns and stats straight from shards) and
+``viz3d_cli from-store``/``stream``. Every one runs through the same job child
+as a run, so Stop and the log pane work identically.
 
 Layout / usability notes:
 
-  * The dialog is a ``ttk.Notebook`` with seven tabs (Input, Voxel Grid, Files &
-    Outputs, 3-D Visualiser, Export & Serve, Diagnostics, Advanced) instead of
-    one long scroll of checkboxes, so related settings are visually grouped and
-    rarely-touched options are a click away rather than always in view.
+  * The dialog is a ``ttk.Notebook`` with eight tabs (Input, Voxel Grid, Files &
+    Outputs, 3-D Visualiser, Export & Serve, Store Tools, Diagnostics,
+    Advanced) instead of one long scroll of checkboxes, so related settings are
+    visually grouped and rarely-touched options are a click away rather than
+    always in view. Store Tools holds the store-level CLIs (post-process,
+    reconstruct, archive, merge, shard diagnostics, 3-D from a store), each in
+    its own collapsible section; none of them voxelizes.
   * Long explanations live in hover tooltips rather than in the checkbox
     labels themselves, so labels stay short.
   * Bounding-box and cell-size fields validate live (red field + a status
@@ -180,30 +194,82 @@ def couple_stream_to_merge(merge_shards: bool,
     return "singleton", STREAM_NEEDS_MERGE_NOTE
 
 
-def resolve_store_path(path) -> Path | None:
-    """The ``.npz`` store meant by *path*, or None if there is none.
+def resolve_store_path(path, *, kind: str = "auto") -> Path | None:
+    """The store meant by *path*, or None if there is none.
 
     A user picks the thing they can see - usually a run's output directory -
     rather than the file inside it, so a directory is resolved to the store
-    the area pipeline writes there (``area.npz``, falling back to the
-    pre-grouping ``area_raw.npz``). An explicit file is taken as given.
+    the pipeline writes there. *kind* chooses which form is acceptable:
+
+      * ``"auto"`` (the default): a directory resolves in this order -
+        ``area.npz``, then the pre-grouping ``area_raw.npz``, then a raw
+        ``store_raw/`` directory (when it holds a ``meta.json``), then a
+        ``shards/`` folder holding exactly ONE ``.npz`` (the ``single
+        --shards`` output). Several shards is a set to merge, not a store, and
+        returns None.
+      * ``"npz"``: only a compressed ``.npz`` (the file itself, or
+        ``area.npz``/``area_raw.npz``/the lone shard inside a directory). Never
+        a ``store_raw/`` directory.
+      * ``"dir"``: only a raw ``store_raw/`` directory (the directory itself,
+        or one found inside a run directory). Never an ``.npz``.
+
+    ``"npz"`` and ``"dir"`` are the explicit overrides for when a run holds
+    both forms and the auto order would pick the other one.
     """
     if not path:
         return None
     p = Path(str(path).strip().strip('"').strip("'"))
-    if p.is_file():
-        return p
-    if p.is_dir():
+
+    def _npz_in(d: Path) -> Path | None:
+        """The compressed store inside directory *d*, or None: area.npz, then
+        area_raw.npz."""
         for name in ("area.npz", "area_raw.npz"):
-            cand = p / name
+            cand = d / name
             if cand.is_file():
                 return cand
+        return None
+
+    def _lone_shard_in(d: Path) -> Path | None:
+        """The only shard of a single-tile ``--shards`` folder, or None when
+        *d* holds no ``shards/`` or more than one shard."""
+        shards = d / "shards"
+        if shards.is_dir():
+            npzs = sorted(shards.glob("*.npz"))
+            if len(npzs) == 1:
+                return npzs[0]
+        return None
+
+    def _dir_in(d: Path) -> Path | None:
+        """The raw store directory inside *d*, or None: d/store_raw, else d
+        itself when it IS a complete raw store."""
+        cand = d / "store_raw"
+        if (cand / "meta.json").is_file():
+            return cand
+        if (d / "meta.json").is_file():
+            return d
+        return None
+
+    # An explicit file is taken as given, whatever its kind asked for: the
+    # user pointed at one file, not at a directory to search.
+    if p.is_file():
+        if kind == "dir":
+            return None
+        return p
+    if p.is_dir():
+        if kind == "npz":
+            return _npz_in(p) or _lone_shard_in(p)
+        if kind == "dir":
+            return _dir_in(p)
+        # auto: area.npz -> area_raw.npz -> store_raw/ -> lone shard.
+        return _npz_in(p) or _dir_in(p) or _lone_shard_in(p)
     return None
 
 
 def build_tileset_cmd(python: str, store_npz, out_dir, *, tile_m: float,
                       lod: bool = True, keep_classes: str = "",
-                      geoid: bool = True) -> list[str]:
+                      geoid: bool = True, crs: str | None = None,
+                      region=None, height_offset=None,
+                      vertical_crs: str | None = None) -> list[str]:
     """``python -m voxelizer.tileset_cli from-store ...`` as an argv list.
 
     Mirrors the CLI's own surface, which deliberately has no ``--max-instances``:
@@ -211,6 +277,11 @@ def build_tileset_cmd(python: str, store_npz, out_dir, *, tile_m: float,
     viewer, and the intermediate payload it would size is deleted by this
     export path, so it could never change a tileset. The LOD pyramid is the
     default there and here; the checkbox emits ``--flat`` when cleared.
+
+    ``crs`` and ``region`` are the CLI's ``--crs`` and ``--region`` (the latter
+    a ``(xmin, ymin, xmax, ymax)`` metric subset); ``height_offset`` is
+    ``--height-offset`` and ``vertical_crs`` is ``--vertical-crs``. All are
+    omitted when not given, so the CLI keeps its own defaults.
     """
     cmd = [python, "-u", "-m", f"{__package__ or 'voxelizer'}.tileset_cli",
            "from-store", str(store_npz), "--out-dir", str(out_dir),
@@ -219,13 +290,52 @@ def build_tileset_cmd(python: str, store_npz, out_dir, *, tile_m: float,
         cmd.append("--flat")
     if keep_classes.strip():
         cmd += ["--keep-classes", keep_classes.strip()]
+    if crs:
+        cmd += ["--crs", str(crs)]
+    if region:
+        cmd += ["--region"] + [str(v) for v in region]
+    if vertical_crs:
+        cmd += ["--vertical-crs", str(vertical_crs)]
     if not geoid:
         cmd.append("--no-geoid")
+    if height_offset not in (None, ""):
+        cmd += ["--height-offset", str(height_offset)]
+    return cmd
+
+
+def build_tileset_from_payload_cmd(python: str, idx_json, out_dir, *,
+                                   bin_path=None, crs: str | None = None,
+                                   lod: bool = True, geoid: bool = True,
+                                   height_offset=None,
+                                   vertical_crs: str | None = None) -> list[str]:
+    """``python -m voxelizer.tileset_cli from-payload ...`` as an argv list.
+
+    Converts an already-written ``.idx.json`` + ``.bin`` streaming payload
+    (``area_stream.idx.json`` next to ``area_stream.bin``, or a single tile's
+    ``<stem>_stream.idx.json``) to a 3-D Tiles folder without touching a store.
+    ``bin_path`` is left to the CLI's own sibling-file default when None.
+    """
+    cmd = [python, "-u", "-m", f"{__package__ or 'voxelizer'}.tileset_cli",
+           "from-payload", str(idx_json), "--out-dir", str(out_dir)]
+    if bin_path:
+        cmd.insert(cmd.index("--out-dir"), str(bin_path))
+    if not lod:
+        cmd.append("--flat")
+    if crs:
+        cmd += ["--crs", str(crs)]
+    if vertical_crs:
+        cmd += ["--vertical-crs", str(vertical_crs)]
+    if not geoid:
+        cmd.append("--no-geoid")
+    if height_offset not in (None, ""):
+        cmd += ["--height-offset", str(height_offset)]
     return cmd
 
 
 def build_serve_stream_cmd(python: str, serve_dir, *,
-                           page: str | None = None) -> list[str]:
+                           page: str | None = None, port=None,
+                           bind: str | None = None,
+                           no_open: bool = False) -> list[str]:
     """``python -m voxelizer.serve_voxel_html <dir> --port <n> --open``.
 
     On a desktop, port 0 so several viewers can be open at once, exactly as
@@ -238,28 +348,309 @@ def build_serve_stream_cmd(python: str, serve_dir, *,
     a bind attempt on the same address the server will use - and fall back to
     0 (reachable via ``docker exec``, at least) when a first viewer already
     holds it.
+
+    ``port`` and ``bind`` override both defaults when given (a string ``"0"``
+    still asks the OS); ``no_open`` emits ``--no-open`` instead of ``--open``.
     """
-    port = "0"
-    bind = os.environ.get("VOXELIZER_BIND", "").strip()
-    if bind:
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-                probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                probe.bind((bind, 8000))
-            port = "8000"
-        except OSError:
-            port = "0"
+    if port not in (None, ""):
+        port = str(port)
+    else:
+        port = "0"
+        bind_default = os.environ.get("VOXELIZER_BIND", "").strip()
+        if bind_default:
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+                    probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    probe.bind((bind_default, 8000))
+                port = "8000"
+            except OSError:
+                port = "0"
     cmd = [python, "-u", "-m", f"{__package__ or 'voxelizer'}.serve_voxel_html",
-           str(serve_dir), "--port", port, "--open"]
+           str(serve_dir), "--port", port]
+    if bind:
+        cmd += ["--bind", str(bind)]
+    cmd.append("--no-open" if no_open else "--open")
     if page:
         cmd += ["--open-page", page]
     return cmd
 
 
-def build_serve_tiles_cmd(python: str, serve_dir, viewer: str) -> list[str]:
-    """``python -m voxelizer.serve_tiles <dir> --open-viewer {cesium,itowns}``."""
-    return [python, "-u", "-m", f"{__package__ or 'voxelizer'}.serve_tiles",
-            str(serve_dir), "--open-viewer", viewer]
+def build_serve_tiles_cmd(python: str, serve_dir, viewer, *,
+                          port=None, bind: str | None = None,
+                          no_open: bool = False) -> list[str]:
+    """``python -m voxelizer.serve_tiles <dir> --open-viewer {cesium,itowns}``.
+
+    ``port`` and ``bind`` are omitted when not given, so the server keeps its
+    own default (an OS-chosen free port; localhost or ``$VOXELIZER_BIND``).
+    ``no_open`` emits ``--no-open``; the server still serves either way.
+    """
+    cmd = [python, "-u", "-m", f"{__package__ or 'voxelizer'}.serve_tiles",
+           str(serve_dir)]
+    if viewer:
+        cmd += ["--open-viewer", str(viewer)]
+    if port not in (None, ""):
+        cmd += ["--port", str(port)]
+    if bind:
+        cmd += ["--bind", str(bind)]
+    if no_open:
+        cmd.append("--no-open")
+    return cmd
+
+
+# ---------------------------------------------------------------------------
+# Store-tool command builders (the Store Tools tab). Pure functions like the
+# exporters above, so every argv is unit-testable without a Tk window.
+# ---------------------------------------------------------------------------
+def build_postprocess_cmd(python: str, input_store, output_npz, *,
+                          min_points=None, morph=None, morph_classes="",
+                          absorb=False, absorb_min_neighbour=None,
+                          absorb_max_noise=None, resolve=False,
+                          tie_margin=None, tie_rel=None, prefer_taller=True,
+                          demote_uncertain=True, class_priority="",
+                          group=False, group_gap=None, stats=False,
+                          dry_run=False) -> list[str]:
+    """``python -m voxelizer.postprocess_cli IN OUT.npz [passes]``.
+
+    ``min_points`` / ``morph`` are the CLI's bare-or-valued flags: ``None``
+    omits them, ``""`` (empty string) emits the bare flag (its default value),
+    and a number emits that value. The CLI refuses an empty plan, so at least
+    one pass must be present; that is enforced by the caller, not here.
+    """
+    cmd = [python, "-u", "-m", f"{__package__ or 'voxelizer'}.postprocess_cli",
+           str(input_store), str(output_npz)]
+
+    def _opt_val(flag, val):
+        """Bare flag when *val* is '', flag+value when it is a number, nothing
+        when it is None."""
+        if val is None:
+            return []
+        if val == "":
+            return [flag]
+        return [flag, str(val)]
+
+    cmd += _opt_val("--min-points", min_points)
+    cmd += _opt_val("--morph", morph)
+    if morph_classes.strip():
+        cmd += ["--morph-classes", morph_classes.strip()]
+    if absorb:
+        cmd.append("--absorb")
+    if absorb_min_neighbour not in (None, ""):
+        cmd += ["--absorb-min-neighbour", str(absorb_min_neighbour)]
+    if absorb_max_noise not in (None, ""):
+        cmd += ["--absorb-max-noise", str(absorb_max_noise)]
+    if resolve:
+        cmd.append("--resolve")
+    if tie_margin not in (None, ""):
+        cmd += ["--tie-margin", str(tie_margin)]
+    if tie_rel not in (None, ""):
+        cmd += ["--tie-rel", str(tie_rel)]
+    if not prefer_taller:
+        cmd.append("--no-prefer-taller")
+    if not demote_uncertain:
+        cmd.append("--no-demote-uncertain")
+    if class_priority.strip():
+        cmd += ["--class-priority", class_priority.strip()]
+    if group:
+        cmd.append("--group")
+        if group_gap not in (None, ""):
+            cmd += ["--group-gap", str(group_gap)]
+    if stats:
+        cmd.append("--stats")
+    if dry_run:
+        cmd.append("--dry-run")
+    return cmd
+
+
+def build_reconstruct_cmd(python: str, verb: str, *,
+                          npz=None, laz=None, output=None, mode=None,
+                          one_per_voxel=False, z_base=False, epsg=None,
+                          grid_vlr=True, verify=False, origin=None,
+                          cell_xy=None, cell_z=None) -> list[str]:
+    """``python -m voxelizer.reconstruct {to-laz,to-npz,verify}``.
+
+    ``to-laz``: ``npz`` + ``output`` (a .las/.laz) with ``--mode``,
+    ``--one-per-voxel``, ``--z-base``, ``--epsg``, ``--no-grid-vlr``,
+    ``--verify``. ``to-npz``: ``laz`` + ``output`` (a .npz) with
+    ``--origin X Y Z``, ``--cell-xy``, ``--cell-z`` (needed when the file has
+    no IARBRE grid VLR). ``verify``: ``npz`` + ``laz``. ``epsg`` is omitted
+    when None so the CLI keeps its own default.
+    """
+    cmd = [python, "-u", "-m", f"{__package__ or 'voxelizer'}.reconstruct", verb]
+    if verb == "to-laz":
+        cmd.append(str(npz))
+        cmd.append(str(output))
+        if mode:
+            cmd += ["--mode", str(mode)]
+        if one_per_voxel:
+            cmd.append("--one-per-voxel")
+        if z_base:
+            cmd.append("--z-base")
+        if epsg not in (None, ""):
+            cmd += ["--epsg", str(epsg)]
+        if not grid_vlr:
+            cmd.append("--no-grid-vlr")
+        if verify:
+            cmd.append("--verify")
+    elif verb == "to-npz":
+        cmd.append(str(laz))
+        cmd.append(str(output))
+        if origin:
+            cmd += ["--origin"] + [str(v) for v in origin]
+        if cell_xy not in (None, ""):
+            cmd += ["--cell-xy", str(cell_xy)]
+        if cell_z not in (None, ""):
+            cmd += ["--cell-z", str(cell_z)]
+    elif verb == "verify":
+        cmd.append(str(npz))
+        cmd.append(str(laz))
+    else:
+        raise ValueError(f"unknown reconstruct verb {verb!r}")
+    return cmd
+
+
+def build_archive_cmd(python: str, verb: str, *, run_dir=None, archive_dir=None,
+                      workers=None, no_verify=False, replace=False, epsg=None,
+                      out=None) -> list[str]:
+    """``python -m voxelizer.archive_cli {pack,unpack}``.
+
+    ``pack``: ``run_dir`` + ``--workers`` + ``--no-verify``/``--replace`` +
+    ``--epsg``. ``replace`` and ``no_verify`` are mutually refused by the CLI,
+    so when both are set ``--replace`` is dropped here (verification is what
+    makes it safe). ``unpack``: ``archive_dir`` + ``--out`` + ``--workers``.
+    """
+    cmd = [python, "-u", "-m", f"{__package__ or 'voxelizer'}.archive_cli", verb]
+    if verb == "pack":
+        cmd.append(str(run_dir))
+        if workers not in (None, ""):
+            cmd += ["--workers", str(workers)]
+        if replace and not no_verify:
+            cmd.append("--replace")
+        if no_verify:
+            cmd.append("--no-verify")
+        if epsg not in (None, ""):
+            cmd += ["--epsg", str(epsg)]
+    elif verb == "unpack":
+        cmd.append(str(archive_dir))
+        if out:
+            cmd += ["--out", str(out)]
+        if workers not in (None, ""):
+            cmd += ["--workers", str(workers)]
+    else:
+        raise ValueError(f"unknown archive verb {verb!r}")
+    return cmd
+
+
+def build_merge_cmd(python: str, shards_dir, out_store_dir, *,
+                    group_intervals=False, group_gap=None, band_intervals=None,
+                    overwrite=False, plan_only=False) -> list[str]:
+    """``python -m voxelizer.merge_streaming --shards-dir ... --out-store-dir ...``."""
+    cmd = [python, "-u", "-m", f"{__package__ or 'voxelizer'}.merge_streaming",
+           "--shards-dir", str(shards_dir),
+           "--out-store-dir", str(out_store_dir)]
+    cmd.append("--group-intervals" if group_intervals else "--no-group-intervals")
+    if group_intervals and group_gap not in (None, ""):
+        cmd += ["--group-gap", str(group_gap)]
+    if band_intervals not in (None, ""):
+        cmd += ["--band-intervals", str(band_intervals)]
+    if overwrite:
+        cmd.append("--overwrite")
+    if plan_only:
+        cmd.append("--plan-only")
+    return cmd
+
+
+def build_shard_diag_cmd(python: str, shards_dir, out_dir, *,
+                         columns_mode="diag", columns_top_n=None,
+                         columns_all_max=None, stats=True,
+                         group_intervals=None, group_gap=None,
+                         batch_intervals=None, tile_label="area") -> list[str]:
+    """``python -m voxelizer.shard_diagnostics --shards-dir ... --out-dir ...``.
+
+    ``group_intervals`` is the CLI's tri-state: ``None`` omits the flag (the
+    manifest's provenance decides), ``True``/``False`` emit the explicit
+    switch. The CLI refuses a run that asks for neither figures nor stats, so
+    the caller must guarantee at least one.
+    """
+    cmd = [python, "-u", "-m", f"{__package__ or 'voxelizer'}.shard_diagnostics",
+           "--shards-dir", str(shards_dir), "--out-dir", str(out_dir),
+           "--columns-mode", str(columns_mode)]
+    if columns_top_n not in (None, ""):
+        cmd += ["--columns-top-n", str(columns_top_n)]
+    if columns_mode == "all" and columns_all_max not in (None, ""):
+        cmd += ["--columns-all-max", str(columns_all_max)]
+    cmd.append("--stats" if stats else "--no-stats")
+    if group_intervals is True:
+        cmd.append("--group-intervals")
+    elif group_intervals is False:
+        cmd.append("--no-group-intervals")
+    if group_gap not in (None, ""):
+        cmd += ["--group-gap", str(group_gap)]
+    if batch_intervals not in (None, ""):
+        cmd += ["--batch-intervals", str(batch_intervals)]
+    if tile_label and tile_label != "area":
+        cmd += ["--tile-label", str(tile_label)]
+    return cmd
+
+
+def build_viz3d_from_store_cmd(python: str, store_file, out_dir, *,
+                               label="", max_boxes=None, roi_size=None,
+                               roi_cx=None, roi_cy=None, do_full=True,
+                               do_roi=True, grid=False) -> list[str]:
+    """``python -m voxelizer.viz3d_cli from-store STORE -o DIR [geom opts]``.
+
+    ``store_file`` is a ``.npz`` or a raw store directory (``viz3d_cli`` loads
+    either). Geometry options are omitted when blank, so the CLI keeps its
+    defaults; ``--no-full`` / ``--no-roi`` are emitted when a view is
+    unchecked.
+    """
+    cmd = [python, "-u", "-m", f"{__package__ or 'voxelizer'}.viz3d_cli",
+           "from-store", str(store_file), "--output-dir", str(out_dir)]
+    if label.strip():
+        cmd += ["--label", label.strip()]
+    if max_boxes not in (None, ""):
+        cmd += ["--max-boxes", str(max_boxes)]
+    if roi_size not in (None, ""):
+        cmd += ["--roi-size", str(roi_size)]
+    if roi_cx not in (None, ""):
+        cmd += ["--roi-cx", str(roi_cx)]
+    if roi_cy not in (None, ""):
+        cmd += ["--roi-cy", str(roi_cy)]
+    if not do_full:
+        cmd.append("--no-full")
+    if not do_roi:
+        cmd.append("--no-roi")
+    if grid:
+        cmd.append("--grid")
+    return cmd
+
+
+def build_viz3d_stream_cmd(python: str, store_file, out_html, *,
+                           label="", region=None, keep_classes="",
+                           max_instances=None, inline_threshold_mb=None,
+                           tile_m=None) -> list[str]:
+    """``python -m voxelizer.viz3d_cli stream STORE --out PAGE.html [opts]``.
+
+    Deliberately omits ``--stride`` and ``--max-boxes``: the streaming
+    exporter accepts them only to warn that it ignores them (it always writes
+    every interval; the GPU working set is bounded at view time), so exposing
+    them would only invite a no-op. ``store_file`` is a ``.npz`` or a raw
+    store directory.
+    """
+    cmd = [python, "-u", "-m", f"{__package__ or 'voxelizer'}.viz3d_cli",
+           "stream", str(store_file), "--out", str(out_html)]
+    if label.strip():
+        cmd += ["--label", label.strip()]
+    if region:
+        cmd += ["--region"] + [str(v) for v in region]
+    if keep_classes.strip():
+        cmd += ["--keep-classes", keep_classes.strip()]
+    if max_instances not in (None, ""):
+        cmd += ["--max-instances", str(max_instances)]
+    if inline_threshold_mb not in (None, ""):
+        cmd += ["--inline-threshold-mb", str(inline_threshold_mb)]
+    if tile_m not in (None, ""):
+        cmd += ["--tile-m", str(tile_m)]
+    return cmd
 
 
 # ---------------------------------------------------------------------------
@@ -317,6 +708,52 @@ def _tip(widget, text: str):
     return widget
 
 
+class _CollapsibleSection:
+    """A titled section whose body shows or hides at a click.
+
+    The Store Tools tab packs six independent tools into one tab; showing all
+    their widgets at once would be an unreadable wall. Each tool gets one of
+    these: a clickable header row with a disclosure triangle, and a body frame
+    packed or unpacked underneath.
+
+    The body is a plain ``ttk.Frame`` the caller fills and returns via
+    ``.body``; toggling uses ``pack``/``pack_forget`` so it composes with the
+    ``pack``-based layout the rest of the dialog uses. The header is a
+    ``ttk.Label`` rather than a button so it reads as a heading; it is bound to
+    ``<Button-1>`` and its triangle glyph tracks the state.
+    """
+
+    def __init__(self, parent, title: str, *, expanded: bool = False):
+        """Build the header + an empty body under *parent*; start expanded or
+        collapsed and reflect that in the triangle glyph."""
+        self._expanded = expanded
+        self._outer = ttk.Frame(parent)
+        self._outer.pack(fill="x", pady=(6, 0))
+        self.header = ttk.Frame(self._outer)
+        self.header.pack(fill="x")
+        self._label = ttk.Label(
+            self.header, text=f"{'\u25be' if expanded else '\u25b8'}  {title}",
+            foreground="#1f4e79", cursor="hand2")
+        self._label.pack(side="left")
+        self._title = title
+        self.body = ttk.Frame(self._outer, padding=(16, 4, 0, 0))
+        for w in (self.header, self._label):
+            w.bind("<Button-1>", self._toggle)
+        if expanded:
+            self.body.pack(fill="x")
+
+    def _toggle(self, _evt=None):
+        """Flip the body: pack it (expanded) or unpack it (collapsed), updating
+        the triangle glyph to match."""
+        self._expanded = not self._expanded
+        self._label.configure(
+            text=f"{'\u25be' if self._expanded else '\u25b8'}  {self._title}")
+        if self._expanded:
+            self.body.pack(fill="x")
+        else:
+            self.body.pack_forget()
+
+
 # ---------------------------------------------------------------------------
 # GUI
 # ---------------------------------------------------------------------------
@@ -368,11 +805,13 @@ def build_app(root) -> dict:
     tab_export = ttk.Frame(nb, padding=10)
     tab_diag = ttk.Frame(nb, padding=10)
     tab_adv = ttk.Frame(nb, padding=10)
+    tab_tools = ttk.Frame(nb, padding=10)
     nb.add(tab_input, text="Input")
     nb.add(tab_grid, text="Voxel Grid")
     nb.add(tab_files, text="Files & Outputs")
     nb.add(tab_viz, text="3-D Visualiser")
     nb.add(tab_export, text="Export & Serve")
+    nb.add(tab_tools, text="Store Tools")
     nb.add(tab_diag, text="Diagnostics")
     nb.add(tab_adv, text="Advanced")
 
@@ -498,12 +937,44 @@ def build_app(root) -> dict:
 
     ttk.Button(json_frame, text="Browse...", command=_browse_json).pack(side="left", padx=(4, 0))
 
+    # Download tuning - only meaningful with the download/stream fetch, so it
+    # rides inside the same frame and shows only while download is ticked.
+    dl_tune_frame = ttk.Frame(dl_frame)
+    ttk.Label(dl_tune_frame, text="pitch").pack(side="left")
+    tile_pitch_var = tk.StringVar(value="")
+    tile_pitch_entry = ttk.Entry(dl_tune_frame, textvariable=tile_pitch_var,
+                                 width=6)
+    tile_pitch_entry.pack(side="left", padx=(4, 10))
+    _tip(tile_pitch_entry,
+         "Optional --tile-pitch: acquisition tile size in metres (blank = the "
+         "500 m default). Only used to pick which inventory tiles fall in the "
+         "box, for --download and --stream alike.")
+    ttk.Label(dl_tune_frame, text="workers").pack(side="left")
+    dl_workers_var = tk.StringVar(value="")
+    dl_workers_entry = ttk.Entry(dl_tune_frame, textvariable=dl_workers_var,
+                                 width=5)
+    dl_workers_entry.pack(side="left", padx=(4, 10))
+    _tip(dl_workers_entry,
+         "Optional --workers: parallel downloaders (blank = the CLI default). "
+         "Only affects the tile fetch, never the voxelization.")
+    ttk.Label(dl_tune_frame, text="limit").pack(side="left")
+    dl_limit_var = tk.StringVar(value="")
+    dl_limit_entry = ttk.Entry(dl_tune_frame, textvariable=dl_limit_var,
+                               width=6)
+    dl_limit_entry.pack(side="left", padx=(4, 0))
+    _tip(dl_limit_entry,
+         "Optional --limit: fetch at most this many tiles (blank = no limit). "
+         "Handy for a quick try on a big box.")
+
     def _toggle_download(*_):
-        """Show the inventory-JSON row only while 'Download tiles' is ticked."""
+        """Show the inventory-JSON and tuning rows only while 'Download
+        tiles' is ticked."""
         if download_var.get():
             json_frame.pack(side="left", padx=(12, 0), fill="x", expand=True)
+            dl_tune_frame.pack(side="left", padx=(12, 0))
         else:
             json_frame.pack_forget()
+            dl_tune_frame.pack_forget()
 
     download_var.trace_add("write", _toggle_download)
 
@@ -559,6 +1030,17 @@ def build_app(root) -> dict:
                     "removed, so equal-height trees read alike regardless of "
                     "ground). absolute: top scaled from the tile's true floor "
                     "(DSM style; keeps real terrain + object altitude).")
+
+    ttk.Label(tab_grid, text="keep classes").grid(row=0, column=6, sticky="w",
+                                                  padx=(18, 0))
+    keep_classes_var = tk.StringVar(value="")
+    keep_classes_entry = ttk.Entry(tab_grid, textvariable=keep_classes_var,
+                                   width=14)
+    keep_classes_entry.grid(row=0, column=7, padx=(2, 0))
+    _tip(keep_classes_entry,
+         "Optional --keep-classes: comma- or space-separated ASPRS codes to "
+         "keep; every other class is dropped before voxelization. Blank keeps "
+         "every class (the default). Applies in both File and Area mode.")
 
     # Chunking
     use_chunks_var = tk.BooleanVar(value=True)
@@ -643,17 +1125,32 @@ def build_app(root) -> dict:
     top_n_var = tk.StringVar(value="50")
     topn_label = ttk.Label(columns_row, text="top N")
     topn_spin = ttk.Spinbox(columns_row, textvariable=top_n_var, from_=1, to=100000, width=8)
+    all_max_var = tk.StringVar(value="")
+    allmax_label = ttk.Label(columns_row, text="all cap")
+    allmax_spin = ttk.Spinbox(columns_row, textvariable=all_max_var, from_=0, to=100000000, width=10)
+    _tip(allmax_spin,
+         "Optional --columns-all-max: cap on the number of per-column PNGs in "
+         "'all' mode (blank = the 500000 default; 0 = genuinely uncapped). Only "
+         "used when the detail mode is 'all'.")
     _last_columns_detail = {"v": "diag"}
 
     def _sync_topn(*_):
-        """Show the 'top N' label and spinbox only when column diagnostics
-        are enabled and the detail mode is 'top'."""
-        if columns_enabled_var.get() and columns_mode_var.get() == "top":
+        """Show the 'top N' spinbox only in 'top' mode and the 'all cap'
+        spinbox only in 'all' mode, both gated on column diagnostics being
+        enabled."""
+        mode = columns_mode_var.get() if columns_enabled_var.get() else "skip"
+        if mode == "top":
             topn_label.pack(side="left")
             topn_spin.pack(side="left", padx=(2, 0))
         else:
             topn_label.pack_forget()
             topn_spin.pack_forget()
+        if mode == "all":
+            allmax_label.pack(side="left", padx=(10, 0))
+            allmax_spin.pack(side="left", padx=(2, 0))
+        else:
+            allmax_label.pack_forget()
+            allmax_spin.pack_forget()
 
     def _sync_columns_enabled(*_):
         """Couple the columns checkbox to the detail dropdown: enabling
@@ -672,6 +1169,35 @@ def build_app(root) -> dict:
 
     columns_enabled_var.trace_add("write", _sync_columns_enabled)
     columns_mode_var.trace_add("write", _sync_topn)
+
+    # -- File-mode-only file controls --
+    files_file_frame = ttk.Frame(tab_files)
+
+    shards_var = tk.BooleanVar(value=False)
+    shards_cb = ttk.Checkbutton(
+        files_file_frame,
+        text="Save the tile's store as a shard (shards/)",
+        variable=shards_var)
+    shards_cb.pack(anchor="w", pady=(2, 0))
+    _tip(shards_cb, "File mode only (--shards). Writes the tile's voxel store "
+                    "as shards/<tile_stem>.npz plus shards/manifest.json, the "
+                    "same format an area run writes, so the single tile is "
+                    "readable by merge_streaming, shard_diagnostics and "
+                    "archive_cli. One run writes one shard: keep a fresh "
+                    "output dir per tile.")
+
+    keep_raw_store_single_var = tk.BooleanVar(value=False)
+    keep_raw_cb_single = ttk.Checkbutton(
+        files_file_frame,
+        text="Keep the raw store (store_raw/) for --resume-from-store",
+        variable=keep_raw_store_single_var)
+    keep_raw_cb_single.pack(anchor="w", pady=(6, 0))
+    _tip(keep_raw_cb_single,
+         "File mode only (--keep-raw-store). Writes the tile's grid as the raw "
+         "memory-mappable directory <out>/store_raw/ plus its run_params.json, "
+         "so area_cli --resume-from-store (and this dialog's Continue...) can "
+         "re-run the output stages - or turn the tile into area.npz - later "
+         "without re-reading the LAZ.")
 
     # -- Area-mode-only file/cache controls --
     files_area_frame = ttk.Frame(tab_files)
@@ -1098,6 +1624,30 @@ def build_app(root) -> dict:
          "it to re-read the compressed shards fewer times, because a shard is "
          "read once per band its column range touches.")
 
+    ttk.Separator(tab_adv, orient="horizontal").pack(fill="x", pady=(12, 8))
+    ttk.Label(tab_adv,
+              text="Run only selected output stages (--only-stage). Unticked = "
+                   "every enabled stage runs. A stage must be enabled by its "
+                   "own flag to be selectable, so persist_npz needs store "
+                   "saving on and col_diag needs column diagnostics not "
+                   "skipped:",
+              justify="left", wraplength=580, foreground="#444"
+              ).pack(anchor="w")
+
+    only_stage_vars = {}
+    for _stage, _label in (("stats", "stats.txt"),
+                           ("persist_npz", "area.npz"),
+                           ("maps", "2-D maps"),
+                           ("col_diag", "column diagnostics"),
+                           ("viz3d_roi", "3-D ROI view"),
+                           ("viz3d_full", "3-D full view"),
+                           ("viz3d_stream", "streaming 3-D viewer")):
+        _v = tk.BooleanVar(value=False)
+        _cb = ttk.Checkbutton(tab_adv, text=f"only: {_label}",
+                              variable=_v)
+        _cb.pack(anchor="w", pady=(2, 0))
+        only_stage_vars[_stage] = _v
+
     # ------------------------------------------------------------------
     # Live status: running summary + inline validation message, always
     # visible below the tabs regardless of which one is active.
@@ -1292,11 +1842,13 @@ def build_app(root) -> dict:
                 dir_row.grid()
                 dl_frame.pack(fill="x")
             files_area_frame.grid()
+            files_file_frame.grid_remove()
         else:
             stream_row.pack_forget()
             stream_json_row.pack_forget()
             dl_frame.pack_forget()
             files_area_frame.grid_remove()
+            files_file_frame.grid()
         _validate_all()
         _update_summary()
 
@@ -1599,10 +2151,29 @@ def build_app(root) -> dict:
     ts_src_entry = ttk.Entry(ts_src_row, textvariable=ts_src_var, width=44)
     ts_src_entry.pack(side="left", padx=(6, 0), fill="x", expand=True)
     _tip(ts_src_entry,
-         "A run's output directory (area.npz is found inside it, falling back "
-         "to the pre-grouping area_raw.npz) or the path of a store .npz "
-         "directly. The resolved file is shown below, so there is no guessing "
-         "about which store is being exported.")
+         "A run's output directory, or the path of a store file/directory "
+         "directly. Inside a directory the form picked below decides what is "
+         "exported: auto takes area.npz, then area_raw.npz, then store_raw/, "
+         "then a lone single-tile shard. The resolved path is shown underneath, "
+         "so there is no guessing about which store is being exported.")
+
+    # Which on-disk form a DIRECTORY resolves to. A run can hold several at
+    # once (area.npz + store_raw/), and the two export different box counts,
+    # so the choice is explicit rather than implicit.
+    ts_kind_row = ttk.Frame(ts_frame)
+    ts_kind_row.pack(fill="x", pady=(4, 0))
+    ttk.Label(ts_kind_row, text="store form:").pack(side="left")
+    ts_kind_var = tk.StringVar(value="auto")
+    ts_kind_dd = ttk.Combobox(
+        ts_kind_row, textvariable=ts_kind_var,
+        values=["auto", "npz", "dir"], state="readonly", width=6)
+    ts_kind_dd.pack(side="left", padx=(6, 8))
+    _tip(ts_kind_dd,
+         "auto: area.npz, else area_raw.npz, else store_raw/, else a lone "
+         "shard. npz: only a compressed .npz (never store_raw/). dir: only the "
+         "raw store_raw/ directory, attached by memory map (never an .npz). "
+         "Use npz or dir when a run holds both forms and auto would pick the "
+         "other one.")
 
     def _browse_ts_src():
         """Directory chooser for the tileset source; stores the pick in the
@@ -1690,6 +2261,43 @@ def build_app(root) -> dict:
          "2,3,4,5,6 for ground, the three vegetation strata and buildings. "
          "Blank exports every class in the store.")
 
+    # -- Region / CRS / height datum ----------------------------------
+    ts_more_row = ttk.Frame(ts_frame)
+    ts_more_row.pack(fill="x", pady=(6, 0))
+    ttk.Label(ts_more_row, text="region x/y:").pack(side="left")
+    ts_region_vars = [tk.StringVar(value="") for _ in range(4)]
+    for _v in ts_region_vars:
+        ttk.Entry(ts_more_row, textvariable=_v, width=9).pack(side="left",
+                                                              padx=(2, 0))
+    _tip(ts_more_row,
+         "Optional --region: a metric bbox (xmin ymin xmax ymax) to export only "
+         "part of the store. Leave all four blank for the whole store.")
+    _lbl_crs = ttk.Label(ts_more_row, text="crs:")
+    _lbl_crs.pack(side="left", padx=(12, 2))
+    ts_crs_var = tk.StringVar(value="")
+    ts_crs_entry = ttk.Entry(ts_more_row, textvariable=ts_crs_var, width=10)
+    ts_crs_entry.pack(side="left")
+    _tip(ts_crs_entry,
+         "Optional --crs: native CRS recorded in the tileset extras "
+         "(default EPSG:3946). Blank keeps the default.")
+    _lbl_hofs = ttk.Label(ts_more_row, text="height offset (m):")
+    _lbl_hofs.pack(side="left", padx=(12, 2))
+    ts_hofs_var = tk.StringVar(value="")
+    ts_hofs_entry = ttk.Entry(ts_more_row, textvariable=ts_hofs_var, width=8)
+    ts_hofs_entry.pack(side="left")
+    _tip(ts_hofs_entry,
+         "Optional --height-offset: metres added to the origin height instead "
+         "of the geoid grid (e.g. 49.7 at Lyon). Blank uses the geoid grid when "
+         "'geoid heights' is on.")
+    _lbl_vcrs = ttk.Label(ts_more_row, text="vertical crs:")
+    _lbl_vcrs.pack(side="left", padx=(12, 2))
+    ts_vcrs_var = tk.StringVar(value="")
+    ts_vcrs_entry = ttk.Entry(ts_more_row, textvariable=ts_vcrs_var, width=10)
+    ts_vcrs_entry.pack(side="left")
+    _tip(ts_vcrs_entry,
+         "Optional --vertical-crs: the vertical datum of the input altitudes "
+         "(default EPSG:5720 = NGF-IGN69). Blank keeps the default.")
+
     ttk.Label(ts_frame,
               text="No 'max instances' here, deliberately: that number is the "
                    "streaming HTML viewer's GPU working-set budget, and this "
@@ -1701,26 +2309,32 @@ def build_app(root) -> dict:
 
     def _sync_ts_source(*_):
         """Refresh the 'resolved store' label under the tileset source entry
-        with the .npz resolve_store_path finds there, or a not-found note."""
-        npz = resolve_store_path(ts_src_var.get())
+        with the store resolve_store_path finds there (honouring the chosen
+        form), or a not-found note."""
+        npz = resolve_store_path(ts_src_var.get(), kind=ts_kind_var.get())
         if npz is None:
-            ts_resolved_var.set("(no area.npz / area_raw.npz found there yet)")
+            ts_resolved_var.set("(no store found there in that form - try "
+                                "store form: auto)")
         else:
-            ts_resolved_var.set(f"store: {npz}")
+            marker = "raw dir" if Path(npz).is_dir() else "npz"
+            ts_resolved_var.set(f"store ({marker}): {npz}")
 
     ts_src_var.trace_add("write", _sync_ts_source)
+    ts_kind_var.trace_add("write", _sync_ts_source)
 
     def _on_export_tileset():
         """'Export tileset' button: resolve the source store and validate the
         tile size (message boxes on failure), default the output dir to
         ``<store dir>/tiles``, build the tileset_cli command and launch it as
         the job child."""
-        npz = resolve_store_path(ts_src_var.get())
+        npz = resolve_store_path(ts_src_var.get(), kind=ts_kind_var.get())
         if npz is None:
             messagebox.showwarning(
                 "No store",
-                "Point at a run output directory containing area.npz (or "
-                "area_raw.npz), or at a store .npz directly.")
+                "Point at a run output directory holding area.npz, "
+                "area_raw.npz, store_raw/ or a single-tile shards/ folder with "
+                "one .npz, or at a store .npz / store_raw/ directly. If the "
+                "folder holds several forms, pick one in 'store form'.")
             return
         try:
             tile_m = float(ts_tile_m_var.get())
@@ -1731,16 +2345,111 @@ def build_app(root) -> dict:
                                  "Tile size must be a positive number of "
                                  "metres.")
             return
-        out_dir = ts_out_var.get().strip() or str(npz.parent / "tiles")
+        region = [s.strip() for s in (v.get() for v in ts_region_vars)]
+        region_val = None
+        if any(region):
+            try:
+                region_val = tuple(float(s) for s in region)
+            except ValueError:
+                messagebox.showerror("Invalid value",
+                                     "Region needs all four of xmin ymin xmax "
+                                     "ymax, or all four blank.")
+                return
+        out_dir = ts_out_var.get().strip() or str(
+            (npz if Path(npz).is_dir() else npz.parent) / "tiles")
         cmd = build_tileset_cmd(sys.executable, npz, out_dir,
                                 tile_m=tile_m, lod=bool(ts_lod_var.get()),
                                 keep_classes=ts_keep_var.get(),
-                                geoid=bool(ts_geoid_var.get()))
+                                geoid=bool(ts_geoid_var.get()),
+                                crs=ts_crs_var.get().strip() or None,
+                                region=region_val,
+                                height_offset=ts_hofs_var.get().strip(),
+                                vertical_crs=ts_vcrs_var.get().strip() or None)
         log(f"[tileset] exporting {npz} -> {out_dir}")
         _launch_subprocess(cmd)
 
     ttk.Button(ts_frame, text="Export tileset",
                command=_on_export_tileset).pack(anchor="w", pady=(8, 0))
+
+    # -- 3-D Tiles from an existing streaming payload ------------------
+    tp_frame = ttk.LabelFrame(tab_export,
+                              text="Export to 3-D Tiles from a streaming "
+                                   "payload (.idx.json + .bin)",
+                              padding=8)
+    tp_frame.pack(fill="x", pady=(10, 0))
+    tp_src_row = ttk.Frame(tp_frame)
+    tp_src_row.pack(fill="x")
+    ttk.Label(tp_src_row, text=".idx.json:").pack(side="left")
+    tp_idx_var = tk.StringVar(value="")
+    ttk.Entry(tp_src_row, textvariable=tp_idx_var, width=42).pack(
+        side="left", padx=(6, 0), fill="x", expand=True)
+    ttk.Button(tp_src_row, text="Browse...",
+               command=lambda: tp_idx_var.set(
+                   filedialog.askopenfilename(
+                       title="Choose the streaming payload .idx.json",
+                       filetypes=[("Index JSON", "*.idx.json"),
+                                  ("JSON files", "*.json"),
+                                  ("All files", "*.*")]) or tp_idx_var.get())
+               ).pack(side="left", padx=(6, 0))
+    _tip(tp_src_row,
+         "The *.idx.json a --viz3d-stream export wrote beside its .bin "
+         "(area_stream.idx.json, or a single tile's <stem>_stream.idx.json). "
+         "The .bin is found automatically beside it when the .bin box is "
+         "blank.")
+    tp_bin_row = ttk.Frame(tp_frame)
+    tp_bin_row.pack(fill="x", pady=(6, 0))
+    ttk.Label(tp_bin_row, text=".bin:").pack(side="left")
+    tp_bin_var = tk.StringVar(value="")
+    ttk.Entry(tp_bin_row, textvariable=tp_bin_var, width=42).pack(
+        side="left", padx=(6, 0), fill="x", expand=True)
+    ttk.Label(tp_bin_row, text="blank = beside the .idx.json",
+              foreground="#555").pack(side="left", padx=(6, 0))
+    tp_crs_row = ttk.Frame(tp_frame)
+    tp_crs_row.pack(fill="x", pady=(6, 0))
+    ttk.Label(tp_crs_row, text="crs:").pack(side="left")
+    tp_crs_var = tk.StringVar(value="")
+    ttk.Entry(tp_crs_row, textvariable=tp_crs_var, width=10).pack(side="left",
+                                                                 padx=(4, 12))
+    tp_geoid_var = tk.BooleanVar(value=True)
+    ttk.Checkbutton(tp_crs_row, text="geoid heights",
+                    variable=tp_geoid_var).pack(side="left")
+    ttk.Label(tp_crs_row, text="tile size (m)").pack(side="left", padx=(12, 2))
+    tp_tile_m_var = tk.StringVar(value="100")
+    ttk.Entry(tp_crs_row, textvariable=tp_tile_m_var, width=6).pack(side="left")
+
+    tp_out_row = ttk.Frame(tp_frame)
+    tp_out_row.pack(fill="x", pady=(6, 0))
+    ttk.Label(tp_out_row, text="Tileset out dir:").pack(side="left")
+    tp_out_var = tk.StringVar(value="")
+    ttk.Entry(tp_out_row, textvariable=tp_out_var, width=42).pack(
+        side="left", padx=(6, 0), fill="x", expand=True)
+    ttk.Label(tp_out_row, text="blank = tiles/ beside the .idx.json",
+              foreground="#555").pack(side="left", padx=(6, 0))
+
+    def _on_export_payload():
+        """'Export from payload' button: require the .idx.json (warning box
+        otherwise), default the tiles dir beside it, and launch
+        ``tileset_cli from-payload`` as the job child."""
+        idx = tp_idx_var.get().strip().strip('"').strip("'")
+        if not idx or not Path(idx).is_file():
+            messagebox.showwarning(
+                "No payload",
+                "Choose the *.idx.json written by a --viz3d-stream export.")
+            return
+        idx_p = Path(idx)
+        out_dir = tp_out_var.get().strip() or str(idx_p.parent / "tiles")
+        cmd = build_tileset_from_payload_cmd(
+            sys.executable, idx_p, out_dir,
+            bin_path=(tp_bin_var.get().strip() or None),
+            crs=tp_crs_var.get().strip() or None,
+            lod=bool(ts_lod_var.get()),
+            geoid=bool(tp_geoid_var.get()))
+        log(f"[tileset] exporting payload {idx} -> {out_dir}")
+        _launch_subprocess(cmd)
+
+    ttk.Button(tp_frame, text="Export from payload",
+               command=_on_export_payload).pack(anchor="w", pady=(8, 0))
+
 
     # -- Serve ---------------------------------------------------------
     srv_frame = ttk.LabelFrame(tab_export, text="View in a browser",
@@ -1768,6 +2477,33 @@ def build_app(root) -> dict:
     srv_btn_row = ttk.Frame(srv_frame)
     srv_btn_row.pack(fill="x", pady=(8, 0))
 
+    srv_opts_row = ttk.Frame(srv_frame)
+    srv_opts_row.pack(fill="x", pady=(6, 0))
+    ttk.Label(srv_opts_row, text="port:").pack(side="left")
+    srv_port_var = tk.StringVar(value="")
+    srv_port_entry = ttk.Entry(srv_opts_row, textvariable=srv_port_var, width=7)
+    srv_port_entry.pack(side="left", padx=(4, 12))
+    _tip(srv_port_entry,
+         "Optional --port. Blank lets each server keep its own default (the "
+         "streaming viewer picks an OS-chosen free port so several can run; the "
+         "tileset server picks a free port too). Set a number to pin it, or 0 "
+         "to explicitly ask the OS for one.")
+    ttk.Label(srv_opts_row, text="bind:").pack(side="left")
+    srv_bind_var = tk.StringVar(value="")
+    srv_bind_entry = ttk.Entry(srv_opts_row, textvariable=srv_bind_var, width=12)
+    srv_bind_entry.pack(side="left", padx=(4, 12))
+    _tip(srv_bind_entry,
+         "Optional --bind: interface to listen on. Blank keeps the server "
+         "default (localhost, or $VOXELIZER_BIND when set - which is how the "
+         "Docker image exposes 8000).")
+    srv_noopen_var = tk.BooleanVar(value=False)
+    srv_noopen_cb = ttk.Checkbutton(srv_opts_row, text="don't open a browser",
+                                    variable=srv_noopen_var)
+    srv_noopen_cb.pack(side="left")
+    _tip(srv_noopen_cb,
+         "Emit --no-open: serve without launching a browser (the url is still "
+         "printed in the log below). Useful when the browser is elsewhere.")
+
     def _serve_dir_or_warn():
         """The directory named in the serve entry (quotes stripped) as a
         Path, or None after a warning box when it is not a directory."""
@@ -1793,8 +2529,11 @@ def build_app(root) -> dict:
                 f"'streamable' mode to produce one.")
             return
         page = "area_stream.html" if "area_stream.html" in pages else pages[0]
-        _start_server(build_serve_stream_cmd(sys.executable, d, page=page),
-                      "stream")
+        _start_server(build_serve_stream_cmd(
+            sys.executable, d, page=page,
+            port=srv_port_var.get().strip() or None,
+            bind=srv_bind_var.get().strip() or None,
+            no_open=bool(srv_noopen_var.get())), "stream")
 
     def _on_view_tileset():
         """'View tileset' button: require a tileset.json in the serve
@@ -1810,7 +2549,11 @@ def build_app(root) -> dict:
                 f"at the folder the export wrote.")
             return
         _start_server(
-            build_serve_tiles_cmd(sys.executable, d, srv_viewer_var.get()),
+            build_serve_tiles_cmd(
+                sys.executable, d, srv_viewer_var.get(),
+                port=srv_port_var.get().strip() or None,
+                bind=srv_bind_var.get().strip() or None,
+                no_open=bool(srv_noopen_var.get())),
             f"tiles/{srv_viewer_var.get()}")
 
     view_stream_btn = ttk.Button(srv_btn_row, text="View stream",
@@ -1855,6 +2598,735 @@ def build_app(root) -> dict:
               justify="left", wraplength=560, foreground="#555"
               ).pack(anchor="w", pady=(6, 0))
 
+    # ==================================================================
+    # TAB: Store Tools
+    #
+    # The store-level CLIs, each in its own collapsible section. None of
+    # these voxelizes: every one takes a finished store (a .npz or a raw
+    # store_raw/ directory) or a shards/ set and does one thing to it. They
+    # reuse the same job child and the same tracked servers as the run tabs,
+    # so a long post-process or a served viewer behaves exactly like a run.
+    # ==================================================================
+    ttk.Label(tab_tools,
+              text="Work on a finished store or shard set. A 'store' here is "
+                   "either a .npz (area.npz, a shard, a post-processed file) "
+                   "or a raw store_raw/ directory, attached by memory map. "
+                   "Nothing on this tab voxelizes: point each tool at what an "
+                   "earlier run already wrote. Sections start collapsed - "
+                   "click a heading to open it.",
+              justify="left", wraplength=580, foreground="#444"
+              ).pack(anchor="w", pady=(0, 8))
+
+    def _store_kind_dd(parent, var, *, label="store form:"):
+        """A small 'store form' combobox (auto / npz / dir) bound to *var*;
+        returns the combobox for tooltips."""
+        row = ttk.Frame(parent)
+        row.pack(fill="x", pady=(2, 2))
+        ttk.Label(row, text=label).pack(side="left")
+        dd = ttk.Combobox(row, textvariable=var,
+                          values=["auto", "npz", "dir"], state="readonly",
+                          width=6)
+        dd.pack(side="left", padx=(6, 8))
+        _tip(dd, "auto: area.npz, else area_raw.npz, else store_raw/, else a "
+                 "lone shard. npz: only a compressed .npz. dir: only the raw "
+                 "store_raw/ directory (memory-mapped).")
+        return dd
+
+    def _store_row(parent, var, *, label="store:", tip="", with_kind=None):
+        """A 'store' entry + Dir/.npz/Use-output-dir buttons. When *with_kind*
+        is a StringVar, the buttons filter by that form via resolve_store_path.
+        Returns the entry (for a tooltip)."""
+        row = ttk.Frame(parent)
+        row.pack(fill="x", pady=(2, 0))
+        ttk.Label(row, text=label).pack(side="left")
+        ent = ttk.Entry(row, textvariable=var, width=44)
+        ent.pack(side="left", padx=(6, 0), fill="x", expand=True)
+        if tip:
+            _tip(ent, tip)
+
+        def _browse_dir():
+            d = filedialog.askdirectory(title="Choose a run output directory")
+            if d:
+                var.set(d)
+
+        def _browse_npz():
+            f = filedialog.askopenfilename(
+                title="Choose a store .npz",
+                filetypes=[("Voxel store", "*.npz"), ("All files", "*.*")])
+            if f:
+                var.set(f)
+
+        ttk.Button(row, text="Dir...", command=_browse_dir, width=6).pack(
+            side="left", padx=(6, 0))
+        ttk.Button(row, text=".npz...", command=_browse_npz, width=7).pack(
+            side="left", padx=(4, 0))
+        ttk.Button(row, text="Use output dir",
+                   command=lambda: var.set(out_var.get())).pack(
+            side="left", padx=(4, 0))
+        return ent
+
+    def _launch_tool(cmd, *, out_dir=None, missing=""):
+        """Build-time helper: log the tool command and launch it as the job
+        child, refusals already checked by the caller."""
+        log("[tool] " + " ".join(str(c) for c in cmd))
+        _launch_subprocess(cmd)
+
+    # ---- Post-process --------------------------------------------------
+    sec_post = _CollapsibleSection(tab_tools, "Post-process a store "
+                                              "(denoise / absorb / resolve / group)",
+                                   expanded=True)
+    bp = sec_post.body
+    pp_in_var = tk.StringVar(value="")
+    pp_kind_var = tk.StringVar(value="auto")
+    _store_row(bp, pp_in_var, label="input store:",
+               tip="The store to post-process: a .npz or a store_raw/ "
+                   "directory (memory-mapped).",
+               with_kind=pp_kind_var)
+    _store_kind_dd(bp, pp_kind_var)
+    pp_out_var = tk.StringVar(value="")
+    pp_out_row = ttk.Frame(bp)
+    pp_out_row.pack(fill="x", pady=(4, 0))
+    ttk.Label(pp_out_row, text="output .npz:").pack(side="left")
+    ttk.Entry(pp_out_row, textvariable=pp_out_var, width=44).pack(
+        side="left", padx=(6, 0), fill="x", expand=True)
+    _tip(pp_out_row.winfo_children()[-1],
+         "Where the post-processed store is written (.npz appended if "
+         "missing). It is a NEW store; the input is never modified.")
+    pp_denoise_row = ttk.Frame(bp)
+    pp_denoise_row.pack(fill="x", pady=(6, 0))
+    pp_min_points_var = tk.BooleanVar(value=False)
+    mp_cb = ttk.Checkbutton(pp_denoise_row, text="min-points",
+                            variable=pp_min_points_var)
+    mp_cb.pack(side="left")
+    mp_val = tk.StringVar(value="4")
+    ttk.Entry(pp_denoise_row, textvariable=mp_val, width=6).pack(
+        side="left", padx=(4, 12))
+    _tip(mp_cb, "Drop intervals with <= N points (bare = 4).")
+    pp_morph_var = tk.BooleanVar(value=False)
+    morph_cb = ttk.Checkbutton(pp_denoise_row, text="morph",
+                               variable=pp_morph_var)
+    morph_cb.pack(side="left")
+    morph_val = tk.StringVar(value="2")
+    ttk.Entry(pp_denoise_row, textvariable=morph_val, width=6).pack(
+        side="left", padx=(4, 12))
+    _tip(morph_cb, "Morphological support filter: drop intervals with fewer "
+                   "than N same-class neighbours among the 8 surrounding "
+                   "columns (bare = 2).")
+    pp_morph_classes_var = tk.StringVar(value="")
+    ttk.Label(pp_denoise_row, text="morph classes:").pack(side="left")
+    ttk.Entry(pp_denoise_row, textvariable=pp_morph_classes_var,
+              width=12).pack(side="left", padx=(4, 0))
+    _tip(pp_denoise_row.winfo_children()[-1],
+         "Restrict --morph to these ASPRS classes (blank = every class).")
+
+    pp_pass_row = ttk.Frame(bp)
+    pp_pass_row.pack(fill="x", pady=(6, 0))
+    pp_absorb_var = tk.BooleanVar(value=False)
+    abs_cb = ttk.Checkbutton(pp_pass_row, text="absorb", variable=pp_absorb_var)
+    abs_cb.pack(side="left")
+    _tip(abs_cb, "Reclassify vegetation runs sandwiched by building to building.")
+    pp_resolve_var = tk.BooleanVar(value=False)
+    res_cb = ttk.Checkbutton(pp_pass_row, text="resolve", variable=pp_resolve_var)
+    res_cb.pack(side="left", padx=(12, 0))
+    _tip(res_cb, "Collapse cross-class overlaps so every voxel carries one class.")
+    pp_group_var = tk.BooleanVar(value=False)
+    grp_cb = ttk.Checkbutton(pp_pass_row, text="group", variable=pp_group_var)
+    grp_cb.pack(side="left", padx=(12, 0))
+    _tip(grp_cb, "Merge vertically-consecutive same-class intervals after the "
+                 "passes above.")
+    pp_group_gap_var = tk.StringVar(value="")
+    ttk.Label(pp_pass_row, text="group gap (m):").pack(side="left", padx=(12, 0))
+    ttk.Entry(pp_pass_row, textvariable=pp_group_gap_var, width=7).pack(
+        side="left", padx=(4, 0))
+    _tip(pp_pass_row.winfo_children()[-1],
+         "With group: only merge across empty gaps of at most this many metres "
+         "(blank = any gap).")
+
+    pp_adv = _CollapsibleSection(bp, "resolve / absorb tuning", expanded=False)
+    av = pp_adv.body
+    av_row1 = ttk.Frame(av)
+    av_row1.pack(fill="x")
+    ttk.Label(av_row1, text="tie margin:").pack(side="left")
+    pp_tie_margin_var = tk.StringVar(value="")
+    ttk.Entry(av_row1, textvariable=pp_tie_margin_var, width=6).pack(
+        side="left", padx=(4, 12))
+    _tip(av_row1.winfo_children()[-1],
+         "Counts within this absolute margin of the best are tied (blank = the "
+         "library default, 1).")
+    ttk.Label(av_row1, text="tie rel:").pack(side="left")
+    pp_tie_rel_var = tk.StringVar(value="")
+    ttk.Entry(av_row1, textvariable=pp_tie_rel_var, width=6).pack(
+        side="left", padx=(4, 12))
+    ttk.Label(av_row1, text="class priority:").pack(side="left")
+    pp_class_prio_var = tk.StringVar(value="")
+    ttk.Entry(av_row1, textvariable=pp_class_prio_var, width=14).pack(
+        side="left", padx=(4, 0))
+    _tip(av_row1.winfo_children()[-1],
+         "Explicit near-tie preference order (earlier wins), e.g. 2,3,4,5,6.")
+    av_row2 = ttk.Frame(av)
+    av_row2.pack(fill="x", pady=(4, 0))
+    ttk.Label(av_row2, text="absorb min neighbour:").pack(side="left")
+    pp_abs_min_var = tk.StringVar(value="")
+    ttk.Entry(av_row2, textvariable=pp_abs_min_var, width=6).pack(
+        side="left", padx=(4, 12))
+    ttk.Label(av_row2, text="absorb max noise:").pack(side="left")
+    pp_abs_noise_var = tk.StringVar(value="")
+    ttk.Entry(av_row2, textvariable=pp_abs_noise_var, width=6).pack(
+        side="left", padx=(4, 12))
+    pp_prefer_taller_var = tk.BooleanVar(value=True)
+    ttk.Checkbutton(av_row2, text="prefer taller",
+                    variable=pp_prefer_taller_var).pack(side="left", padx=(0, 12))
+    pp_demote_var = tk.BooleanVar(value=True)
+    ttk.Checkbutton(av_row2, text="demote uncertain",
+                    variable=pp_demote_var).pack(side="left")
+    pp_stats_var = tk.BooleanVar(value=False)
+    pp_dry_var = tk.BooleanVar(value=False)
+    av_row3 = ttk.Frame(av)
+    av_row3.pack(fill="x", pady=(4, 0))
+    ttk.Checkbutton(av_row3, text="--stats (full per-class table)",
+                    variable=pp_stats_var).pack(side="left")
+    ttk.Checkbutton(av_row3, text="--dry-run (write nothing)",
+                    variable=pp_dry_var).pack(side="left", padx=(12, 0))
+
+    def _on_postprocess():
+        """Validate an input store and at least one pass (the CLI refuses an
+        empty plan), then launch postprocess_cli as the job child."""
+        inp = resolve_store_path(pp_in_var.get(), kind=pp_kind_var.get())
+        if inp is None:
+            messagebox.showwarning("No store",
+                                   "Choose an input store (a .npz or a "
+                                   "store_raw/ directory).")
+            return
+        out = pp_out_var.get().strip()
+        if not out:
+            out = str(Path(inp).with_name(Path(inp).name + "_clean.npz"))
+        passes = []
+        if pp_min_points_var.get():
+            passes.append("min-points")
+        if pp_morph_var.get():
+            passes.append("morph")
+        if pp_absorb_var.get():
+            passes.append("absorb")
+        if pp_resolve_var.get():
+            passes.append("resolve")
+        if pp_group_var.get():
+            passes.append("group")
+        if not passes:
+            messagebox.showwarning(
+                "No pass selected",
+                "Pick at least one pass (min-points, morph, absorb, resolve, "
+                "group) - the CLI refuses an empty plan.")
+            return
+        cmd = build_postprocess_cmd(
+            sys.executable, inp, out,
+            min_points=(mp_val.get().strip() if pp_min_points_var.get() else None),
+            morph=(morph_val.get().strip() if pp_morph_var.get() else None),
+            morph_classes=pp_morph_classes_var.get(),
+            absorb=bool(pp_absorb_var.get()),
+            absorb_min_neighbour=pp_abs_min_var.get().strip(),
+            absorb_max_noise=pp_abs_noise_var.get().strip(),
+            resolve=bool(pp_resolve_var.get()),
+            tie_margin=pp_tie_margin_var.get().strip(),
+            tie_rel=pp_tie_rel_var.get().strip(),
+            prefer_taller=bool(pp_prefer_taller_var.get()),
+            demote_uncertain=bool(pp_demote_var.get()),
+            class_priority=pp_class_prio_var.get(),
+            group=bool(pp_group_var.get()),
+            group_gap=pp_group_gap_var.get().strip(),
+            stats=bool(pp_stats_var.get()),
+            dry_run=bool(pp_dry_var.get()))
+        _launch_tool(cmd)
+
+    ttk.Button(bp, text="Post-process store",
+               command=_on_postprocess).pack(anchor="w", pady=(8, 0))
+
+    # ---- Reconstruct ---------------------------------------------------
+    sec_rec = _CollapsibleSection(tab_tools, "Reconstruct LAS/LAZ "
+                                             "(store <-> point cloud)")
+    br = sec_rec.body
+    rec_verb_var = tk.StringVar(value="to-laz")
+    rec_verb_row = ttk.Frame(br)
+    rec_verb_row.pack(fill="x")
+    ttk.Label(rec_verb_row, text="verb:").pack(side="left")
+    ttk.Combobox(rec_verb_row, textvariable=rec_verb_var,
+                 values=["to-laz", "to-npz", "verify"], state="readonly",
+                 width=10).pack(side="left", padx=(6, 0))
+    _tip(rec_verb_row.winfo_children()[-1],
+         "to-laz: .npz -> .las/.laz ('exact' is the only bit-exact round trip). "
+         "to-npz: .las/.laz -> .npz. verify: check a .npz rebuilds a .laz "
+         "exactly.")
+    rec_npz_var = tk.StringVar(value="")
+    _store_row(br, rec_npz_var, label="store .npz:",
+               tip="The .npz used by to-laz and verify.")
+    rec_laz_var = tk.StringVar(value="")
+    rec_laz_row = ttk.Frame(br)
+    rec_laz_row.pack(fill="x", pady=(4, 0))
+    ttk.Label(rec_laz_row, text="LAS/LAZ file:").pack(side="left")
+    ttk.Entry(rec_laz_row, textvariable=rec_laz_var, width=44).pack(
+        side="left", padx=(6, 0), fill="x", expand=True)
+
+    def _browse_laz_any():
+        f = filedialog.askopenfilename(
+            title="Choose a LAS/LAZ file",
+            filetypes=[("LAZ/LAS files", "*.laz *.las"), ("All files", "*.*")])
+        if f:
+            rec_laz_var.set(f)
+
+    ttk.Button(rec_laz_row, text="Browse...", command=_browse_laz_any,
+               width=9).pack(side="left", padx=(6, 0))
+    _tip(rec_laz_row.winfo_children()[-1],
+         "The LAS/LAZ file used by to-npz (input) and verify (the file to "
+         "compare against).")
+    rec_out_var = tk.StringVar(value="")
+    rec_out_row = ttk.Frame(br)
+    rec_out_row.pack(fill="x", pady=(4, 0))
+    ttk.Label(rec_out_row, text="output file:").pack(side="left")
+    ttk.Entry(rec_out_row, textvariable=rec_out_var, width=44).pack(
+        side="left", padx=(6, 0), fill="x", expand=True)
+    _tip(rec_out_row.winfo_children()[-1],
+         "to-laz writes a .las/.laz here; to-npz writes a .npz here. Ignored by "
+         "verify.")
+    rec_opt_row = ttk.Frame(br)
+    rec_opt_row.pack(fill="x", pady=(6, 0))
+    ttk.Label(rec_opt_row, text="mode:").pack(side="left")
+    rec_mode_var = tk.StringVar(value="")
+    ttk.Combobox(rec_opt_row, textvariable=rec_mode_var,
+                 values=["", "density", "one_per_voxel", "exact"],
+                 state="readonly", width=14).pack(side="left", padx=(4, 12))
+    _tip(rec_opt_row.winfo_children()[-1],
+         "Export mode for to-laz. 'exact' is the only bit-exact round trip; "
+         "blank keeps the CLI default (density).")
+    rec_epsg_var = tk.StringVar(value="")
+    ttk.Label(rec_opt_row, text="epsg:").pack(side="left")
+    ttk.Entry(rec_opt_row, textvariable=rec_epsg_var, width=7).pack(
+        side="left", padx=(4, 12))
+    ttk.Label(rec_opt_row, text="origin X Y Z:").pack(side="left")
+    rec_origin_vars = [tk.StringVar(value="") for _ in range(3)]
+    for _v in rec_origin_vars:
+        ttk.Entry(rec_opt_row, textvariable=_v, width=8).pack(side="left",
+                                                              padx=(2, 0))
+    _tip(rec_opt_row.winfo_children()[-1],
+         "to-npz only: the grid origin, required when the file has no IARBRE "
+         "grid VLR (blank = read it from the file).")
+    rec_verify_var = tk.BooleanVar(value=False)
+    rec_grid_vlr_var = tk.BooleanVar(value=True)
+    rec_zbase_var = tk.BooleanVar(value=False)
+    rec_opv_var = tk.BooleanVar(value=False)
+    rec_row2 = ttk.Frame(br)
+    rec_row2.pack(fill="x", pady=(4, 0))
+    ttk.Checkbutton(rec_row2, text="verify after to-laz",
+                    variable=rec_verify_var).pack(side="left")
+    ttk.Checkbutton(rec_row2, text="IARBRE grid VLR",
+                    variable=rec_grid_vlr_var).pack(side="left", padx=(12, 0))
+    ttk.Checkbutton(rec_row2, text="z from interval base",
+                    variable=rec_zbase_var).pack(side="left", padx=(12, 0))
+    ttk.Checkbutton(rec_row2, text="one per voxel",
+                    variable=rec_opv_var).pack(side="left", padx=(12, 0))
+
+    def _on_reconstruct():
+        """Validate the files the chosen verb needs, then launch reconstruct."""
+        verb = rec_verb_var.get()
+        npz = rec_npz_var.get().strip().strip('"').strip("'")
+        laz = rec_laz_var.get().strip().strip('"').strip("'")
+        out = rec_out_var.get().strip().strip('"').strip("'")
+        if verb in ("to-laz", "verify") and not npz:
+            messagebox.showwarning("No store", "Choose the store .npz.")
+            return
+        if verb == "to-laz" and not out:
+            messagebox.showwarning("No output",
+                                   "Choose the output .las/.laz path.")
+            return
+        if verb == "to-npz" and not laz:
+            messagebox.showwarning("No input", "Choose the input LAS/LAZ file.")
+            return
+        if verb == "to-npz" and not out:
+            messagebox.showwarning("No output", "Choose the output .npz path.")
+            return
+        if verb == "verify" and not laz:
+            messagebox.showwarning("No file", "Choose the LAS/LAZ to verify "
+                                              "against.")
+            return
+        origin = [v.get().strip() for v in rec_origin_vars]
+        origin_val = None
+        if any(origin):
+            if not all(origin):
+                messagebox.showerror("Invalid origin", "Give all three of X Y Z, "
+                                                       "or leave all blank.")
+                return
+            origin_val = tuple(float(o) for o in origin)
+        cmd = build_reconstruct_cmd(
+            sys.executable, verb, npz=npz or None, laz=laz or None,
+            output=out or None, mode=rec_mode_var.get() or None,
+            one_per_voxel=bool(rec_opv_var.get()),
+            z_base=bool(rec_zbase_var.get()),
+            epsg=rec_epsg_var.get().strip() or None,
+            grid_vlr=bool(rec_grid_vlr_var.get()),
+            verify=bool(rec_verify_var.get()),
+            origin=origin_val)
+        _launch_tool(cmd)
+
+    ttk.Button(br, text="Run reconstruct",
+               command=_on_reconstruct).pack(anchor="w", pady=(8, 0))
+
+    # ---- Archive -------------------------------------------------------
+    sec_arc = _CollapsibleSection(tab_tools, "Archive shards "
+                                             "(shards/*.npz <-> exact LAZ)")
+    ba = sec_arc.body
+    arc_verb_var = tk.StringVar(value="pack")
+    arc_verb_row = ttk.Frame(ba)
+    arc_verb_row.pack(fill="x")
+    ttk.Label(arc_verb_row, text="verb:").pack(side="left")
+    ttk.Combobox(arc_verb_row, textvariable=arc_verb_var,
+                 values=["pack", "unpack"], state="readonly",
+                 width=8).pack(side="left", padx=(6, 0))
+    _tip(arc_verb_row.winfo_children()[-1],
+         "pack: shards/*.npz -> shards_laz/*.laz (exact, verified per shard). "
+         "unpack: shards_laz/*.laz -> shards/*.npz.")
+    arc_dir_var = tk.StringVar(value="")
+    _store_dir_row = ttk.Frame(ba)
+    _store_dir_row.pack(fill="x", pady=(4, 0))
+    ttk.Label(_store_dir_row, text="run / archive dir:").pack(side="left")
+    ttk.Entry(_store_dir_row, textvariable=arc_dir_var, width=44).pack(
+        side="left", padx=(6, 0), fill="x", expand=True)
+
+    def _browse_arc_dir():
+        d = filedialog.askdirectory(title="Choose a run directory")
+        if d:
+            arc_dir_var.set(d)
+
+    ttk.Button(_store_dir_row, text="Dir...", command=_browse_arc_dir,
+               width=6).pack(side="left", padx=(6, 0))
+    ttk.Button(_store_dir_row, text="Use output dir",
+               command=lambda: arc_dir_var.set(out_var.get())).pack(
+        side="left", padx=(4, 0))
+    _tip(_store_dir_row.winfo_children()[-1],
+         "pack: the run directory (or its shards/ directory). unpack: the "
+         "archive directory (or the run directory above it).")
+    arc_worker_row = ttk.Frame(ba)
+    arc_worker_row.pack(fill="x", pady=(4, 0))
+    ttk.Label(arc_worker_row, text="workers:").pack(side="left")
+    arc_workers_var = tk.StringVar(value="")
+    ttk.Entry(arc_worker_row, textvariable=arc_workers_var, width=6).pack(
+        side="left", padx=(4, 12))
+    ttk.Label(arc_worker_row, text="epsg:").pack(side="left")
+    arc_epsg_var = tk.StringVar(value="")
+    ttk.Entry(arc_worker_row, textvariable=arc_epsg_var, width=7).pack(
+        side="left", padx=(4, 12))
+    ttk.Label(arc_worker_row, text="unpack out:").pack(side="left")
+    arc_out_var = tk.StringVar(value="")
+    ttk.Entry(arc_worker_row, textvariable=arc_out_var, width=24).pack(
+        side="left", padx=(4, 0))
+    arc_replace_var = tk.BooleanVar(value=False)
+    arc_noverify_var = tk.BooleanVar(value=False)
+    arc_row3 = ttk.Frame(ba)
+    arc_row3.pack(fill="x", pady=(4, 0))
+    arc_rep_cb = ttk.Checkbutton(arc_row3, text="--replace (DELETE source .npz "
+                                                "once verified)",
+                                 variable=arc_replace_var)
+    arc_rep_cb.pack(side="left")
+    _tip(arc_rep_cb, "pack only. Removes each source .npz after its .laz has "
+                     "verified. Refused with --no-verify (verification is what "
+                     "makes it safe).")
+    arc_nv_cb = ttk.Checkbutton(arc_row3, text="--no-verify (faster, unsafe "
+                                               "with --replace)",
+                                variable=arc_noverify_var)
+    arc_nv_cb.pack(side="left", padx=(12, 0))
+    _tip(arc_nv_cb, "pack only. Skips the per-shard rebuild-and-compare check.")
+
+    def _on_archive():
+        """Validate the directory, then launch archive_cli (pack/unpack)."""
+        d = arc_dir_var.get().strip().strip('"').strip("'")
+        if not d or not Path(d).exists():
+            messagebox.showwarning("No directory",
+                                   "Choose the run / archive directory.")
+            return
+        verb = arc_verb_var.get()
+        cmd = build_archive_cmd(
+            sys.executable, verb,
+            run_dir=d if verb == "pack" else None,
+            archive_dir=d if verb == "unpack" else None,
+            workers=arc_workers_var.get().strip(),
+            no_verify=bool(arc_noverify_var.get()),
+            replace=bool(arc_replace_var.get()),
+            epsg=arc_epsg_var.get().strip(),
+            out=arc_out_var.get().strip() or None)
+        _launch_tool(cmd)
+
+    ttk.Button(ba, text="Run archive",
+               command=_on_archive).pack(anchor="w", pady=(8, 0))
+
+    # ---- Merge shards --------------------------------------------------
+    sec_merge = _CollapsibleSection(tab_tools, "Merge shards into a store "
+                                               "(out of core)")
+    bm = sec_merge.body
+    merge_shards_var_tool = tk.StringVar(value="")
+    _store_dir_row2 = ttk.Frame(bm)
+    _store_dir_row2.pack(fill="x")
+    ttk.Label(_store_dir_row2, text="shards dir:").pack(side="left")
+    ttk.Entry(_store_dir_row2, textvariable=merge_shards_var_tool, width=44).pack(
+        side="left", padx=(6, 0), fill="x", expand=True)
+
+    def _browse_merge_shards():
+        d = filedialog.askdirectory(title="Choose a shards/ directory")
+        if d:
+            merge_shards_var_tool.set(d)
+
+    ttk.Button(_store_dir_row2, text="Dir...", command=_browse_merge_shards,
+               width=6).pack(side="left", padx=(6, 0))
+    ttk.Button(_store_dir_row2, text="Use output dir/shards",
+               command=lambda: merge_shards_var_tool.set(
+                   str(Path(out_var.get()) / "shards"))).pack(
+        side="left", padx=(4, 0))
+    merge_out_var = tk.StringVar(value="")
+    merge_out_row = ttk.Frame(bm)
+    merge_out_row.pack(fill="x", pady=(4, 0))
+    ttk.Label(merge_out_row, text="out store dir:").pack(side="left")
+    ttk.Entry(merge_out_row, textvariable=merge_out_var, width=44).pack(
+        side="left", padx=(6, 0), fill="x", expand=True)
+    merge_group_var = tk.BooleanVar(value=False)
+    merge_band_var2 = tk.StringVar(value="")
+    merge_group_gap_var = tk.StringVar(value="")
+    merge_ow_var = tk.BooleanVar(value=False)
+    merge_plan_var = tk.BooleanVar(value=False)
+    merge_opt = ttk.Frame(bm)
+    merge_opt.pack(fill="x", pady=(4, 0))
+    ttk.Checkbutton(merge_opt, text="group intervals",
+                    variable=merge_group_var).pack(side="left")
+    ttk.Label(merge_opt, text="group gap (m):").pack(side="left", padx=(12, 0))
+    ttk.Entry(merge_opt, textvariable=merge_group_gap_var, width=6).pack(
+        side="left", padx=(4, 12))
+    ttk.Label(merge_opt, text="band intervals:").pack(side="left")
+    ttk.Entry(merge_opt, textvariable=merge_band_var2, width=12).pack(
+        side="left", padx=(4, 12))
+    ttk.Checkbutton(merge_opt, text="overwrite",
+                    variable=merge_ow_var).pack(side="left", padx=(0, 12))
+    ttk.Checkbutton(merge_opt, text="plan only",
+                    variable=merge_plan_var).pack(side="left")
+
+    def _on_merge():
+        """Validate the shards dir and out store dir, then launch
+        merge_streaming (plan-only needs no out dir, but the flag is required
+        by the CLI, so one is always supplied)."""
+        sd = merge_shards_var_tool.get().strip().strip('"').strip("'")
+        if not sd or not Path(sd).is_dir():
+            messagebox.showwarning("No shards dir",
+                                   "Choose the shards/ directory to merge.")
+            return
+        od = merge_out_var.get().strip().strip('"').strip("'")
+        if not od:
+            od = str(Path(sd).parent / "store_raw")
+        cmd = build_merge_cmd(
+            sys.executable, sd, od,
+            group_intervals=bool(merge_group_var.get()),
+            group_gap=merge_group_gap_var.get().strip(),
+            band_intervals=merge_band_var2.get().strip(),
+            overwrite=bool(merge_ow_var.get()),
+            plan_only=bool(merge_plan_var.get()))
+        _launch_tool(cmd)
+
+    ttk.Button(bm, text="Run merge",
+               command=_on_merge).pack(anchor="w", pady=(8, 0))
+
+    # ---- Shard diagnostics ---------------------------------------------
+    sec_diag = _CollapsibleSection(tab_tools, "Shard diagnostics "
+                                              "(columns/ + stats from shards)")
+    bd = sec_diag.body
+    sdiag_shards_var = tk.StringVar(value="")
+    _store_dir_row3 = ttk.Frame(bd)
+    _store_dir_row3.pack(fill="x")
+    ttk.Label(_store_dir_row3, text="shards dir:").pack(side="left")
+    ttk.Entry(_store_dir_row3, textvariable=sdiag_shards_var, width=44).pack(
+        side="left", padx=(6, 0), fill="x", expand=True)
+
+    def _browse_sdiag():
+        d = filedialog.askdirectory(title="Choose a shards/ directory")
+        if d:
+            sdiag_shards_var.set(d)
+
+    ttk.Button(_store_dir_row3, text="Dir...", command=_browse_sdiag,
+               width=6).pack(side="left", padx=(6, 0))
+    ttk.Button(_store_dir_row3, text="Use output dir/shards",
+               command=lambda: sdiag_shards_var.set(
+                   str(Path(out_var.get()) / "shards"))).pack(
+        side="left", padx=(4, 0))
+    sdiag_out_var = tk.StringVar(value="")
+    sdiag_out_row = ttk.Frame(bd)
+    sdiag_out_row.pack(fill="x", pady=(4, 0))
+    ttk.Label(sdiag_out_row, text="out dir:").pack(side="left")
+    ttk.Entry(sdiag_out_row, textvariable=sdiag_out_var, width=44).pack(
+        side="left", padx=(6, 0), fill="x", expand=True)
+    sdiag_mode_var = tk.StringVar(value="diag")
+    sdiag_topn_var = tk.StringVar(value="")
+    sdiag_group_var = tk.StringVar(value="")  # "", "on", "off"
+    sdiag_row = ttk.Frame(bd)
+    sdiag_row.pack(fill="x", pady=(4, 0))
+    ttk.Label(sdiag_row, text="columns mode:").pack(side="left")
+    ttk.Combobox(sdiag_row, textvariable=sdiag_mode_var,
+                 values=["diag", "top", "all", "skip"], state="readonly",
+                 width=7).pack(side="left", padx=(4, 12))
+    ttk.Label(sdiag_row, text="top N:").pack(side="left")
+    ttk.Entry(sdiag_row, textvariable=sdiag_topn_var, width=6).pack(
+        side="left", padx=(4, 12))
+    ttk.Label(sdiag_row, text="grouping:").pack(side="left")
+    ttk.Combobox(sdiag_row, textvariable=sdiag_group_var,
+                 values=["", "on", "off"], state="readonly",
+                 width=5).pack(side="left", padx=(4, 0))
+    _tip(sdiag_row.winfo_children()[-1],
+         "Blank = the manifest's recorded grouping; on/off force it.")
+    sdiag_stats_var = tk.BooleanVar(value=True)
+    ttk.Checkbutton(sdiag_row, text="stats.txt",
+                    variable=sdiag_stats_var).pack(side="left", padx=(12, 0))
+
+    def _on_shard_diag():
+        """Validate the dirs and that at least one of figures/stats is asked
+        for (the CLI refuses a request for neither), then launch."""
+        sd = sdiag_shards_var.get().strip().strip('"').strip("'")
+        if not sd or not Path(sd).is_dir():
+            messagebox.showwarning("No shards dir",
+                                   "Choose the shards/ directory to diagnose.")
+            return
+        mode = sdiag_mode_var.get()
+        if mode == "skip" and not sdiag_stats_var.get():
+            messagebox.showwarning(
+                "Nothing requested",
+                "columns mode 'skip' with stats off asks for nothing - enable "
+                "one.")
+            return
+        od = sdiag_out_var.get().strip().strip('"').strip("'")
+        if not od:
+            od = str(Path(sd).parent / "shard_diag")
+        grouping = {"on": True, "off": False}.get(sdiag_group_var.get(), None)
+        cmd = build_shard_diag_cmd(
+            sys.executable, sd, od,
+            columns_mode=mode,
+            columns_top_n=sdiag_topn_var.get().strip(),
+            stats=bool(sdiag_stats_var.get()),
+            group_intervals=grouping)
+        _launch_tool(cmd)
+
+    ttk.Button(bd, text="Run shard diagnostics",
+               command=_on_shard_diag).pack(anchor="w", pady=(8, 0))
+
+    # ---- 3-D from a store ----------------------------------------------
+    sec_v3 = _CollapsibleSection(tab_tools, "3-D viewers from a store "
+                                            "(from-store / stream)")
+    bv = sec_v3.body
+    v3_store_var = tk.StringVar(value="")
+    v3_kind_var = tk.StringVar(value="auto")
+    _store_row(bv, v3_store_var, label="store:",
+               tip="The store to render from: a .npz or a store_raw/ directory.",
+               with_kind=v3_kind_var)
+    _store_kind_dd(bv, v3_kind_var)
+    v3_verb_var = tk.StringVar(value="from-store")
+    v3_verb_row = ttk.Frame(bv)
+    v3_verb_row.pack(fill="x", pady=(4, 0))
+    ttk.Label(v3_verb_row, text="verb:").pack(side="left")
+    ttk.Combobox(v3_verb_row, textvariable=v3_verb_var,
+                 values=["from-store", "stream"], state="readonly",
+                 width=11).pack(side="left", padx=(6, 12))
+    v3_out_var = tk.StringVar(value="")
+    ttk.Label(v3_verb_row, text="out (dir / .html):").pack(side="left")
+    ttk.Entry(v3_verb_row, textvariable=v3_out_var, width=24).pack(
+        side="left", padx=(4, 0))
+    v3_opts = ttk.Frame(bv)
+    v3_opts.pack(fill="x", pady=(4, 0))
+    ttk.Label(v3_opts, text="label:").pack(side="left")
+    v3_label_var = tk.StringVar(value="")
+    ttk.Entry(v3_opts, textvariable=v3_label_var, width=10).pack(
+        side="left", padx=(4, 12))
+    ttk.Label(v3_opts, text="max boxes:").pack(side="left")
+    v3_maxboxes_var = tk.StringVar(value="")
+    ttk.Entry(v3_opts, textvariable=v3_maxboxes_var, width=10).pack(
+        side="left", padx=(4, 12))
+    ttk.Label(v3_opts, text="roi size (m):").pack(side="left")
+    v3_roi_size_var = tk.StringVar(value="")
+    ttk.Entry(v3_opts, textvariable=v3_roi_size_var, width=7).pack(
+        side="left", padx=(4, 0))
+    v3_row2 = ttk.Frame(bv)
+    v3_row2.pack(fill="x", pady=(4, 0))
+    v3_full_var = tk.BooleanVar(value=True)
+    ttk.Checkbutton(v3_row2, text="full view", variable=v3_full_var).pack(
+        side="left")
+    v3_roi_var = tk.BooleanVar(value=True)
+    ttk.Checkbutton(v3_row2, text="ROI view", variable=v3_roi_var).pack(
+        side="left", padx=(12, 0))
+    v3_grid_var = tk.BooleanVar(value=False)
+    ttk.Checkbutton(v3_row2, text=".vxg grid cache",
+                    variable=v3_grid_var).pack(side="left", padx=(12, 0))
+    v3_row3 = ttk.Frame(bv)
+    v3_row3.pack(fill="x", pady=(4, 0))
+    ttk.Label(v3_row3, text="region x/y:").pack(side="left")
+    v3_region_vars = [tk.StringVar(value="") for _ in range(4)]
+    for _v in v3_region_vars:
+        ttk.Entry(v3_row3, textvariable=_v, width=9).pack(side="left",
+                                                          padx=(2, 0))
+    _tip(v3_row3.winfo_children()[-1],
+         "stream only: a metric bbox to render a subset (blank = whole store).")
+    ttk.Label(v3_row3, text="keep classes:").pack(side="left", padx=(12, 2))
+    v3_keep_var = tk.StringVar(value="")
+    ttk.Entry(v3_row3, textvariable=v3_keep_var, width=12).pack(side="left")
+    v3_row4 = ttk.Frame(bv)
+    v3_row4.pack(fill="x", pady=(4, 0))
+    ttk.Label(v3_row4, text="max instances:").pack(side="left")
+    v3_maxinst_var = tk.StringVar(value="")
+    ttk.Entry(v3_row4, textvariable=v3_maxinst_var, width=10).pack(
+        side="left", padx=(4, 12))
+    ttk.Label(v3_row4, text="inline MB:").pack(side="left")
+    v3_inline_var = tk.StringVar(value="")
+    ttk.Entry(v3_row4, textvariable=v3_inline_var, width=6).pack(
+        side="left", padx=(4, 12))
+    ttk.Label(v3_row4, text="tile m:").pack(side="left")
+    v3_tilem_var = tk.StringVar(value="")
+    ttk.Entry(v3_row4, textvariable=v3_tilem_var, width=6).pack(
+        side="left", padx=(4, 0))
+    ttk.Label(bv, text="stream ignores --stride / --max-boxes (it always writes "
+                       "every interval); use region or keep classes to shrink "
+                       "the payload.",
+              justify="left", wraplength=560, foreground="#555").pack(
+        anchor="w", pady=(4, 0))
+
+    def _on_viz3d_store():
+        """Validate the store, then launch viz3d_cli from-store or stream."""
+        st = resolve_store_path(v3_store_var.get(), kind=v3_kind_var.get())
+        if st is None:
+            messagebox.showwarning("No store",
+                                   "Choose a store (.npz or store_raw/).")
+            return
+        verb = v3_verb_var.get()
+        if verb == "from-store":
+            if not (v3_full_var.get() or v3_roi_var.get()):
+                messagebox.showwarning("Nothing to render",
+                                       "Tick full and/or ROI - both off means "
+                                       "no viewer.")
+                return
+            out = v3_out_var.get().strip() or str(
+                (Path(st) if Path(st).is_dir() else Path(st).parent) / "viz3d")
+            cmd = build_viz3d_from_store_cmd(
+                sys.executable, st, out,
+                label=v3_label_var.get(),
+                max_boxes=v3_maxboxes_var.get().strip(),
+                roi_size=v3_roi_size_var.get().strip(),
+                do_full=bool(v3_full_var.get()), do_roi=bool(v3_roi_var.get()),
+                grid=bool(v3_grid_var.get()))
+        else:
+            out = v3_out_var.get().strip()
+            if not out:
+                base = (Path(st) if Path(st).is_dir() else Path(st))
+                out = str(base / "stream.html")
+            region = [v.get().strip() for v in v3_region_vars]
+            region_val = tuple(float(s) for s in region) if all(region) else None
+            cmd = build_viz3d_stream_cmd(
+                sys.executable, st, out,
+                label=v3_label_var.get(), region=region_val,
+                keep_classes=v3_keep_var.get(),
+                max_instances=v3_maxinst_var.get().strip(),
+                inline_threshold_mb=v3_inline_var.get().strip(),
+                tile_m=v3_tilem_var.get().strip())
+        _launch_tool(cmd)
+
+    ttk.Button(bv, text="Render 3-D",
+               command=_on_viz3d_store).pack(anchor="w", pady=(8, 0))
+
     def _wrap_with_diagnostics(cmd: list[str]) -> list[str]:
         """If the diagnostics tickbox is on, prepend the voxel_runner_diagnos
         wrapper (adding --serve for the live HTML dashboard when that tickbox
@@ -1882,7 +3354,9 @@ def build_app(root) -> dict:
         return wrap + ["--"] + cmd
 
     def _build_single_cmd(p, *, out_dir, cxy, cz, hm, cmode, ctop, delete_laz,
-                          viz3d, viz_opts, is_stream=False):
+                          viz3d, viz_opts, is_stream=False,
+                          keep_classes=None, shards=False, keep_raw_store=False,
+                          columns_all_max=None):
         """Single-tile run as a child process (`python -m voxelizer single`),
         so the diagnostics runner has a real process tree to watch and 3-D +
         diagnostics compose. The runner auto-detects <out_dir> as the run dir
@@ -1894,8 +3368,16 @@ def build_app(root) -> dict:
                "--cell-xy", str(cxy), "--cell-z", str(cz),
                "--columns-mode", cmode, "--columns-top-n", str(ctop),
                "--height-mode", hm]
+        if columns_all_max is not None:
+            cmd += ["--columns-all-max", str(columns_all_max)]
+        if keep_classes:
+            cmd += ["--keep-classes", str(keep_classes)]
         if delete_laz:
             cmd.append("--delete-laz")
+        if shards:
+            cmd.append("--shards")
+        if keep_raw_store:
+            cmd.append("--keep-raw-store")
         if viz3d and is_stream:
             cmd += ["--viz3d-stream", "--max-instances",
                     str(viz_opts["max_instances"]),
@@ -1922,7 +3404,9 @@ def build_app(root) -> dict:
                         intermediates="auto",
                         merge_shards=True, keep_raw_store=False,
                         keep_area_raw=False, merge_band_intervals=None,
-                        stage_timeout=None):
+                        stage_timeout=None, keep_classes=None,
+                        columns_all_max=None, tile_pitch=None, workers=None,
+                        limit=None, only_stages=None):
         """Assemble the ``python -m voxelizer.area_cli area ...`` command
         line for an area run from the bbox, the explicit keyword settings
         and the remaining widget values (chunking, clip, delete-LAZ,
@@ -1960,6 +3444,10 @@ def build_app(root) -> dict:
                "--chunk-size", str(cs),
                "--columns-mode", cmode, "--columns-top-n", str(ctop),
                "--height-mode", hm]
+        if columns_all_max is not None:
+            cmd += ["--columns-all-max", str(columns_all_max)]
+        if keep_classes:
+            cmd += ["--keep-classes", str(keep_classes)]
         if not use_chunks_var.get():
             cmd.append("--no-chunks")
         if not clip_var.get():
@@ -1970,6 +3458,14 @@ def build_app(root) -> dict:
             cmd += ["--stream", "--json", json_var.get().strip()]
         elif download_var.get():
             cmd += ["--download", "--json", json_var.get().strip()]
+            # Download tuning only means anything with the fetch, so it rides
+            # on the same branch rather than being emitted always.
+            if tile_pitch not in (None, ""):
+                cmd += ["--tile-pitch", str(tile_pitch)]
+            if workers not in (None, ""):
+                cmd += ["--workers", str(workers)]
+            if limit not in (None, ""):
+                cmd += ["--limit", str(limit)]
         if viz3d and viz_opts.get("mode") == "streamable":
             cmd += ["--viz3d-stream", "--max-instances",
                     str(viz_opts["max_instances"]),
@@ -2023,8 +3519,13 @@ def build_app(root) -> dict:
         if keep_area_raw and merged_store_run:
             cmd.append("--keep-area-raw")
         # Per-stage isolation: CLI defaults to True, so only emit the flag
-        # when the user explicitly unchecked the tickbox.
-        if not isolate_stages:
+        # when the user explicitly unchecked the tickbox. Selecting stages OR
+        # setting a stage timeout FORCES isolation: the CLI refuses
+        # --only-stage / --stage-timeout under --no-isolate-stages on a plain
+        # area run (a shard run isolates its merged phase regardless), so
+        # neither control may emit the refusal the dialog exists to avoid.
+        if (not isolate_stages and not only_stages
+                and stage_timeout in (None, "")):
             cmd.append("--no-isolate-stages")
         # Blank means the CLI default, which is 0 - no limit. Emitting it only
         # when set keeps "I did not fill that box in" and "I asked for no
@@ -2035,6 +3536,8 @@ def build_app(root) -> dict:
             cmd.append("--no-group-intervals")
         elif group_gap not in (None, ""):
             cmd += ["--group-gap", str(group_gap)]
+        if only_stages:
+            cmd += ["--only-stage"] + [str(s) for s in only_stages]
         if intermediates != "auto":
             cmd += ["--intermediates", intermediates]
         # Diagnostics wrapper (tickboxes) - shared with the single-file path.
@@ -2376,6 +3879,8 @@ def build_app(root) -> dict:
                 raise ValueError("cell sizes must be positive")
             cmode = columns_mode_var.get()
             ctop = int(top_n_var.get()) if cmode == "top" else 50
+            all_max = (all_max_var.get().strip() or None
+                       if cmode == "all" else None)
             viz3d = bool(viz3d_var.get())
             viz_opts = _collect_viz_opts() if viz3d else {}
             if viz3d and viz_opts.get("mode") != "streamable" \
@@ -2402,7 +3907,11 @@ def build_app(root) -> dict:
             cmd = _build_single_cmd(p, out_dir=out_dir, cxy=cxy, cz=cz,
                                     hm=hm, cmode=cmode, ctop=ctop,
                                     delete_laz=dl, viz3d=viz3d,
-                                    viz_opts=viz_opts, is_stream=is_stream)
+                                    viz_opts=viz_opts, is_stream=is_stream,
+                                    keep_classes=keep_classes_var.get().strip() or None,
+                                    shards=shards_var.get(),
+                                    keep_raw_store=keep_raw_store_single_var.get(),
+                                    columns_all_max=all_max)
             _launch_subprocess(cmd)
             return
         else:
@@ -2465,7 +3974,14 @@ def build_app(root) -> dict:
                                   keep_raw_store=keep_raw_store_var.get(),
                                   keep_area_raw=keep_area_raw_var.get(),
                                   merge_band_intervals=band_var.get().strip(),
-                                  stage_timeout=stage_timeout_var.get().strip())
+                                  stage_timeout=stage_timeout_var.get().strip(),
+                                  keep_classes=keep_classes_var.get().strip() or None,
+                                  columns_all_max=all_max,
+                                  tile_pitch=tile_pitch_var.get().strip(),
+                                  workers=dl_workers_var.get().strip(),
+                                  limit=dl_limit_var.get().strip(),
+                                  only_stages=[s for s, v in only_stage_vars.items()
+                                               if v.get()] or None)
             _launch_subprocess(cmd)
             return
 
@@ -2523,6 +4039,16 @@ def build_app(root) -> dict:
             "mode": mode_var,
             "columns_enabled": columns_enabled_var,
             "columns_mode": columns_mode_var,
+            "columns_all_max": all_max_var,
+            "keep_classes": keep_classes_var,
+            "shards": shards_var,
+            "keep_raw_store_single": keep_raw_store_single_var,
+            "tile_pitch": tile_pitch_var,
+            "workers": dl_workers_var,
+            "limit": dl_limit_var,
+            "download": download_var,
+            "json": json_var,
+            "only_stages": only_stage_vars,
             "merge_shards": merge_shards_var,
             "merge_note": merge_note_var,
             "keep_area_raw": keep_area_raw_var,
@@ -2532,18 +4058,42 @@ def build_app(root) -> dict:
             "merge_band_intervals": band_var,
             "stage_timeout": stage_timeout_var,
             "tileset_src": ts_src_var,
+            "tileset_kind": ts_kind_var,
             "tileset_out": ts_out_var,
             "tileset_tile_m": ts_tile_m_var,
             "tileset_lod": ts_lod_var,
             "tileset_geoid": ts_geoid_var,
             "tileset_keep_classes": ts_keep_var,
+            "tileset_region": ts_region_vars,
+            "tileset_crs": ts_crs_var,
+            "tileset_height_offset": ts_hofs_var,
+            "tileset_vertical_crs": ts_vcrs_var,
+            "tileset_payload_idx": tp_idx_var,
+            "tileset_payload_bin": tp_bin_var,
+            "tileset_payload_out": tp_out_var,
             "serve_dir": srv_dir_var,
             "serve_viewer": srv_viewer_var,
+            "serve_port": srv_port_var,
+            "serve_bind": srv_bind_var,
+            "serve_no_open": srv_noopen_var,
             "output_dir": out_var,
         },
         "build_area_cmd": _build_area_cmd,
         "build_single_cmd": _build_single_cmd,
         "build_resume_shards_cmd": _build_resume_shards_cmd,
+        # Store Tools builders are module-level pure functions; expose them on
+        # the same seam so a caller can assemble a tool command without a
+        # window, mirroring build_resume_shards_cmd.
+        "tool_builders": {
+            "postprocess": build_postprocess_cmd,
+            "reconstruct": build_reconstruct_cmd,
+            "archive": build_archive_cmd,
+            "merge": build_merge_cmd,
+            "shard_diagnostics": build_shard_diag_cmd,
+            "viz3d_from_store": build_viz3d_from_store_cmd,
+            "viz3d_stream": build_viz3d_stream_cmd,
+        },
+        "resolve_store_path": resolve_store_path,
         "servers": servers,
         "stop_servers": _stop_servers,
         "close": _on_close,

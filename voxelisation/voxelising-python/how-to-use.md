@@ -50,14 +50,20 @@ megabytes**, and offers three buttons:
 window counts as Cancel; the budget feeds both the RSS watchdog and the
 sharder.
 
-Settings are grouped into seven tabs: **Input** (file / bbox / tile folder /
-download / streaming), **Voxel Grid** (cell sizes, chunking, clipping),
+Settings are grouped into eight tabs: **Input** (file / bbox / tile folder /
+download / streaming, with the download tuning knobs: tile pitch, workers,
+limit), **Voxel Grid** (cell sizes, chunking, clipping, keep-classes),
 **Files & Outputs** (every keep/delete decision: source LAZ, voxel-grid
-cache, per-stage store, pre-grouping store, column diagnostics),
+cache, per-stage store, pre-grouping store, column diagnostics with its
+`all` cap, and, in file mode, the single tile's shard and raw store),
 **3-D Visualiser**, **Export & Serve** (3D Tiles export from a finished
-store, plus serving either kind of output to a browser),
+store or from a streaming payload, with region / CRS / height-datum options
+and a store-form selector that picks `.npz` or `store_raw/`, plus serving
+either kind of output to a browser with port / bind / no-open),
+**Store Tools** (the store-level CLIs below, each in a collapsible section),
 **Diagnostics** (CPU/RAM ticks + live HTML dashboard),
-and **Advanced** (stage isolation, per-tile shard isolation + lazrs retry).
+and **Advanced** (stage isolation, per-tile shard isolation + lazrs retry,
+per-stage selection).
 Hover any checkbox for a tooltip explaining exactly what it does. The
 dialog couples the widgets whose combination the CLI would refuse, so a
 refusal never arrives as an exit code: turning "Merge shards" off marks the
@@ -75,6 +81,19 @@ tiles (`--resume-shards`) or re-run individual output stages from a kept
 already completed. **Resume previous run...** does the same for any older
 output folder, even from a previous session. Outputs land in
 `outputs/Run<N>/...` automatically.
+
+The **Store Tools** tab needs no run of its own: point each section at what an
+earlier run already wrote. A "store" there is either a `.npz` (an `area.npz`, a
+shard, a post-processed file) or a raw `store_raw/` directory, attached by
+memory map; a "store form" selector picks which when a folder holds both. The
+sections are **Post-process** (`postprocess_cli`: denoise, absorb, resolve,
+group - the same passes as section 9c), **Reconstruct** (`reconstruct`:
+store <-> LAS/LAZ - section 9), **Archive** (`archive_cli`: shards as exact LAZ
+- section 9b), **Merge shards** (`merge_streaming`), **Shard diagnostics**
+(`shard_diagnostics`: `columns/` and stats straight from a shard set) and
+**3-D viewers from a store** (`viz3d_cli from-store` / `stream` - section 6).
+Each runs through the same job child as a run, so Stop and the log pane work
+the same way.
 
 ### The command line - three commands to know
 
@@ -138,7 +157,7 @@ Every run writes into an auto-numbered directory `outputs/Run<N>/`
 | `columns/` | Diagnostic figures + optional per-column PNGs |
 | `area.npz` + `area_manifest.json` | The persisted voxel grid (area runs) - re-renderable later without touching any LAZ |
 | `area_raw.npz` | The pre-grouping store (written when grouping is on; **deleted again on success** under the default `--intermediates auto` - pass `--keep-area-raw` to retain it) |
-| `store_raw/` | The memory-mappable directory copy of the store that the isolated stages attach to; kept with `--keep-raw-store`, which is what `--resume-from-store` needs |
+| `store_raw/` | The memory-mappable directory copy of the store that the isolated stages attach to (area runs write it under the default `--isolate-stages`; `--keep-raw-store` stops the sweep deleting it). Also written by `single --keep-raw-store`, which adds the `run_params.json` `--resume-from-store` reads |
 | `stages.json`, `stages/` | Per-stage execution manifest, plus `params.json` and, for every stage that ran, a `<stage>.result.json` and a `<stage>.faultlog`. The faultlog is opened before its stage starts, so a stage that succeeded leaves an empty one and only a faultlog with content records a death (area runs) |
 | `shards/` | Per-tile `.npz` shards, with `manifest.json` (lattice + grouping provenance), `run_config.json` (the parameter guard `--resume-shards` checks) and `failed_tiles.json` when a tile was lost. Written by the area commands in shard mode, and by `single --shards`, which writes one shard for the one tile |
 | `*_full.html`, `*_roi.html` | Legacy 3-D viewers (with `--viz3d`) |
@@ -150,9 +169,9 @@ Every run writes into an auto-numbered directory `outputs/Run<N>/`
 ```
 python -m voxelizer single TILE.laz [-o DIR]
     [--cell-xy 0.5] [--cell-z 0.5]
-    [--columns-mode diag|top|all|skip] [--columns-top-n 50]
-    [--height-mode default|relative|absolute]
-    [--shards]
+    [--columns-mode diag|top|all|skip] [--columns-top-n 50] [--columns-all-max N]
+    [--height-mode default|relative|absolute] [--keep-classes LIST]
+    [--shards] [--keep-raw-store]
     [--viz3d [--max-boxes 5000000] [--roi-size 200] [--roi-cx X] [--roi-cy Y] [--no-full] [--no-roi]]
     [--viz3d-stream [--tile-m 64] [--max-instances 4000000] [--inline-threshold-mb 64]]
     [--delete-laz]
@@ -162,15 +181,23 @@ python -m voxelizer single TILE.laz [-o DIR]
   Smaller = more detail, more RAM, more time.
 * `--columns-mode` - per-column output: `diag` (default; 4 diagnostic
   figures), `top` (+ the N most complex columns as PNGs), `all` (every
-  occupied column - slow, tens of thousands of PNGs), `skip`.
+  occupied column - slow, tens of thousands of PNGs), `skip`. In `all` mode
+  `--columns-all-max` caps the number of pages (default 500000; 0 uncaps).
 * `--height-mode` - what the height map shows: `default` auto-contrasts the
   column tops; `relative` is height above each column's own ground
   (nDSM/CHM, terrain removed); `absolute` is true altitude (DSM).
+* `--keep-classes` - comma/space list of ASPRS codes to keep; others are
+  dropped before voxelization. Blank keeps every class.
 * `--shards` - also save the tile's store as `shards/<tile_stem>.npz` plus
   `shards/manifest.json`, the shard format the area commands write, so the
   single tile is readable by `merge_streaming`, `shard_diagnostics` and
   `archive_cli` like one tile of an area run. One run writes one shard, so use
   a fresh `--output-dir` per tile.
+* `--keep-raw-store` - also write the grid as `<out>/store_raw/` (six `.npy`
+  arrays + `meta.json`) plus `run_params.json`, the memory-mappable directory
+  `area_cli --resume-from-store` re-enters to re-run the output stages
+  (including turning the tile into an `area.npz`) with no second decode. This
+  verb has no intermediates sweep, so the directory is kept, never deleted.
 * `--viz3d` - also render the interactive Three.js viewers. The tile is
   voxelized **once**; the 3-D render reuses the same grid.
 * `--delete-laz` - remove the source file after a successful run (applied
@@ -442,13 +469,14 @@ python -m voxelizer.serve_voxel_html [DIR] [--port 8000] [--bind ADDR] [--open]
 
 ```
 python -m voxelizer.viz3d_cli single TILE.laz -o OUT [viz3d options] [--grid]
-python -m voxelizer.viz3d_cli from-store OUT/area.npz -o DIR [--label name] [viz3d options]
-python -m voxelizer.viz3d_cli stream OUT/area.npz --out DIR/area_stream.html
+python -m voxelizer.viz3d_cli from-store STORE -o DIR [--label name] [viz3d options]
+python -m voxelizer.viz3d_cli stream STORE --out DIR/area_stream.html
         [--region XMIN YMIN XMAX YMAX] [--keep-classes 3,4,5]
         [--max-instances 4000000] [--tile-m 64] [--inline-threshold-mb 64]
 ```
 
-`from-store` loads a persisted `area.npz` - run the area once, re-render 3-D
+`STORE` is a persisted `area.npz` **or** a raw `store_raw/` directory. `from-store`
+loads it - run the area once, re-render 3-D
 any number of times. `--grid` also writes `.vxg` grid caches for fast
 re-renders. `--delete-laz` (on the `single` subcommand) removes the source
 LAZ after a successful run. `stream` also accepts `--stride` and `--max-boxes`
@@ -625,7 +653,7 @@ on parameters before committing a store.
 
 ### 10. 3D Tiles export
 
-Convert an `area.npz` to 3D Tiles (`tileset.json` + per-tile `.glb`
+Convert a store to 3D Tiles (`tileset.json` + per-tile `.glb`
 files using `EXT_mesh_gpu_instancing`):
 
 ```
@@ -635,6 +663,11 @@ python -m voxelizer.tileset_cli from-store outputs/Run1/area.npz \
     [--height-offset 49.7] [--keep-classes 2,3,4,5,6] \
     [--region XMIN YMIN XMAX YMAX] [--crs EPSG:3946]
 ```
+
+The store argument is a `.npz` (an `area.npz`, a shard, a post-processed file)
+**or** a raw `store_raw/` directory, attached by memory map
+(`ColumnStore.load_any`) - pass the directory to export from a kept raw store
+with no `.npz`, or when the run suppressed `area.npz` with `--no-save-store`.
 
 Only `--out-dir` is required. `--tile-m` is the spatial tile size in metres,
 `--flat` writes the flat layout instead of the LOD pyramid, `--no-geoid` skips

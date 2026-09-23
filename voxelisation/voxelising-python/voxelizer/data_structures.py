@@ -775,6 +775,32 @@ class ColumnStore:
                 f"arrays hold {n_cols} / {n_ivs}.")
         return st
 
+    @classmethod
+    def load_any(cls, path, *, mmap: bool = True) -> "ColumnStore":
+        """Load a store from EITHER a ``.npz`` file or a ``save_dir()`` directory.
+
+        The two on-disk forms are the portable compressed ``.npz`` and the raw,
+        memory-mappable directory (see ``save()`` vs ``save_dir()``); callers
+        that accept "a store" should take either. A directory is attached with
+        ``load_dir(mmap=True)`` (zero-copy file-backed pages); a file goes
+        through ``load()``, which inflates it fully because a compressed
+        ``.npz`` cannot be mapped.
+
+        The same rule ``postprocess_cli.load_store`` already spells out for its
+        own positional, lifted here so the exporters share one implementation
+        instead of each branching on ``is_dir()``.
+
+        @param path A ``.npz`` file, a raw store directory, or a path to either.
+        @param mmap When a directory is given, map it (default) instead of
+                    reading full heap copies. Ignored for a ``.npz``, which is
+                    always read whole.
+        @return A new ``ColumnStore``.
+        """
+        p = Path(path)
+        if p.is_dir():
+            return cls.load_dir(p, mmap=mmap)
+        return cls.load(p)
+
     def swap_to_dir_mmap(self, path) -> None:
         """Replace this store's heap arrays with read-only mmap views of an
         already-written save_dir() directory, releasing the heap copies.

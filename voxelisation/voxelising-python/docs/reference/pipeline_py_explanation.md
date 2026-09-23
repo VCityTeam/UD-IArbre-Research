@@ -101,20 +101,33 @@ The main single-tile entry point. Produces:
 | `<tile>_n_intervals.png` | Grayscale interval-count map |
 | `stats.txt` | Text summary of all metrics |
 | `columns/` (optional) | Per-column diagnostic PNGs (if `columns_mode != 'skip'`) |
+| `store_raw/` (optional) | With `save_store_to=<dir>`: the raw memory-mappable directory `area_cli --resume-from-store` re-enters. The `run_params.json` beside it is written by `__main__.main`, not here |
+
+Note: `process_single_tile` does not write shards. The `single --shards` shard
+(`shards/<tile_stem>.npz` + `shards/manifest.json`) is written by
+`__main__.main` through `sharding.save_single_tile_shard`, from the store this
+function returns.
 
 ### Step-by-step:
 
 1. Creates the output directory.
-2. Calls `voxelize_laz(laz_path, cell_xy=cell_xy, cell_z=cell_z)` to convert the LAZ into a `ColumnStore`.
+2. Calls `voxelize_laz(laz_path, cell_xy=cell_xy, cell_z=cell_z, keep_classes=keep_classes)` to convert the LAZ into a `ColumnStore`.
 3. Calls `store.stats()` to get the statistics dictionary.
 4. Writes `stats.txt` via `_format_stats()`.
 5. For each of the four modes, calls the matplotlib-based `plot_tile_map()` (from `visualization.py`) to produce per-tile PNGs with per-tile normalization.
 6. Optionally calls `write_column_diagnostics()` for detailed column-level PNGs.
+7. Optionally calls `store.save_dir(save_store_to)` for the raw store directory.
 
 ### Parameters:
-
+- `cell_xy` / `cell_z`: voxel size in metres.
+- `keep_classes`: optional set of ASPRS class codes to keep; `None` keeps every class.
+- `save_raw_to`: directory for the five raster arrays (not the store); `None` writes nothing.
+- `save_store_to`: path for the raw `store_raw/` directory via `ColumnStore.save_dir`; `None` writes nothing.
 - `columns_mode`: `'all'` / `'top'` / `'diag'` / `'skip'` - controls per-column PNGs and diagnostics. `'skip'` disables the whole `columns/` folder.
 - `columns_top_n`: How many columns to keep in `'top'` mode.
+- `columns_all_max`: cap for `'all'` mode, a tri-state: `None` = module default (500,000), `0` = uncapped, a positive value sets the cap.
+- `height_mode`: `'default'` / `'relative'` / `'absolute'`.
+- `return_store`: when True, returns `(stats, store)` instead of just the stats dict.
 
 ---
 

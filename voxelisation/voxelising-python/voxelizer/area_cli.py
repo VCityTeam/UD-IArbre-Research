@@ -309,10 +309,10 @@ def _maybe_download(bbox, laz_dir, json_file, tile_pitch, workers, limit):
 
 def _parse_classes(s):
     """``--keep-classes`` text (comma or space separated codes) -> set of
-    int, or None for an empty/absent value (keep every class)."""
-    if not s:
-        return None
-    return {int(v) for v in s.replace(",", " ").split()}
+    int, or None for an empty/absent value (keep every class). Delegates to
+    the shared parser in cli_common so the ``single`` verb cannot drift."""
+    from .cli_common import parse_classes
+    return parse_classes(s)
 
 
 def _build_parser() -> argparse.ArgumentParser:

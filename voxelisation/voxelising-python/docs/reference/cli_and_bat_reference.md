@@ -22,10 +22,10 @@ drop)* mode inside `run_area.bat`'s Tkinter dialog.
 
 Double-clicking `run_area.bat` opens a Tkinter dialog. A **Mode** selector at
 the top picks between *Single file (drag & drop)* and *Area by coordinates*;
-everything else is grouped into seven tabs - Input, Voxel Grid, Files &
-Outputs, 3-D Visualiser, Export & Serve, Diagnostics, Advanced - which show
-the fields relevant to the selected mode. Hover any control for a tooltip
-explaining what it does.
+everything else is grouped into eight tabs - Input, Voxel Grid, Files &
+Outputs, 3-D Visualiser, Export & Serve, Store Tools, Diagnostics, Advanced -
+which show the fields relevant to the selected mode. Hover any control for a
+tooltip explaining what it does.
 
 ### Tab: Input
 
@@ -37,7 +37,7 @@ File / bbox / tile folder / download / streaming.
 | **X min / Y min** (area mode) | `1831000` / `5175000` | RGF93/CC46 (EPSG:3946) bounding box, lower corner |
 | **X max / Y max** (area mode) | `1832000` / `5176000` | RGF93/CC46 (EPSG:3946) bounding box, upper corner |
 | **Tile folder** | `inputs/laz` | Directory containing IGN LiDAR HD tiles; the dialog reports how many intersect the box |
-| **Download tiles from Grand Lyon** | off | Fetch the intersecting tiles from the inventory JSON before the run |
+| **Download tiles from Grand Lyon** | off | Fetch the intersecting tiles from the inventory JSON before the run. It reveals three tuning fields: **pitch** (optional `--tile-pitch`, the acquisition tile size in metres, blank = 500), **workers** (optional `--workers`, parallel downloaders) and **limit** (optional `--limit`, cap the number of tiles) |
 | **Streaming mode** | off | Download-voxelize-discard instead of reading a local folder (needs the inventory JSON) |
 
 ### Tab: Voxel Grid
@@ -47,6 +47,7 @@ File / bbox / tile folder / download / streaming.
 | **cell_xy** | `0.5` | Horizontal voxel size in metres |
 | **cell_z** | `0.5` | Vertical voxel size in metres |
 | **height** | `default` | `default` / `relative` / `absolute` - contrast reference of the max-height map only |
+| **keep classes** | *(empty)* | Optional `--keep-classes`: comma/space ASPRS codes to keep, blank keeps every class. Both modes |
 | **Stream in chunks** | on | Read the LAZ in chunks instead of whole-file |
 | **chunk size** | `5000000` | Points per chunk when streaming in chunks |
 | **Clip to exact bounding box** | on | Drop points outside the requested rectangle (area mode) |
@@ -54,16 +55,20 @@ File / bbox / tile folder / download / streaming.
 ### Tab: Files & Outputs
 
 Every keep/delete decision: source LAZ, voxel-grid cache, per-stage store,
-pre-grouping store, column diagnostics.
+pre-grouping store, column diagnostics. In file mode it also carries the
+single tile's store flags.
 
 | Field | Default | Description |
 | --- | --- | --- |
 | **Generate per-column diagnostics (columns/ folder)** | on | Unchecking it is the same as `--columns-mode skip` |
 | *(mode dropdown beside it)* | `diag` | `diag` / `top` / `all` |
 | **top N** | `50` | Only used when the mode is `top` |
+| **all cap** | *(empty)* | Only shown in `all` mode: optional `--columns-all-max` (blank = the 500000 default; `0` = uncapped) |
 | **Delete source LAZ file(s) after processing** | off | Only meaningful with download / streaming |
-| **Keep voxel grid cache (area.npz / shards/) for reuse** | on | Keep the persisted store |
-| **Keep per-stage store (store_raw/) for --resume-from-store** | off | Lets output stages be re-run without re-voxelizing |
+| **Save the tile's store as a shard (shards/)** | off | File mode only, `--shards`. Writes `shards/<tile_stem>.npz` + `shards/manifest.json` |
+| **Keep the raw store (store_raw/) for --resume-from-store** | off | File mode only, `--keep-raw-store`. Writes `store_raw/` + `run_params.json` |
+| **Keep voxel grid cache (area.npz / shards/) for reuse** | on | Keep the persisted store (area mode) |
+| **Keep per-stage store (store_raw/) for --resume-from-store** | off | Lets output stages be re-run without re-voxelizing (area mode) |
 | **Enable grouping (merge consecutive same-class intervals)** | on | The default post-pass over the store |
 | **Grouping gap (m)** | *(empty)* | Optional maximum gap grouping may bridge |
 | **Keep pre-grouping store (area_raw.npz) for re-grouping later** | off | Also persist the ungrouped store |
@@ -91,23 +96,52 @@ store's key order and a set of shards has none.
 ### Tab: Export & Serve
 
 What to do with a run that has already finished. **Export to 3-D Tiles**
-takes a run directory (it finds `area.npz` inside it, falling back to
-`area_raw.npz`) or a store `.npz` directly, and writes `tileset.json`, the
-`tile_*.glb` files and the generated `view_*.cmd` launchers into a chosen
-directory, defaulting to a `tiles/` folder beside the store. Its options are
-`tile size (m)` `100`, `LOD pyramid` (on; off emits `--flat`), `geoid
-heights` (on; off emits `--no-geoid` and sits about 50 m low at Lyon) and an
-optional `keep classes` list.
+takes a run directory or a store path directly. A **store form** dropdown
+(`auto` / `npz` / `dir`) picks what a directory resolves to: `auto` takes
+`area.npz`, then `area_raw.npz`, then a `store_raw/` directory, then a lone
+single-tile shard; `npz` forces a compressed `.npz`; `dir` forces the raw
+`store_raw/` directory, attached by memory map. The resolved path is shown
+under the entry. The export writes `tileset.json`, the `tile_*.glb` files and
+the generated `view_*.cmd` launchers into a chosen directory, defaulting to a
+`tiles/` folder beside the store. Its options are `tile size (m)` `100`, `LOD
+pyramid` (on; off emits `--flat`), `geoid heights` (on; off emits `--no-geoid`
+and sits about 50 m low at Lyon), an optional `keep classes` list, an optional
+`region x/y` (`--region`), `crs` (`--crs`) and `height offset (m)`
+(`--height-offset`).
+
+**Export from a streaming payload** (`tileset_cli from-payload`) takes an
+already-written `*.idx.json` (its `.bin` is found beside it, or given in the
+`.bin` box) and converts it to a tileset with the same crs / geoid / flat
+options, no store needed.
 
 **View in a browser** starts a local server on a chosen directory: *View
 stream* runs `voxelizer.serve_voxel_html` on a folder holding `*_stream.html`
 (preferring `area_stream.html`), and *View tileset* runs
 `voxelizer.serve_tiles` on a folder holding `tileset.json`, opening the
-bundled `cesium` or `itowns` page. A streaming page that kept its `.bin`
+bundled `cesium` or `itowns` page. Both take an optional `port`, `bind` and
+`don't open a browser` (`--port`, `--bind`, `--no-open`); blank leaves the
+server's own default. A streaming page that kept its `.bin`
 sidecar needs an HTTP origin, since it fetches byte ranges of that file; a
 small export whose payload was inlined into the page opens from the file
 system too. Both exporters already write the same launchers beside their
 artifacts, so these buttons are that double-click without leaving the window.
+
+### Tab: Store Tools
+
+The store-level CLIs, each in its own collapsible section. Nothing here
+voxelizes: point each tool at what an earlier run already wrote. A "store" is
+either a `.npz` or a raw `store_raw/` directory, and the sections that take one
+offer the same `store form` (`auto` / `npz` / `dir`) selector as the Export
+tab.
+
+| Section | CLI | What it does |
+| --- | --- | --- |
+| **Post-process** | `postprocess_cli` | Denoise (`--min-points`, `--morph`, `--morph-classes`), absorb, resolve (with `--tie-margin`, `--tie-rel`, `--no-prefer-taller`, `--no-demote-uncertain`, `--class-priority`) and group, store in, new store out. At least one pass is required |
+| **Reconstruct** | `reconstruct` | `to-laz` (with `--mode`, `--one-per-voxel`, `--z-base`, `--epsg`, grid VLR, `--verify`), `to-npz` (with `--origin`, `--cell-xy`, `--cell-z`) or `verify` |
+| **Archive** | `archive_cli` | `pack` (`shards/*.npz` -> `shards_laz/*.laz`, with `--workers`, `--no-verify`, `--replace`, `--epsg`) or `unpack` (with `--out`, `--workers`) |
+| **Merge shards** | `merge_streaming` | Merge a `shards/` dir into a raw store dir, out of core, with grouping and `--band-intervals`; `plan only` prints the band plan |
+| **Shard diagnostics** | `shard_diagnostics` | `columns/` and `stats.txt` straight from a shard set, with the columns mode, top-N and grouping overrides |
+| **3-D viewers from a store** | `viz3d_cli` | `from-store` (label, max boxes, ROI, grid cache) or `stream` (region, keep classes, max instances, inline threshold, tile size) |
 
 ### Tab: Diagnostics
 
@@ -125,8 +159,10 @@ artifacts, so these buttons are that double-click without leaving the window.
 | **Isolate each tile in a child process (survive native decoder crashes)** | on | `--isolate-tiles`, shard mode only |
 | **Retry a crashed tile once with the lazrs decoder** | off | `--retry-lazrs`, shard mode only; requires the tile isolation above |
 | **Merge band intervals** | *(empty)* | `--merge-band-intervals`, shard mode only. Left blank the merge uses its own default of 40,000,000 intervals per band |
+| **only: `<stage>`** (tick boxes) | all off | Optional `--only-stage`, one box per stage (stats, area.npz, 2-D maps, column diagnostics, 3-D ROI, 3-D full, streaming viewer). A stage must be enabled by its own flag to be selectable |
 
-The last three apply when *Shard beyond RAM* is chosen at the pre-flight
+The three shard-resilience fields (isolate each tile, retry with lazrs, merge
+band intervals) apply when *Shard beyond RAM* is chosen at the pre-flight
 dialog, and when resuming a sharded run.
 
 A pre-flight cost estimation dialog always runs first for area-by-coordinate
@@ -185,9 +221,12 @@ python -m voxelizer single LAZ_FILE [--output-dir DIR] [OPTIONS]
 | `--cell-z F` | `0.5` | Vertical voxel size in metres |
 | `--columns-mode` | `diag` | Column output mode: `all` / `top` / `diag` / `skip` (see below) |
 | `--columns-top-n N` | `50` | How many columns to keep when the mode is `top` |
+| `--columns-all-max N` | `500000` | Cap on per-column PNGs when the mode is `all`; `0` removes the cap |
 | `--height-mode` | `default` | Vertical reference of the max-height map only: `default` auto-contrasts the tops, `relative` shows height above each column's own lowest occupied voxel (nDSM/CHM-style), `absolute` shows true altitude from the tile floor (DSM) |
+| `--keep-classes LIST` | keep all | Comma/space list of ASPRS codes to keep; others are dropped before voxelization |
 | `--delete-laz` | off | Delete the source file after successful voxelization |
 | `--shards` | off | Also save the tile's store as `<DIR>/shards/<tile_stem>.npz` + `shards/manifest.json`, the shard format an area run writes. One run writes one shard, so use a fresh `--output-dir` per tile |
+| `--keep-raw-store` | off | Also write the grid as `<DIR>/store_raw/` (six `.npy` + `meta.json`) plus `run_params.json`, the directory `area_cli --resume-from-store` re-enters. Never deleted (this verb has no intermediates sweep) |
 | `--viz3d` | off | Also render the interactive Three.js HTML viewers into `<out>/<tile_stem>/` |
 | `--viz3d-stream` | off | Render the streaming HTML viewer instead, which handles 200M+ boxes |
 | `--max-boxes N` | `5000000` | Box budget for the full 3-D view, auto-thinned by striding above it. Must be positive; for an uncapped export use the streaming viewer |
@@ -212,7 +251,7 @@ Controls what lands in the `columns\` subfolder of each tile's output.
 `all` was built for single-tile stores. A dense 500 m tile at the default
 0.5 m cell has roughly 800k occupied columns, and the measured cost on the
 reused-figure path is 75 ms and 27 KB per PNG, so the mode is capped:
-`--columns-all-max` (area runs) defaults to the 500,000 columns of
+`--columns-all-max` defaults to the 500,000 columns of
 `column_diagnostics._MODE_ALL_MAX_COLUMNS` and refuses above it, quoting the
 estimated hours and gigabytes so the choice is informed. `--columns-all-max 0`
 disables the cap. Output fans out into `blk_XXXX_YYYY/` subdirectories
@@ -251,6 +290,10 @@ outputs\Run1\single\
     shards\                         (only with --shards; one level up from <tile_stem>)
         <tile_stem>.npz
         manifest.json
+    store_raw\                      (only with --keep-raw-store; one level up from <tile_stem>)
+        keys.npy  off.npy  zs.npy  ze.npy  cl.npy  ct.npy
+        meta.json
+        run_params.json
 ```
 
 ## Examples
@@ -284,6 +327,20 @@ leaves, so `python -m voxelizer.merge_streaming --shards-dir
 outputs\Run1\single\shards --out-store-dir <dir>` and `python -m
 voxelizer.shard_diagnostics --shards-dir outputs\Run1\single\shards --out-dir
 <dir>` read it unchanged.
+
+### Keep the raw store and re-run its output stages
+
+```cmd
+.venv\Scripts\python.exe -m voxelizer single tile.laz -o outputs\Run1\single --keep-raw-store
+.venv\Scripts\python.exe -m voxelizer.area_cli area --resume-from-store outputs\Run1\single\store_raw --output-dir outputs\Run1\single_resume
+```
+
+`--keep-raw-store` writes the grid as `store_raw/` with its `run_params.json`;
+the area `--resume-from-store` then re-runs the output stages (stats, maps,
+column diagnostics, 3-D, `area.npz`) from that store with no LAZ read at all,
+including turning one tile into a full `area.npz` for the downstream exporters.
+`--keep-classes` filters the tile the same way `area_cli area --keep-classes`
+filters an area.
 
 ---
 
@@ -373,13 +430,15 @@ to that many metres; the default merges across any gap.
 
 ```cmd
 python -m voxelizer.viz3d_cli single     LAZ_FILE -o DIR [OPTIONS]
-python -m voxelizer.viz3d_cli from-store STORE.npz -o DIR [OPTIONS]
-python -m voxelizer.viz3d_cli stream     STORE.npz --out PAGE.html [OPTIONS]
+python -m voxelizer.viz3d_cli from-store STORE -o DIR [OPTIONS]
+python -m voxelizer.viz3d_cli stream     STORE --out PAGE.html [OPTIONS]
 ```
 
 `single` voxelizes one tile and renders from it; `from-store` renders from a
 saved store such as a run's `area.npz`, with no voxelization; `stream` writes
-the streaming viewer. `--grid` (on `single` and `from-store`) additionally
+the streaming viewer. `from-store` and `stream` take either a `.npz` or a raw
+`store_raw/` directory, attached by memory map (see `tileset_cli` below).
+`--grid` (on `single` and `from-store`) additionally
 writes a `.vxg` grid cache, the same lossless quantized encoding the HTML
 embeds, which `load_grid()` reads back without re-reading the LAZ.
 
@@ -425,14 +484,21 @@ the result unchanged.
 ## `tileset_cli` - 3D Tiles export
 
 ```cmd
-python -m voxelizer.tileset_cli from-store   STORE.npz -o OUT_DIR [OPTIONS]
+python -m voxelizer.tileset_cli from-store   STORE -o OUT_DIR [OPTIONS]
 python -m voxelizer.tileset_cli from-payload PAYLOAD   [OPTIONS]
 ```
 
-`from-store` goes `.npz` -> tiled payload -> tileset in one call;
+`from-store` goes store -> tiled payload -> tileset in one call;
 `from-payload` converts an existing `.idx.json` + `.bin` pair. The output is
 an OGC 3D Tiles 1.1 tileset: one `tileset.json` plus one `tile_*.glb` per
 node, full-detail leaves beneath a quadtree of coarsened interior levels.
+
+`STORE` is a `.npz` (an `area.npz`, a shard, a post-processed file) **or** a
+raw `store_raw/` directory, attached by memory map (`ColumnStore.load_any`).
+Point it at the directory to export straight from a kept raw store with no
+`.npz` round trip, or when the run suppressed `area.npz` with
+`--no-save-store`. Either store is valid; a grouped `area.npz` and the
+ungrouped raw store simply differ in box count.
 
 | Option | Default | Description |
 | --- | --- | --- |

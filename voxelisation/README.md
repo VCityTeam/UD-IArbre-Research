@@ -117,10 +117,12 @@ python -m voxelizer single path/to/tile.laz --output-dir outputs/test-single \
 single-file run is readable by the shard tooling (`merge_streaming`,
 `shard_diagnostics`, `archive_cli`) exactly as one tile of an area run is. One
 run writes one shard, so give each tile its own `--output-dir` (the default
-auto-numbering already does). `--viz3d-stream` writes `<tile_stem>_stream.html`
-with a sidecar `.bin` + `.idx.json` once the payload exceeds
-`--inline-threshold-mb` (default 64; pass `--inline-threshold-mb 0` to always
-keep the `.bin`).
+auto-numbering already does). Add `--keep-raw-store` to also write
+`store_raw/` (with its `run_params.json`), the raw store an area run's stages
+and `--resume-from-store` use. `--viz3d-stream` writes
+`<tile_stem>_stream.html` with a sidecar `.bin` + `.idx.json` once the payload
+exceeds `--inline-threshold-mb` (default 64; pass `--inline-threshold-mb 0` to
+always keep the `.bin`).
 
 2. The same shard output for a whole area, as the merged store:
 

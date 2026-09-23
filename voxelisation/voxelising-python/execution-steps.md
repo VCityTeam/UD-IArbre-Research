@@ -27,7 +27,8 @@ and in PowerShell; cmd.exe has none, so drop them there.
 
 ## 1. Single-tile pipeline [CORE]
 
-Voxelize one LAZ file.  Writes 2-D maps, column diagnostics, stats.
+Voxelize one LAZ file.  Writes 2-D maps, column diagnostics, stats; with
+`--shards` and/or `--keep-raw-store`, also the tile's store.
 
     python -m voxelizer single PATH/TO/TILE.laz \
         --output-dir outputs/Run1/single \
@@ -37,8 +38,11 @@ Voxelize one LAZ file.  Writes 2-D maps, column diagnostics, stats.
 
 - `--cell-xy` / `--cell-z`: voxel size in metres (default 0.5 / 0.5).
 - `--columns-mode`: `diag` (default), `top`, `all` or `skip`, with
-  `--columns-top-n` (default 50) sizing the `top` ranking.
+  `--columns-top-n` (default 50) sizing the `top` ranking and
+  `--columns-all-max` (default 500000; 0 removes the cap) capping `all`.
 - `--height-mode`: `default`, `relative` or `absolute`.
+- `--keep-classes`: comma/space list of ASPRS codes to keep; others are
+  dropped before voxelization.  Blank keeps every class.
 - `--delete-laz`: remove the .laz file after a successful run.
 - `--shards`: also save the tile's voxel store as
   `<output-dir>/shards/<tile_stem>.npz` plus `shards/manifest.json`, the same
@@ -49,11 +53,18 @@ Voxelize one LAZ file.  Writes 2-D maps, column diagnostics, stats.
   of an area run. The store keeps the tile's own grid origin (its data minimum),
   so a single-tile shard is self-contained but not mergeable with a shard built
   on a different origin - use `area_cli area --shard` for a mergeable set.
+- `--keep-raw-store`: also write the grid as the raw memory-mappable directory
+  `<output-dir>/store_raw/` (six `.npy` arrays + `meta.json`) plus its
+  `run_params.json`.  This is the same `store_raw/` an area run's isolated
+  stages attach to, and the file pair `area_cli --resume-from-store` re-enters,
+  so a single tile can re-run its output stages - or produce an `area.npz` -
+  later without re-reading the LAZ.  This verb has no intermediates sweep, so
+  the directory is kept, never deleted.
 
     python -m voxelizer single PATH/TO/TILE.laz \
         --output-dir outputs/Run1/single \
         --cell-xy 0.5 --cell-z 0.5 \
-        --shards --viz3d-stream --tile-m 64
+        --shards --keep-raw-store --viz3d-stream --tile-m 64
 
 The two 3-D viewers are separate runs.  Given both flags at once the
 streaming viewer wins and `--viz3d` is ignored, so pass one or the other.  The
@@ -318,8 +329,8 @@ Or re-run everything (2-D + 3-D) at once:
 
 ## 5. 3-D HTML from .npz (no voxelization) [OPTIONAL]
 
-Render interactive 3-D HTML viewer(s) straight from a saved `area.npz`.
-Independent of `store_raw/` - only needs the .npz.
+Render interactive 3-D HTML viewer(s) straight from a saved store - a
+`area.npz` **or** a raw `store_raw/` directory (attached by memory map).
 
     python -m voxelizer.viz3d_cli from-store outputs/Run1/area.npz \
         --output-dir outputs/Run1  --label area \
@@ -475,6 +486,11 @@ files using `EXT_mesh_gpu_instancing`).
         --keep-classes 2,3,4,5,6 \
         --region XMIN YMIN XMAX YMAX \
         --crs EPSG:3946
+
+The store argument (first positional) is a `.npz` **or** a raw `store_raw/`
+directory, attached by memory map (`ColumnStore.load_any`): pass the directory
+to export from a kept raw store with no `.npz`, or when the run suppressed
+`area.npz` with `--no-save-store`.
 
 Only `--out-dir` is required.  `--tile-m` is the spatial tile size in metres
 (default 100), `--flat` writes the flat layout instead of the LOD pyramid,
@@ -978,9 +994,11 @@ Launch the interactive Tkinter-based area launcher:
 
     python -m voxelizer.gui_area
 
-Seven tabs (Input / Voxel Grid / Files & Outputs / 3-D Visualiser /
-Export & Serve / Diagnostics / Advanced); every checkbox has a hover
-tooltip. The
+Eight tabs (Input / Voxel Grid / Files & Outputs / 3-D Visualiser /
+Export & Serve / Store Tools / Diagnostics / Advanced); every checkbox has a
+hover tooltip. Store Tools holds the store-level CLIs (post-process,
+reconstruct, archive, merge, shard diagnostics, 3-D from a store), each in a
+collapsible section, and none of them voxelizes. The
 `Continue...` button lights up after a stopped/crashed/partial run and
 wraps `--resume-shards` (unfinished tiles) or `--resume-from-store`
 + `--only-stage` (re-run output stages); `Resume previous run...`

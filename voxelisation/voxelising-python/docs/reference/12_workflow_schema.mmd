@@ -2,7 +2,7 @@
 %% The boxes are a function-level graph of one run: the functions these two
 %% commands actually call, plus the child-process entry points
 %% (shard_worker.main, stage_runner.main). The functions of the six essential
-%% modules are a subset of them, 23 of the 47 function boxes; the other 24
+%% modules are a subset of them, 25 of the 49 function boxes; the other 24
 %% belong to 19 further modules of the package plus one repository script.
 %% This departs from the standard's rule "boxes = the six essential modules"
 %% on purpose: six boxes cannot show what calls what inside the flow.
@@ -46,16 +46,20 @@ flowchart TB
         M12["column_diagnostics.write_column_diagnostics"]
         M13["viz3d_cli._run_single<br>visualizer3d.render_store_3d"]
         M14["tiled_exporter.export_tiled_from_store"]
+        M15["sharding.save_single_tile_shard<br>ColumnStore.save + manifest.json"]
+        M16["data_structures.ColumnStore.save_dir<br>raw .npy directory"]
 
         S1[("&lt;tile&gt;/stats.txt")]
         S2[("&lt;tile&gt;/&lt;stem&gt;_max_height.png<br>_max_points_class.png<br>_orthophoto_class.png<br>_n_intervals.png")]
         S3[("&lt;tile&gt;/columns/diagnostics/*.png<br>&lt;tile&gt;/columns/per_column/*.png")]
         S4[("&lt;tile&gt;/&lt;stem&gt;_full.html<br>&lt;stem&gt;_roi.html")]
         S5[("&lt;tile&gt;/&lt;stem&gt;_stream.html<br>+ .bin + .idx.json")]
+        S6[("shards/&lt;stem&gt;.npz<br>shards/manifest.json")]
+        S7[("store_raw/ keys off zs ze cl ct .npy<br>meta.json, run_params.json")]
 
         IN1 -->|"the file itself, opened by laspy"| M4
-        M1 -->|"tile path, parsed options"| M2
-        M2 -->|"tile path, cell sizes"| M3
+        M1 -->|"tile path, parsed options (cell sizes, keep_classes)"| M2
+        M2 -->|"tile path, cell sizes, keep_classes"| M3
         M3 -->|"tile path; back: x, y, z, class arrays"| M4
         M3 -->|"the point arrays"| M5
         M5 -->|"the point arrays"| M6
@@ -71,8 +75,12 @@ flowchart TB
         M12 -->|"the diagnostic figures, and the per-column ones"| S3
         M1 -.->|"--viz3d, reusing the store"| M13
         M1 -.->|"--viz3d-stream, reusing the store;<br>it wins when both flags are given"| M14
+        M1 -.->|"--shards"| M15
+        M2 -.->|"--keep-raw-store, via save_store_to"| M16
         M13 -->|"three.js HTML, geometry inlined"| S4
         M14 -->|"HTML plus its binary tile payload and index"| S5
+        M15 -->|"the tile's raw store + the manifest<br>the shard tooling reads"| S6
+        M16 -->|"six .npy + meta.json + run_params.json"| S7
     end
 
     subgraph P2["PANEL B - python -m voxelizer.area_cli area"]
@@ -207,4 +215,4 @@ flowchart TB
     class R1,R2,R3,R4,R5,R6 read
     class A1,A5 transient
     class IN1,IN2 input
-    class M3,M5,M6,M7,M8,M9,M10,C1,C3,C7,C8,C11,C15,C16,C17,C18,C20,C22,C23,C24,C25,C27,R4 core
+    class M3,M5,M6,M7,M8,M9,M10,M15,M16,C1,C3,C7,C8,C11,C15,C16,C17,C18,C20,C22,C23,C24,C25,C27,R4 core

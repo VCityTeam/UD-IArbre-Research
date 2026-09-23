@@ -210,8 +210,11 @@ def process_single_tile(
     cell_xy: float = 0.5,
     cell_z: float = 0.5,
     save_raw_to: Path | str | None = None,
+    save_store_to: Path | str | None = None,
+    keep_classes: set[int] | None = None,
     columns_mode: str = "diag",
     columns_top_n: int = 50,
+    columns_all_max: int | None = None,
     height_mode: str = "default",
     return_store: bool = False,
 ) -> dict | tuple[dict, ColumnStore]:
@@ -249,12 +252,26 @@ def process_single_tile(
     @param save_raw_to Directory for a compressed .npz of the five raw
         per-pixel arrays (the four map arrays plus min_height). ``None``
         (the default) writes nothing.
+    @param save_store_to When set, persist the voxel grid itself as a raw
+        (memory-mappable) store directory at that path, via
+        ``ColumnStore.save_dir`` - the ``store_raw/`` directory the area
+        pipeline's isolated output stages attach to. ``None`` (the default)
+        writes nothing. This is the grid, not the raster arrays of
+        ``save_raw_to``: the two are unrelated. The caller is responsible for
+        writing a ``run_params.json`` beside it when the directory is meant to
+        be re-enterable by ``area_cli --resume-from-store``.
+    @param keep_classes When set, keep only points carrying these ASPRS codes;
+        ``None`` (the default) keeps every class.
     @param columns_mode 'diag' / 'top' / 'all' / 'skip' - controls the
         per-column PNGs and the diagnostic figures (default 'diag'). 'diag'
         writes the four diagnostic figures only; 'skip' disables the whole
         ``columns/`` folder.
     @param columns_top_n How many columns to keep in 'top' mode (default 50;
         ignored otherwise).
+    @param columns_all_max Cap on the per-column PNGs in 'all' mode, and a
+        tri-state: ``None`` (the default) applies the module default cap
+        (500,000); ``0`` removes the cap entirely; any positive value is that
+        cap. Ignored outside 'all' mode.
     @param height_mode 'default' / 'relative' / 'absolute' - the vertical
         reference of the max_height map only (see
         ``visualization.render_tile_map``; default 'default'). It is also
@@ -272,7 +289,8 @@ def process_single_tile(
     out_dir.mkdir(parents=True, exist_ok=True)
     tile_stem = laz_path.stem
 
-    store = voxelize_laz(laz_path, cell_xy=cell_xy, cell_z=cell_z)
+    store = voxelize_laz(laz_path, cell_xy=cell_xy, cell_z=cell_z,
+                         keep_classes=keep_classes)
     stats = store.stats()
 
     # --- stats.txt ---
@@ -311,8 +329,16 @@ def process_single_tile(
         write_column_diagnostics(
             store, out_dir / "columns",
             mode=columns_mode, top_n=columns_top_n,
+            all_cap=columns_all_max,
             tile_label=tile_stem,
         )
+
+    # --- persist the voxel grid as a raw store directory, if requested ---
+    if save_store_to is not None:
+        save_store_to = Path(save_store_to)
+        save_store_to.parent.mkdir(parents=True, exist_ok=True)
+        store.save_dir(save_store_to)
+        logger.info("  wrote raw store -> %s", save_store_to)
 
     # --- cache raw arrays for the combined view, if requested ---
     if save_raw_to is not None:

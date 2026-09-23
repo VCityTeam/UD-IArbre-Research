@@ -182,7 +182,7 @@ def _run_streaming(
     """
     from .tiled_exporter import export_tiled_from_store
 
-    store = ColumnStore.load(npz_path)
+    store = ColumnStore.load_any(npz_path)
     if not store.columns:
         raise RuntimeError("Loaded store is empty - nothing to render.")
 
@@ -222,8 +222,9 @@ def _run_from_store(
 ) -> None:
     """
     Render 3-D HTML straight from a saved ``ColumnStore`` (``area.npz`` written
-    by the area pipeline, or any ``ColumnStore.save`` output) - the voxelization
-    is loaded from disk, never recomputed. This is the across-runs half of "3-D
+    by the area pipeline, or any ``ColumnStore.save`` output, or the raw
+    ``store_raw/`` directory attached by memory map) - the voxelization is
+    loaded from disk, never recomputed. This is the across-runs half of "3-D
     consumes the prior voxelization": run ``area`` once (which persists the
     grid), then render or re-render 3-D any time without touching the LAZ.
     """
@@ -233,7 +234,7 @@ def _run_from_store(
         raise ValueError("Both --no-full and --no-roi were passed; nothing to do.")
 
     logger.info("Loading store %s ...", npz_path)
-    store = ColumnStore.load(npz_path)
+    store = ColumnStore.load_any(npz_path)
     if not store.columns:
         raise RuntimeError("Loaded store is empty - nothing to render.")
 
@@ -253,9 +254,10 @@ def _build_parser() -> argparse.ArgumentParser:
     """Build the parser with the ``single``, ``from-store`` and ``stream`` subcommands and the flags the module docstring lists.
 
     ``single`` takes its cell-size flags from ``cli_common.add_cell_args``;
-    the ``--max-boxes`` of ``single`` and ``from-store`` is validated by
-    ``positive_int``, while ``stream`` accepts ``--stride`` and
-    ``--max-boxes`` only to warn that they are ignored.
+``from-store`` takes a ``.npz`` or a raw ``store_raw/`` directory; the
+``--max-boxes`` of ``single`` and ``from-store`` is validated by
+``positive_int``, while ``stream`` accepts ``--stride`` and
+``--max-boxes`` only to warn that they are ignored.
     """
     p = argparse.ArgumentParser(
         prog="python -m voxelizer.viz3d_cli",
@@ -306,7 +308,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Render HTML viewer(s) from a saved store (area.npz) - no "
              "voxelization; the grid is loaded from disk.")
     fs.add_argument("store_file", type=Path,
-                    help="Path to a ColumnStore .npz (e.g. a run's area.npz).")
+                    help="Path to a ColumnStore .npz (e.g. a run's area.npz), or "
+                         "a raw store directory (store_raw/) attached by memory "
+                         "map.")
     fs.add_argument("--output-dir", "-o", type=Path, required=True,
                     help="Directory to write the viewer(s) into.")
     fs.add_argument("--label", type=str, default=None,
@@ -331,7 +335,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Render a streaming HTML for 200M+ instance views "
              "(Range-fetched sidecar .bin, or base64-embedded in the page "
              "when it fits under --inline-threshold-mb).")
-    st.add_argument("store_file", type=Path)
+    st.add_argument("store_file", type=Path,
+                    help="Path to a ColumnStore .npz, or a raw store directory "
+                         "(store_raw/) attached by memory map.")
     st.add_argument("--out", type=Path, required=True,
                     help="Path to the .html to write (sibling .bin is auto).")
     st.add_argument("--label", type=str, default=None)

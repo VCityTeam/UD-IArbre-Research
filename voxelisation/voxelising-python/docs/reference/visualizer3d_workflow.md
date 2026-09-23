@@ -309,12 +309,13 @@ Three subcommands:
 
 ```powershell
 python -m voxelizer.viz3d_cli single     PATH.laz  -o OUTPUT_DIR [OPTIONS]
-python -m voxelizer.viz3d_cli from-store STORE.npz -o OUTPUT_DIR [OPTIONS]
-python -m voxelizer.viz3d_cli stream     STORE.npz --out PAGE.html [OPTIONS]
+python -m voxelizer.viz3d_cli from-store STORE -o OUTPUT_DIR [OPTIONS]      # .npz or store_raw/
+python -m voxelizer.viz3d_cli stream     STORE --out PAGE.html [OPTIONS]    # .npz or store_raw/
 ```
 
 `single` voxelizes one LAZ tile and renders from the result.
-`from-store` renders from a saved store, such as a run's `area.npz`, with no
+`from-store` renders from a saved store, such as a run's `area.npz` or its
+raw `store_raw/` directory, with no
 voxelization at all - the grid is loaded from disk, which is how a finished
 run's viewers are re-rendered without repeating the expensive part.
 `stream` writes the streaming viewer described below.
@@ -344,6 +345,9 @@ Key options for `single` and `from-store`:
 | `--grid` | off | Also write a `.vxg` grid cache, the same lossless quantized encoding the HTML embeds. `load_grid()` reads it back into a geometry dict for `export_html_from_geom` without re-reading the LAZ |
 | `--label` | the `.npz` stem | Base name for the output files and the page title (`from-store` only) |
 | `--delete-laz` | off | Delete the source file after a successful voxelization (`single` only) |
+
+The store argument of `from-store` and `stream` is a `.npz` **or** a raw
+`store_raw/` directory, attached by memory map (`ColumnStore.load_any`).
 
 ---
 

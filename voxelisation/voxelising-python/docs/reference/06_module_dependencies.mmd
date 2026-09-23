@@ -35,14 +35,12 @@ flowchart TD
         download_laz["download_laz.py"]
         download_orthos["download_orthos.py"]
         ground_index["ground_index.py"]
-        preflight["preflight.py"]
         serve_tiles["serve_tiles.py"]
         serve_voxel_html["serve_voxel_html.py"]
         viz_common["viz_common.py"]
     end
     subgraph L2["Level 2"]
         data_structures["data_structures.py"]
-        gui_area["gui_area.py (entry point)"]
         tileset_exporter["tileset_exporter.py"]
     end
     subgraph L3["Level 3"]
@@ -71,14 +69,15 @@ flowchart TD
     subgraph L5["Level 5"]
         archive_cli["archive_cli.py"]
         column_diagnostics["column_diagnostics.py"]
+        preflight["preflight.py"]
         ray_columns["ray_columns.py"]
     end
     subgraph L6["Level 6"]
+        gui_area["gui_area.py (entry point)"]
         pipeline["pipeline.py"]
         sun_hours["sun_hours.py"]
     end
     subgraph L7["Level 7"]
-        __main__["__main__.py (entry point)"]
         area_outputs["area_outputs.py"]
         shard_diagnostics["shard_diagnostics.py"]
     end
@@ -87,15 +86,19 @@ flowchart TD
         stage_runner["stage_runner.py"]
     end
     subgraph L9["Level 9"]
+        __main__["__main__.py (entry point)"]
         area_cli["area_cli.py (entry point)"]
     end
     __main__ --> cli_common
+    __main__ --> io_laz
     __main__ --> pipeline
     __main__ --> run_utils
     __main__ --> serve_tiles
     __main__ --> serve_voxel_html
+    __main__ --> sharding
     __main__ --> tiled_exporter
     __main__ --> viz3d_cli
+    __main__ --> voxelize
     absorb --> classes_config
     absorb --> data_structures
     archive_cli --> data_structures

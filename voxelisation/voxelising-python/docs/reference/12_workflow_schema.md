@@ -4,16 +4,16 @@ One diagram for the two commands that matter, plus the read side that is often
 mistaken for part of them. The boxes are a function-level graph of one run: the
 functions these commands actually call, plus the child-process entry points
 (`shard_worker.main`, `stage_runner.main`). The functions of the six essential
-modules are a subset of them, 23 of the 47 function boxes, the other 24
+modules are a subset of them, 25 of the 49 function boxes, the other 24
 belonging to 19 further modules plus one repository script. Beside the function
-boxes the drawing carries 12 artifact cylinders and 2 input nodes. This departs
+boxes the drawing carries 14 artifact cylinders and 2 input nodes. This departs
 from the standard's rule that the boxes are the six essential modules, and it
 does so on purpose: six boxes cannot show what calls what inside the flow.
 
 The six are `data_structures`, `voxelize`, `decoder`, `sharding`,
 `merge_streaming` and `area_cli`, the same six ARCHITECTURE section 1 names.
-Their 23 boxes carry a thick gold border, so the spine is visible without
-reading the module prefix off 47 captions.
+Their 25 boxes carry a thick gold border, so the spine is visible without
+reading the module prefix off 49 captions.
 
 Two module counts, because they are two different numbers. Modules drawn: 25
 package modules own a box, the six plus the 19 others; three more
@@ -53,33 +53,38 @@ npx -y @mermaid-js/mermaid-cli -i 12_workflow_schema.mmd -o 12_workflow_schema.s
 The `.mmd` opens with an `init` block and carries one invisible link,
 `P1 ~~~ P2`. Both are layout only. Without them dagre puts the two panels side
 by side and the render is 10205 px wide; with them the panels stack and it is
-6229 px wide by 6631 tall, narrower than the 6853 px the previous revision
+6229 px wide by 6723 tall, narrower than the 6853 px the previous revision
 shipped while carrying more boxes, more arrows and two input nodes. That
 invisible link is the one edge in the file with no label; it draws no line and
-no arrow head. All 87 real arrows carry a label.
+no arrow head. All 91 real arrows carry a label.
 
 ## Panel A: `python -m voxelizer single TILE.laz`
 
-One LAZ file in, per-tile outputs out. No sharding, no merge, no decoder.
+One LAZ file in, per-tile outputs out, plus the tile's own store under
+`--shards` / `--keep-raw-store`. No merge, no decoder. Those two branches mean
+the panel carries two artifact cylinders beyond the per-tile outputs.
 
 | Step | Call | Data crossing the arrow |
 |---|---|---|
 | 0 | `TILE.laz` -> `io_laz.read_laz` | the input node of the panel: the one tile named on the command line, opened by laspy |
-| 1 | `__main__.main` -> `pipeline.process_single_tile` | the tile path, the parsed options |
-| 2 | `pipeline.process_single_tile` -> `voxelize.voxelize_laz` | tile path, cell sizes |
+| 1 | `__main__.main` -> `pipeline.process_single_tile` | the tile path, the parsed options (cell sizes, `--keep-classes`) |
+| 2 | `pipeline.process_single_tile` -> `voxelize.voxelize_laz` | tile path, cell sizes, `keep_classes` |
 | 3 | `voxelize.voxelize_laz` -> `io_laz.read_laz` | point arrays (x, y, z, class) |
 | 4 | `voxelize.voxelize_laz` -> `voxelize.voxelize` | the point arrays |
 | 5 | `voxelize.voxelize` -> `voxelize._cells_from_points`, then `voxelize._store_from_cells` -> `ColumnStore.from_intervals` | `voxelize` calls both halves and passes the quantized cells between them, which is why that edge is drawn as a hand-off and not as a call; `_store_from_cells` does call `from_intervals` |
 | 6 | `pipeline.process_single_tile` -> `ColumnStore.stats` and `ColumnStore.column_summaries` | the store |
 | 7 | `pipeline.process_single_tile` -> `visualization.plot_tile_map` (once per mode) and `column_diagnostics.write_column_diagnostics` (fed the store) | the summaries reach `plot_tile_map` from `process_single_tile`, not from `column_summaries`, which is the second hand-off arrow of the panel; `plot_tile_map` then draws the `uint8` raster `render_tile_map` returns on an Axes and `pipeline` saves it with `fig.savefig` |
-| 8 | optional, dashed, both from `__main__.main` on the store it already holds: `--viz3d` -> `viz3d_cli._run_single` -> `visualizer3d.render_store_3d`; `--viz3d-stream` -> `tiled_exporter.export_tiled_from_store` | the store. The two flags are exclusive and the streaming viewer wins: the code is `if args.viz3d_stream: ... elif args.viz3d:` |
+| 8 | optional, dashed, from `__main__.main` on the store it already holds: `--viz3d` -> `viz3d_cli._run_single` -> `visualizer3d.render_store_3d`; `--viz3d-stream` -> `tiled_exporter.export_tiled_from_store` | the store. The two flags are exclusive and the streaming viewer wins: the code is `if args.viz3d_stream: ... elif args.viz3d:` |
+| 9 | optional, dashed: `--shards` -> `sharding.save_single_tile_shard`, which calls `ColumnStore.save` and writes `shards/manifest.json`; `--keep-raw-store` -> `pipeline.process_single_tile` -> `ColumnStore.save_dir` (via its `save_store_to`) | the store, again. The shard is the raw (ungrouped) store plus the manifest the shard tooling reads; the raw store is the memory-mappable directory plus a `run_params.json` that `area_cli --resume-from-store` later re-enters. One run writes one shard, and this verb has no intermediates sweep, so neither is ever deleted |
 
 Artifacts: `<tile>/stats.txt`; four `<stem>_*.png` maps
 (`max_height`, `max_points_class`, `orthophoto_class`, `n_intervals`);
 `<tile>/columns/diagnostics/*.png` and, in `top` or `all` mode,
 `<tile>/columns/per_column/*.png`. Under `--viz3d`, `<stem>_full.html` and
 `<stem>_roi.html`; under `--viz3d-stream`, `<stem>_stream.html` with its `.bin`
-and `.idx.json` sidecars. Step 8 is drawn in the panel, dashed.
+and `.idx.json` sidecars. Under `--shards`, `shards/<tile_stem>.npz` +
+`shards/manifest.json`; under `--keep-raw-store`, `store_raw/` + `store_raw/run_params.json`.
+Steps 8 and 9 are drawn in the panel, dashed.
 
 ## Panel B: `python -m voxelizer.area_cli area`
 

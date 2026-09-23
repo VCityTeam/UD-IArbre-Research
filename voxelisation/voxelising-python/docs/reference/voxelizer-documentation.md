@@ -750,7 +750,7 @@ They are still **not wired as automatic area-run stages** (the `STAGES` set is `
 
 ### 3D Tiles Export
 
-`tileset_exporter.convert_to_3d_tiles_lod()` is the default converter: it turns the streaming payload (`.bin` + `.idx.json`) into an OGC **3D Tiles 1.1** tileset - one `tileset.json` plus one `.glb` per node, full-detail leaves beneath a quadtree of coarsened interior levels. `convert_to_3d_tiles()` is the legacy flat root->leaves layout, kept behind `--flat`. Each `.glb` uses `EXT_mesh_gpu_instancing` - one shared unit box per class, per-instance TRANSLATION + SCALE - so a tile of N boxes ships ~Nx24 bytes of instance data (2 x VEC3 float32) rather than ~Nx700 bytes of triangulated vertex+index data. That is an order-of-magnitude cut in size and export time as a design estimate, not a benchmark: the triangulating exporter it would be compared against predates this repository (see `docs/design-decisions.md` section 11). The payload's 32-byte record layout, which the exporter reads, is: `xyz` (3xfloat32, 12 B), `sx,sy,sz` (3xfloat32, 12 B), `rgb` (3xuint8, 3 B), `cls` (5xuint8, 5 B -- only byte 0 used; bytes 1-4 are reserved). `tileset_cli.py` exposes `from-store` (npz -> payload -> tileset in one call) and `from-payload` (reuse an existing payload).
+`tileset_exporter.convert_to_3d_tiles_lod()` is the default converter: it turns the streaming payload (`.bin` + `.idx.json`) into an OGC **3D Tiles 1.1** tileset - one `tileset.json` plus one `.glb` per node, full-detail leaves beneath a quadtree of coarsened interior levels. `convert_to_3d_tiles()` is the legacy flat root->leaves layout, kept behind `--flat`. Each `.glb` uses `EXT_mesh_gpu_instancing` - one shared unit box per class, per-instance TRANSLATION + SCALE - so a tile of N boxes ships ~Nx24 bytes of instance data (2 x VEC3 float32) rather than ~Nx700 bytes of triangulated vertex+index data. That is an order-of-magnitude cut in size and export time as a design estimate, not a benchmark: the triangulating exporter it would be compared against predates this repository (see `docs/design-decisions.md` section 11). The payload's 32-byte record layout, which the exporter reads, is: `xyz` (3xfloat32, 12 B), `sx,sy,sz` (3xfloat32, 12 B), `rgb` (3xuint8, 3 B), `cls` (5xuint8, 5 B -- only byte 0 used; bytes 1-4 are reserved). `tileset_cli.py` exposes `from-store` (store -> payload -> tileset in one call; the store is a `.npz` or a raw `store_raw/` directory, attached by `ColumnStore.load_any`) and `from-payload` (reuse an existing payload).
 
 Two properties make the tileset loadable by a globe viewer.
 
@@ -879,7 +879,7 @@ tier). The listing below groups them by role.
 ```
 voxelizer/
 +-- __init__.py              # Package init (levelled re-exports, L0-L4)
-+-- __main__.py              # CLI entry point (single-tile workflow)
++-- __main__.py              # CLI entry point (single-tile workflow: --shards, --keep-raw-store)
 +-- _download_common.py      # Shared download utilities
 +-- area.py                  # Multi-tile area workflow (process_area)
 +-- area_cli.py              # CLI for area processing
@@ -890,7 +890,7 @@ voxelizer/
 +-- data_structures.py       # ColumnStore, Column, Interval (+ lazy ground-index cache)
 +-- download_laz.py          # IGN tile downloading
 +-- download_orthos.py       # Orthophoto downloading
-+-- gui_area.py              # GUI for area selection
++-- gui_area.py              # GUI for file / area selection + Store Tools (eight tabs)
 +-- io_laz.py                # LAZ/LAS reading (laspy wrapper)
 +-- pipeline.py              # Single-tile workflow (PNG maps, stats.txt)
 +-- preflight.py             # RAM budget estimation

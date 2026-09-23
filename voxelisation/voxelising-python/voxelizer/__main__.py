@@ -6,7 +6,8 @@ viewing a finished run.
 
     python -m voxelizer single PATH --output-dir DIR [--cell-xy F] [--cell-z F]
         [--columns-mode {diag,top,all,skip}] [--columns-top-n N]
-        [--height-mode {default,relative,absolute}] [--delete-laz] [--shards]
+        [--height-mode {default,relative,absolute}] [--keep-classes LIST]
+        [--delete-laz] [--shards] [--keep-raw-store]
         [--viz3d [--max-boxes N] [--roi-size M] [--roi-cx M] [--roi-cy M]
                  [--no-full] [--no-roi]]
         [--viz3d-stream [--tile-m 64] [--max-instances N]
@@ -17,7 +18,10 @@ viewing a finished run.
         outputs/RunN/single/ with auto-incrementing Run number. With
         --shards, also writes the tile's store as DIR/shards/<tile_stem>.npz
         + DIR/shards/manifest.json, the same shard format an area run leaves
-        in shards/ (see sharding.save_single_tile_shard).
+        in shards/ (see sharding.save_single_tile_shard). With
+        --keep-raw-store, also writes the grid as the raw memory-mappable
+        directory DIR/store_raw/ plus its run_params.json, the same artefact
+        area_cli --resume-from-store re-enters.
 
     python -m voxelizer serve DIR [--kind {stream,tiles}] [--port N]
         [--bind HOST] [--no-open] [--open-viewer {cesium,itowns}]
@@ -45,7 +49,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from .cli_common import add_cell_args, add_viz3d_geom_args
+from .cli_common import add_cell_args, add_viz3d_geom_args, parse_classes
 from pathlib import Path
 
 try:
@@ -224,6 +228,10 @@ def _build_parser() -> argparse.ArgumentParser:
     s.add_argument("--columns-top-n", type=int, default=50,
                    help="How many columns to keep when --columns-mode=top "
                         "(default 50).")
+    s.add_argument("--columns-all-max", type=int, default=None,
+                   help="Cap on the per-column PNGs in --columns-mode=all "
+                        "(default 500000; 0 removes the cap). Ignored "
+                        "otherwise.")
     s.add_argument("--height-mode", choices=("default", "relative", "absolute"),
                    default="default",
                    help="Vertical reference for the max_height map: "
@@ -234,11 +242,21 @@ def _build_parser() -> argparse.ArgumentParser:
                         "(DSM). Default 'default'.")
     s.add_argument("--delete-laz", action="store_true",
                    help="Delete the source .laz file after successful voxelization.")
+    s.add_argument("--keep-classes", type=str, default=None,
+                   help="Comma/space list of ASPRS class codes to keep; all "
+                        "others are dropped before voxelization. Default: keep "
+                        "every class.")
     s.add_argument("--shards", action="store_true",
                    help="Also save the tile's voxel store as a shard: "
                         "<out>/shards/<tile_stem>.npz + shards/manifest.json, "
                         "the same format an area run writes. One run writes "
                         "one shard, so use a fresh --output-dir per tile.")
+    s.add_argument("--keep-raw-store", action="store_true",
+                   help="Also write the voxel grid as the raw memory-mappable "
+                        "directory <out>/store_raw/ (six .npy arrays + "
+                        "meta.json) with its run_params.json, the artefact "
+                        "area_cli --resume-from-store re-enters. Not deleted: "
+                        "this verb has no intermediates sweep.")
 
     # --- 3-D HTML viewer (all options mirror the area CLI / viz3d_cli) ----
     s.add_argument("--viz3d", action="store_true",
@@ -291,6 +309,62 @@ def _build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _write_single_run_params(store_raw_dir: Path, store, *, cell_xy, cell_z,
+                             height_mode, columns_mode, columns_top_n,
+                             max_boxes, roi_size, roi_cx, roi_cy,
+                             keep_classes) -> Path:
+    """Write ``run_params.json`` beside a single-tile raw store.
+
+    The area pipeline's raw store carries this file so
+    ``area_cli --resume-from-store DIR`` can re-run the output stages (maps,
+    columns, 3-D, ``area.npz``) without the geometry being supplied again; the
+    GUI's resume detector reads the same file. A single tile's grid is one
+    extent, so the ``bbox`` the schema expects is synthesised from the store's
+    own occupied extent, and every other key mirrors what
+    ``area_outputs._write_outputs_isolated`` writes. ``group_intervals`` is
+    recorded False: a single-tile run never groups, so the store on disk is
+    already the raw one.
+
+    @param store_raw_dir The directory just written by ``ColumnStore.save_dir``.
+    @param store The grid, for its extent (bbox) and lattice metadata.
+    @return The path written.
+    """
+    import json
+    from .io_laz import DEFAULT_EPSG
+    from .run_utils import make_provenance
+    from .voxelize import _run_order
+
+    kb = store.key_bounds()
+    if kb is None:
+        bbox = [float(store.x_min), float(store.y_min),
+                float(store.x_min) + float(cell_xy),
+                float(store.y_min) + float(cell_xy)]
+    else:
+        bbox = [float(store.x_min) + kb[0] * float(cell_xy),
+                float(store.y_min) + kb[1] * float(cell_xy),
+                float(store.x_min) + (kb[2] + 1) * float(cell_xy),
+                float(store.y_min) + (kb[3] + 1) * float(cell_xy)]
+
+    params = {
+        "bbox": bbox, "cell_xy": float(cell_xy), "cell_z": float(cell_z),
+        "height_mode": height_mode, "extra_header": None,
+        "columns_mode": columns_mode, "columns_top_n": int(columns_top_n),
+        "columns_all_max": None, "max_boxes": int(max_boxes),
+        "roi_size": float(roi_size), "roi_cx": roi_cx, "roi_cy": roi_cy,
+        "save_store": True, "viz3d_stream": False,
+        "tile_m": 64.0, "max_instances": 4_000_000,
+        "inline_threshold_mb": 64,
+        "provenance": make_provenance(
+            group_intervals=False, group_gap=None, keep_classes=keep_classes,
+            epsg=DEFAULT_EPSG, run_order=_run_order()),
+    }
+    path = Path(store_raw_dir) / "run_params.json"
+    path.write_text(json.dumps(params, indent=2), encoding="utf-8")
+    logger.info("wrote %s (resume with: python -m voxelizer.area_cli area "
+                "--resume-from-store %s)", path, store_raw_dir)
+    return path
+
+
 def main(argv=None) -> None:
     """Parse the ``single`` or ``serve`` verb. ``serve`` delegates to
     _run_serve() and raises ``SystemExit`` with its code when non-zero.
@@ -323,6 +397,17 @@ def main(argv=None) -> None:
                 "nothing to render.")
         # Put per-tile outputs in <output-dir>/<tile_stem>/.
         per_tile_dir = args.output_dir / args.laz_file.stem
+        keep_classes = parse_classes(args.keep_classes)
+        # The raw store directory sits at the run root, exactly where an area
+        # run's store_raw/ sits in its output dir, so area_cli
+        # --resume-from-store (and the GUI's resume detector) find it by the
+        # same rule. Overwriting a previous tile's directory is warned about,
+        # never silent.
+        store_raw_dir = args.output_dir / "store_raw"
+        if args.keep_raw_store and (store_raw_dir / "meta.json").is_file():
+            logger.warning("%s already holds a raw store; this run replaces "
+                           "it. Use a fresh --output-dir to keep one store "
+                           "per tile.", store_raw_dir)
         # Voxelize once and always keep the resulting grid: this CLI passes
         # return_store=True unconditionally, though the library default in
         # pipeline.process_single_tile is False. When --viz3d is set the 3-D
@@ -334,9 +419,27 @@ def main(argv=None) -> None:
             cell_xy=args.cell_xy, cell_z=args.cell_z,
             columns_mode=args.columns_mode,
             columns_top_n=args.columns_top_n,
+            columns_all_max=args.columns_all_max,
             height_mode=args.height_mode,
+            keep_classes=keep_classes,
+            save_store_to=(store_raw_dir if args.keep_raw_store else None),
             return_store=True,
         )
+
+        # The raw store is re-enterable only with the run's parameters beside
+        # it: run_params.json is what area_cli --resume-from-store reads to
+        # re-run the output stages with no geometry re-supplied.
+        if args.keep_raw_store:
+            _write_single_run_params(
+                store_raw_dir, store,
+                cell_xy=args.cell_xy, cell_z=args.cell_z,
+                height_mode=args.height_mode,
+                columns_mode=args.columns_mode,
+                columns_top_n=args.columns_top_n,
+                max_boxes=args.max_boxes, roi_size=args.roi_size,
+                roi_cx=args.roi_cx, roi_cy=args.roi_cy,
+                keep_classes=keep_classes,
+            )
 
         # Persist the shard set, if asked. Written from the store already in
         # memory, so this costs a save and no second decode; the shard is raw
@@ -347,6 +450,7 @@ def main(argv=None) -> None:
             save_single_tile_shard(
                 store, args.output_dir, args.laz_file.stem,
                 stats=stats, height_mode=args.height_mode,
+                keep_classes=keep_classes,
             )
 
         """

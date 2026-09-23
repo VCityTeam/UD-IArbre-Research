@@ -43,6 +43,17 @@ def default_bind(env=None) -> str:
     return raw.strip() or LOCALHOST
 
 
+def parse_classes(s):
+    """``--keep-classes`` text (comma or space separated ASPRS codes) -> a set
+    of int, or None for an empty/absent value (which keeps every class).
+
+    Shared by __main__ (``single``) and area_cli so the two cannot drift.
+    """
+    if not s:
+        return None
+    return {int(v) for v in s.replace(",", " ").split()}
+
+
 def positive_int(s: str) -> int:
     """argparse type shared by --max-boxes and --merge-band-intervals:
     reject 0 and negatives.
