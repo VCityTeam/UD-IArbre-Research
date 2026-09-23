@@ -10,7 +10,7 @@ Generates a cast-shadow map using a separate vegetation-shadow calculation, taki
 
 <p align= "center"><img width="712" height="484" alt="image" src="https://github.com/user-attachments/assets/0a916c3a-b735-4b7f-93f8-b8513784a949" /></p>
 
-<br>
+
 <br>
 
 ## Installation
@@ -66,6 +66,9 @@ In the case of calculating shadows over a period of time,The shadows are darker 
 
 **To properly view TIFF files, you must open them in a suitable viewer.** <br>
 You can use [VScode](https://code.visualstudio.com) by installing the **GeoTIFF Viewer** extension, and clicking on **`Open with : GeoTIFF Viewer`**. <br> In order to better visualize shadows it is recommended to use the **Colormap :** `Grayscale`.
+
+<p align= "center"><img width="546" height="546" alt="method2_period" src="https://github.com/user-attachments/assets/c6e4a60d-19dd-44a1-81fb-b6245af9c3bf" /></p>
+
 ## Team
 - Karima Ouadah
 - John Samuel
