@@ -52,10 +52,10 @@ The program takes as input several pieces of information provided by the user:
 - A date in numerical format **(e.g., 07/09/2023)**.
 - The X_min and Y_min positions of the desired LiDAR tile **(e.g., X_min : 1848000 ; Y_min : 5180000)**.
 The tile positions are available on the website of **[DataGrandLyon (LiDAR 2023)](https://data.grandlyon.com/portail/fr/jeux-de-donnees/nuage-de-points-lidar-2023-de-la-metropole-de-lyon/donnees)**.
-- After calculating the sun's positions for the desired date, the program asks the user to select a time of day to use for the calculation **(e.g., Program "2: 10H20" -> User : "2")**. <br>
-The program for both methods can be launched for a single projection or for a period of time: `Do you want a single shadow projection? (y/n)`
-- If you have chosen `y` the program will execute the code to project shadows at a **single phase** of the day.
-- If you chose `n` the program will ask you for the **start** and **end** time of the **time period** to use.
+- The program for both methods can be launched for a single projection or for a period of time: <br> `Do you want a single shadow projection? (y/n)`
+  - If you have chosen `y` the program will execute the code to project shadows at a **single phase** of the day.
+  - If you chose `n` the program will ask you for the **start** and **end** time of the **time period** and generate the shadow map for that period.
+- After calculating the sun's positions for the desired date, the program asks the user to select a time of day to use for the calculation **(e.g., Program "2: 10H20" -> User : "2")**.
 
 <br>
 
