@@ -21,8 +21,10 @@ cd "$(dirname "$0")/.."
 
 if [ -x ".venv/bin/python" ]; then
     PYTHON=".venv/bin/python"
-else
+elif command -v python >/dev/null 2>&1; then
     PYTHON="python"
+else
+    PYTHON="python3"
 fi
 
 echo "Opening area voxelizer GUI..."

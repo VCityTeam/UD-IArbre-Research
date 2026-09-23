@@ -92,6 +92,49 @@ faultlog is opened before its stage starts and stays empty when the stage
 succeeds, so an empty one is the normal case and one with content is the record
 of a stage that died.
 
+### The two copy-paste commands
+
+For a run that stays out of RAM, use one of these two instead of the in-memory
+area command above. Run them from `voxelising-python/`, after the setup at the
+top. Both keep the per-tile `shards/<tile>.npz` and write the merged
+`area.npz` with `area_manifest.json`, `stats.txt`, the four `area_*.png` maps,
+`columns/`, `stages.json` and the streaming 3-D viewer. The second additionally
+downloads the tiles it needs as part of the run, and keeps `store_raw/` and
+`area_raw.npz`. Append `--preflight-only` to either command first to size the
+machine.
+
+1. Shards, merged store, and the streaming viewer `.bin`:
+
+```
+python -m voxelizer.area_cli area --xmin 1831000 --ymin 5176500 \
+    --xmax 1832000 --ymax 5177500 --laz-dir inputs/laz \
+    --output-dir outputs/test-area --cell-xy 0.5 --cell-z 0.5 --group-gap 1.5 \
+    --shard --merge-shards --resume-shards --isolate-tiles \
+    --viz3d-stream --tile-m 64
+```
+
+`--shard` voxelizes each tile into its own `shards/<tile>.npz`,
+`--merge-shards` folds them into `area.npz`, and `--viz3d-stream` writes
+`area_stream.html` with a sidecar `area_stream.bin` + `area_stream.idx.json`
+once the payload exceeds `--inline-threshold-mb` (default 64; pass
+`--inline-threshold-mb 0` to always keep the `.bin`). `--viz3d-stream` is
+refused without `--merge-shards`.
+
+2. The same run, downloading the tiles first:
+
+```
+python -m voxelizer.area_cli area --xmin 1831000 --ymin 5176500 \
+    --xmax 1832000 --ymax 5177500 --laz-dir inputs/laz \
+    --output-dir outputs/test-area --cell-xy 0.5 --cell-z 0.5 --group-gap 1.5 \
+    --shard --merge-shards --resume-shards --isolate-tiles --retry-lazrs \
+    --download --json inputs/quickhelpers/nuage-de-points-lidar-2023-de-la-metropole-de-lyon.json \
+    --viz3d-stream --tile-m 64 --keep-raw-store --keep-area-raw
+```
+
+Same artifacts as command 1, plus the tiles fetched by `--download` and, with
+the two keep flags, the `store_raw/` memory-mapped copy and the pre-grouping
+`area_raw.npz` that `--intermediates auto` deletes after a fully successful run.
+
 Everything else is optional. [`execution-steps.md`](voxelising-python/execution-steps.md)
 lists every command-line entry point in the package and tags each one `[CORE]`,
 `[OPTIONAL]` or `[ADVANCED / EDGE CASE]`; three of its 25 sections carry the
@@ -99,10 +142,9 @@ core tag, the two commands above and the tile downloaders of section 11.
 Seventeen modules of the package carry a `__main__` guard; fifteen of them have
 a section of their own, and the two left out are the internal child processes
 `voxelizer.shard_worker` and `voxelizer.stage_runner`, which the area CLI spawns
-and which nobody runs by hand. Sharded runs for areas beyond RAM,
-LAS/LAZ round trips, 3D Tiles export, the streaming viewer, the GUI and the
-verification suite are all in the optional and advanced sections. The full
-walkthrough is
+and which nobody runs by hand. LAS/LAZ round trips, 3D Tiles export, the GUI
+and the verification suite are all in the optional and advanced sections. The
+full walkthrough is
 [`voxelising-python/how-to-use.md`](voxelising-python/how-to-use.md).
 
 ## For the code review (start here)

@@ -14,8 +14,10 @@ cd "$(dirname "$0")/.."
 # Pick the right Python interpreter
 if [ -x ".venv/bin/python" ]; then
     PYTHON=".venv/bin/python"
-else
+elif command -v python >/dev/null 2>&1; then
     PYTHON="python"
+else
+    PYTHON="python3"
 fi
 
 echo "Starting voxel viewer..."
