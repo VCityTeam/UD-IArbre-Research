@@ -4,19 +4,35 @@ import json
 from pathlib import Path
 
 def user_sun_phase_choice(alpha_list, horaire_list):
+    projection_type = 0
+    single_projection = "NULL"
     if alpha_list[0] <= 0:
         start_index = 1
     else:
         start_index = 0
 
     while True:
+        while projection_type == 0:
+            single_projection = input("\nDo you want a single shadow projection? (y/n)")
+            if single_projection == "y" or single_projection == "n":
+                projection_type = 1
+
+        if single_projection == "y":
+            print("\nYou have to choose a single time of day.")
+        if single_projection == "n":
+            print("\nYou need to choose a start time and an end time for the period of the day.")
+            print("\nThe shadows are darker or lighter depending on whether the area remained shaded for a long time during the selected period!")
+
         print("\nPlease choose a phase of the day (from sunrise to sunset):\n")
 
         for i in range(start_index, len(alpha_list)):
             print(f"{i} : {horaire_list[i]}")
 
         user_time_index = input("\nEnter the index of the start: ")
-        user_time_index_end = input("\nEnter the index of the end: ")
+        if single_projection == "n":
+            user_time_index_end = input("\nEnter the index of the end: ")
+        else :
+            user_time_index_end = 99
 
         if user_time_index.isdigit() and user_time_index_end.isdigit():
             user_time_index = int(user_time_index)
