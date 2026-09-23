@@ -45,6 +45,8 @@ its own heap under numpy load - see the problem log,
 [`docs/problem-solving.md`](docs/problem-solving.md)).
 
 ```
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r voxelising-python/requirements.txt
 cd voxelising-python
 python -m voxelizer single your_tile.laz --output-dir outputs/test1
