@@ -51,15 +51,21 @@ docker run -it --rm -v "${PWD}:/app" shadow_modeling Method2.py
 The program takes as input several pieces of information provided by the user:
 - A date in numerical format **(e.g., 07/09/2023)**.
 - The X_min and Y_min positions of the desired LiDAR tile **(e.g., X_min : 1848000 ; Y_min : 5180000)**.
-The tile positions are available on the website of **[DataGrandLyon](https://data.grandlyon.com/portail/fr/jeux-de-donnees/nuage-de-points-lidar-2023-de-la-metropole-de-lyon/donnees)**.
-- After calculating the sun's positions for the desired date, the program asks the user to select a time of day to use for the calculation **(e.g., Program "2: 10H20" -> User : "2")**.
+The tile positions are available on the website of **[DataGrandLyon (LiDAR 2023)](https://data.grandlyon.com/portail/fr/jeux-de-donnees/nuage-de-points-lidar-2023-de-la-metropole-de-lyon/donnees)**.
+- After calculating the sun's positions for the desired date, the program asks the user to select a time of day to use for the calculation **(e.g., Program "2: 10H20" -> User : "2")**. <br>
+The program for both methods can be launched for a single projection or for a period of time: `Do you want a single shadow projection? (y/n)`
+- If you have chosen `y` the program will execute the code to project shadows at a **single phase** of the day.
+- If you chose `n` the program will ask you for the **start** and **end** time of the **time period** to use.
 
 <br>
 
 ### Result
 
-The generated shadow map, depending on the chosen method **Method 1 or 2**, is saved in **TIFF** format in the **`Data`** folder located at the project root.
+The generated shadow map, depending on the chosen method **Method 1** or **2**, is saved in **TIFF** format in the **`Data`** folder located at the project root.
+In the case of calculating shadows over a period of time,The shadows are darker or lighter depending on whether the area remained shaded for a long time during the selected period!
 
+**To properly view TIFF files, you must open them in a suitable viewer.** <br>
+You can use [VScode](https://code.visualstudio.com) by installing the **GeoTIFF Viewer** extension, and clicking on **`Open with : GeoTIFF Viewer`**. <br> In order to better visualize shadows it is recommended to use the **Colormap :** `Grayscale`.
 ## Team
 - Karima Ouadah
 - John Samuel
