@@ -1,0 +1,218 @@
+%% Workflow schema: what calls what, for the two commands that matter.
+%% The boxes are a function-level graph of one run: the functions these two
+%% commands actually call, plus the child-process entry points
+%% (shard_worker.main, stage_runner.main). The functions of the six essential
+%% modules are a subset of them, 25 of the 49 function boxes; the other 24
+%% belong to 19 further modules of the package plus one repository script.
+%% This departs from the standard's rule "boxes = the six essential modules"
+%% on purpose: six boxes cannot show what calls what inside the flow.
+%% Two module counts, because they are different numbers. Modules drawn: 25
+%% package modules own a box here, the six essential ones and 19 others;
+%% three more (visualizer3d, ray_trace, solar) are named inside a caption
+%% without owning a box of their own. Modules entered: a default area run
+%% (no --download, no --shard) runs a function of 16 package modules, and
+%% four of those sixteen are named nowhere in this drawing - cli_common,
+%% run_utils, classes_config and viz_common.
+%% Every box names what it draws in qualified form: module.function,
+%% module.Class.method or module.Class. Three boxes are not one name: M13 and
+%% C21 each hold the functions of one call chain, and R6 is a repository
+%% script path. No source line numbers, they rot.
+%% Arrows carry the data that crosses them: in-memory objects, or file names.
+%% Read side (decoder, rays, solar) is drawn apart: it never builds a store.
+%% The init block and the one invisible link "P1 ~~~ P2" are layout only: they
+%% stack the two panels instead of letting dagre put them side by side, which
+%% takes the render from 10205 px wide to 6229. The invisible link is the only
+%% edge here without a label, and it carries no arrow head and no line.
+%% Render:
+%%   npx -y @mermaid-js/mermaid-cli -i 12_workflow_schema.mmd -o 12_workflow_schema.svg -b white
+%%{init: {"flowchart": {"nodeSpacing": 18, "rankSpacing": 40, "wrappingWidth": 200, "padding": 5}}}%%
+flowchart TB
+    LEGEND["<b>Legend</b><br>solid arrow = call on the default path, with the data it passes<br>thick arrow = data hand-off: neither box calls the other,<br>their common caller passes the value the label names<br>dashed arrow = branch taken only under the flag on the label<br>arrow out of a cylinder = a read of that file, not a call<br>arrow ending in a cross = the artifact is deleted there<br>parallelogram = input data<br>cylinder = artifact written to disk<br>dashed cylinder = intermediate, deleted on a clean exit<br>thick gold border = a function of one of the six essential modules:<br>data_structures, voxelize, decoder, sharding, merge_streaming, area_cli"]
+
+    subgraph P1["PANEL A - python -m voxelizer single TILE.laz"]
+        direction TB
+        IN1[/"TILE.laz<br>the one tile named on the command line"/]
+        M1["__main__.main"]
+        M2["pipeline.process_single_tile"]
+        M3["voxelize.voxelize_laz"]
+        M4["io_laz.read_laz<br>point arrays"]
+        M5["voxelize.voxelize"]
+        M6["voxelize._cells_from_points<br>quantize, sort, reduce"]
+        M7["voxelize._store_from_cells<br>compress to ranges"]
+        M8["data_structures.ColumnStore.from_intervals"]
+        M9["data_structures.ColumnStore.stats"]
+        M10["data_structures.ColumnStore.column_summaries"]
+        M11["visualization.plot_tile_map<br>x4 modes"]
+        M12["column_diagnostics.write_column_diagnostics"]
+        M13["viz3d_cli._run_single<br>visualizer3d.render_store_3d"]
+        M14["tiled_exporter.export_tiled_from_store"]
+        M15["sharding.save_single_tile_shard<br>ColumnStore.save + manifest.json"]
+        M16["data_structures.ColumnStore.save_dir<br>raw .npy directory"]
+
+        S1[("&lt;tile&gt;/stats.txt")]
+        S2[("&lt;tile&gt;/&lt;stem&gt;_max_height.png<br>_max_points_class.png<br>_orthophoto_class.png<br>_n_intervals.png")]
+        S3[("&lt;tile&gt;/columns/diagnostics/*.png<br>&lt;tile&gt;/columns/per_column/*.png")]
+        S4[("&lt;tile&gt;/&lt;stem&gt;_full.html<br>&lt;stem&gt;_roi.html")]
+        S5[("&lt;tile&gt;/&lt;stem&gt;_stream.html<br>+ .bin + .idx.json")]
+        S6[("shards/&lt;stem&gt;.npz<br>shards/manifest.json")]
+        S7[("store_raw/ keys off zs ze cl ct .npy<br>meta.json, run_params.json")]
+
+        IN1 -->|"the file itself, opened by laspy"| M4
+        M1 -->|"tile path, parsed options (cell sizes, keep_classes)"| M2
+        M2 -->|"tile path, cell sizes, keep_classes"| M3
+        M3 -->|"tile path; back: x, y, z, class arrays"| M4
+        M3 -->|"the point arrays"| M5
+        M5 -->|"the point arrays"| M6
+        M6 ==>|"the quantized cells, returned to voxelize.voxelize,<br>which passes them on"| M7
+        M7 -->|"flat interval arrays:<br>ix, iy, z_start, z_end, cls, count"| M8
+        M2 -->|"the store"| M9
+        M2 -->|"the store"| M10
+        M2 -->|"the store, once per mode"| M11
+        M2 -->|"the store"| M12
+        M9 -->|"stats dict, via pipeline._format_stats"| S1
+        M10 ==>|"the summaries, returned to pipeline.process_single_tile,<br>which passes them to all four modes"| M11
+        M11 -->|"draws render_tile_map's uint8 H x W x 3 on an Axes;<br>pipeline saves the figure with fig.savefig"| S2
+        M12 -->|"the diagnostic figures, and the per-column ones"| S3
+        M1 -.->|"--viz3d, reusing the store"| M13
+        M1 -.->|"--viz3d-stream, reusing the store;<br>it wins when both flags are given"| M14
+        M1 -.->|"--shards"| M15
+        M2 -.->|"--keep-raw-store, via save_store_to"| M16
+        M13 -->|"three.js HTML, geometry inlined"| S4
+        M14 -->|"HTML plus its binary tile payload and index"| S5
+        M15 -->|"the tile's raw store + the manifest<br>the shard tooling reads"| S6
+        M16 -->|"six .npy + meta.json + run_params.json"| S7
+    end
+
+    subgraph P2["PANEL B - python -m voxelizer.area_cli area"]
+        direction TB
+        IN2[/"--laz-dir DIR: the LAZ tiles on disk<br>--xmin --ymin --xmax --ymax: the emprise"/]
+        C1["area_cli.main<br>parses, refuses bad flag combos"]
+        C2["preflight.estimate_area_run<br>returns the estimate dict; the 30 percent overhead<br>it adds is preflight.SAFETY_FACTOR = 1.3<br>main prints preflight.format_estimate"]
+        C3["area_cli.run_area<br>orchestrates the whole run"]
+        C4["area.process_area<br>one tile at a time"]
+        C5["area.process_area_streamed<br>download, voxelize, discard<br>same two per-tile calls as process_area"]
+        C6["area.select_area_tiles<br>tiles intersecting bbox<br>io_laz.read_laz_header"]
+        C7["voxelize.voxelize_laz_chunked<br>chunked point buffer, io_laz.read_laz_chunks"]
+        C8["data_structures.ColumnStore.merge<br>tile into area, on the shared origin<br>disjoint tiles: concatenate + one gather"]
+        C9["preflight.check_rss_budget"]
+        C10["store_streaming.save_store_npz_atomic"]
+        C11["data_structures.ColumnStore.grouped<br>--group-gap default None = unlimited<br>1.5 m in the recorded runs<br>called on both paths: once on the area store here,<br>once per shard band slice inside the streaming merge"]
+        C12["area_outputs._write_outputs_isolated<br>default: save_dir, then a child per stage<br>on --resume-from-store: store=None, save_dir skipped"]
+        C13["area_outputs._write_outputs<br>same deliverables, in process"]
+        C14["stage_runner.main<br>child per stage, mmap store_raw/"]
+        C15["sharding.run_area_sharded"]
+        C16["voxelize.voxelize_laz_chunked<br>in run_area_sharded, in process"]
+        C17["sharding._atomic_shard_save<br>tmp file + os.replace"]
+        C18["sharding._voxelize_tile_in_child<br>subprocess per tile"]
+        C19["shard_worker.main<br>child entry point"]
+        C20["voxelize.voxelize_laz_chunked<br>in the child"]
+        C21["shard_diagnostics.sweep_shards<br>shard_diagnostics.write_column_diagnostics_from_shards<br>both fed by shard_diagnostics.open_shard_set,<br>which groups every shard slice under --group-gap"]
+        C22["sharding._merge_all_shards"]
+        C23["merge_streaming.merge_shards_streaming"]
+        C24["merge_streaming.plan_bands<br>band budget, RAM bounded"]
+        C25["data_structures.ColumnStore.merge_many<br>once per band"]
+        C26["download_laz.download_laz<br>reached through area_cli._maybe_download"]
+        C27["area_cli._cleanup_intermediates<br>--intermediates auto, keep or delete<br>auto keeps everything when a stage failed"]
+
+        A1[("area_raw.npz<br>the ungrouped store, written only when<br>grouping and store-saving are both on")]
+        A2[("area.npz<br>area_manifest.json<br>stats.txt<br>stages.json<br>stages/params.json<br>stages/&lt;stage&gt;.result.json<br>stages/&lt;stage&gt;.faultlog")]
+        A3[("area_&lt;mode&gt;.png x4<br>columns/")]
+        A4[("shards/&lt;tile&gt;.npz<br>shards/manifest.json<br>shards/run_config.json<br>shards/failed_tiles.json")]
+        A5[("store_raw/<br>keys off zs ze cl ct .npy<br>meta.json, run_params.json<br>the GROUPED store by default;<br>ungrouped only under --no-group-intervals")]
+        A6[("--viz3d-stream: area_stream.html<br>+ area_stream.bin + .idx.json, unless the payload is inlined<br>+ view_stream.cmd<br>--viz3d instead: area_full.html / area_roi.html<br>the two flags are exclusive, stream wins")]
+        A7[("every --shard run:<br>stats.txt<br>area_&lt;mode&gt;.png x4<br>without --merge-shards, also:<br>columns/<br>--viz3d: area_full.html, area_roi.html")]
+
+        C1 -.->|"--preflight-only"| C2
+        C1 -.->|"--download, which requires --json INVENTORY"| C26
+        C26 -->|"the tiles of the origin window, into --laz-dir"| IN2
+        C1 -->|"bbox, laz-dir, out-dir, flags"| C3
+        IN2 -->|"one header per candidate tile"| C6
+        IN2 -->|"the points of each kept tile, in chunks"| C7
+        IN2 -.->|"--shard: the same chunked read"| C16
+        C3 -->|"bbox, grid, class filter"| C4
+        C3 -.->|"--stream"| C5
+        C5 -->|"one tile at a time, downloaded into templaz/,<br>read in chunks and deleted straight after"| C7
+        C5 -->|"the per-tile store, once per tile:<br>area.merge(tile, inplace=True), same call as process_area"| C8
+        C5 ==>|"the merged store, returned to run_area,<br>which is what saves it"| C10
+        C4 -->|"bbox; back: the tile paths and the area z floor"| C6
+        C4 -->|"one selected tile, read in chunks"| C7
+        C7 ==>|"one ColumnStore per tile, returned to process_area,<br>which passes it to area.merge(tile, inplace=True)"| C8
+        C4 -->|"RSS measured after each tile"| C9
+        C3 -->|"the merged raw store, only with store-saving on"| C10
+        C10 -->|"written as .partial.npz, then os.replace"| A1
+        C3 -->|"the raw store"| C11
+        C11 ==>|"the grouped store, returned to run_area,<br>which chooses the writer"| C12
+        C11 -.->|"--no-isolate-stages: the same grouped store"| C13
+        C3 -.->|"--no-group-intervals: the raw store, no grouping"| C12
+        C12 -->|"ColumnStore.save_dir, whenever a store is passed in"| A5
+        C12 -->|"python -m voxelizer.stage_runner"| C14
+        A5 -->|"mmap"| C14
+        C14 -->|"stats.txt, area.npz, area_manifest.json,<br>one stages/&lt;stage&gt;.result.json and .faultlog each;<br>stages.json and stages/params.json are the parent's"| A2
+        C14 -->|"the maps stage, then the col_diag stage"| A3
+        C14 -.->|"--viz3d / --viz3d-stream"| A6
+        C13 -->|"the same files in process, without stages.json"| A2
+        C13 -->|"the same maps and columns/, in process"| A3
+        C13 -.->|"--viz3d / --viz3d-stream"| A6
+        C1 -->|"at both exits, once the deliverables are written"| C27
+        C27 --x|"deleted on a clean exit unless --keep-area-raw"| A1
+        C27 --x|"deleted on a clean exit unless --keep-raw-store"| A5
+
+        C1 -.->|"--resume-from-store DIR: no read, no voxelize, no grouping;<br>bbox and options from DIR/run_params.json"| C12
+        A5 -.->|"--resume-from-store: the preserved store_raw/, by mmap"| C12
+        C1 -.->|"--shard"| C15
+        C15 -->|"local tiles; --stream uses sharding._tile_iter_stream"| C6
+        C15 -->|"default: in process, one tile at a time"| C16
+        C16 ==>|"one raw ColumnStore, returned to run_area_sharded,<br>which passes it to the shard writer"| C17
+        C17 -->|"one .npz per tile: tmp file + os.replace"| A4
+        C15 -.->|"--isolate-tiles"| C18
+        C18 -->|"python -m voxelizer.shard_worker"| C19
+        C19 -->|"tile path, grid and origin from its argv"| C20
+        C20 -->|"tmp .npz + os.replace, by the child itself"| A4
+        A4 -->|"parent reloads it: sharding._try_load_shard"| C18
+        A4 -.->|"--resume-shards: sharding._try_load_shard"| C15
+        C15 -->|"per-tile fold: aggregates + mosaic rasters,<br>written before any merge is decided"| A7
+        C15 -->|"no merge, --columns-mode not skip"| C21
+        C21 -->|"columns/ and the exact stats.txt"| A7
+        C15 -.->|"--viz3d, no merge: render_full_from_shards,<br>load_region_from_shards + area_outputs.render_area_3d"| A7
+        C15 -.->|"--merge-shards"| C22
+        C22 -->|"shards dir, out store dir, band budget,<br>and the grouping flags it forwards"| C23
+        C23 -->|"the shard records; back: the ix band cuts"| C24
+        C23 -->|"each shard's slice of the current band,<br>grouped before that band is merged"| C11
+        C23 -->|"one band of grouped slices"| C25
+        C23 -->|"band by band, out of core; grouped by default"| A5
+        A4 -->|"shard .npz files"| C23
+        C15 -.->|"--merge-shards: merged phase, include_maps=False"| C12
+        C15 -.->|"--keep-area-raw: a second, ungrouped merge pass<br>through C22 into a scratch dir, then this saver"| C10
+    end
+
+    subgraph RS["READ SIDE - never builds a store; reads one that exists"]
+        direction TB
+        R6["Experiments/run_sun_hours.py<br>code_verification/exp11"]
+        R1["sun_hours.compute_sun_hours<br>solar.day_arc, solar.sun_vector_grid"]
+        R2["ray_columns.CeilingDDA<br>subclasses ray_trace.ColumnGridDDA"]
+        R3["transmittance.transmittance"]
+        R4["decoder.classify_voxel_at<br>empty voxel = measured air<br>opaque interior / subsurface"]
+        R5["ground_index.compute_ground_indices<br>reached via ColumnStore.ground_idx"]
+
+        R6 -->|"library only, no CLI subcommand"| R1
+        R1 -->|"the store; one ceiling per column"| R2
+        R1 -->|"origin, sun vector, Extinction"| R3
+        R2 -->|"one (ix, iy, iz) per DDA step"| R4
+        R3 -->|"one (ix, iy, iz) per DDA step"| R4
+        R4 -->|"via ColumnStore.ground_idx:<br>one ground index per column"| R5
+    end
+
+    A2 -->|"area.npz, via ColumnStore.load"| R1
+
+    P1 ~~~ P2
+
+    classDef art fill:#e8f1e8,stroke:#2e7d32,color:#111
+    classDef read fill:#f3e8f1,stroke:#7b2d6b,color:#111
+    classDef input fill:#e8eef7,stroke:#1f4e79,color:#111
+    classDef transient fill:#fdf3e0,stroke:#8a6d3b,stroke-dasharray: 6 4,color:#111
+    classDef core stroke:#b8860b,stroke-width:4px
+    class S1,S2,S3,S4,S5,A2,A3,A4,A6,A7 art
+    class R1,R2,R3,R4,R5,R6 read
+    class A1,A5 transient
+    class IN1,IN2 input
+    class M3,M5,M6,M7,M8,M9,M10,M15,M16,C1,C3,C7,C8,C11,C15,C16,C17,C18,C20,C22,C23,C24,C25,C27,R4 core

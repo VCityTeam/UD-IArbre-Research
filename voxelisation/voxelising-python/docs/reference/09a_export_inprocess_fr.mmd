@@ -1,0 +1,29 @@
+%%{init: {'flowchart': {'wrappingWidth': 300, 'nodeSpacing': 30, 'rankSpacing': 34}}}%%
+%% GENERATED - do not edit by hand.
+%% Chaque nom et chaque valeur ci-dessous sont vérifiés sur le code source.
+flowchart TD
+    Store["<b>ColumnStore</b><br>.npz ou répertoire projeté en mémoire"]
+
+    CG["<b>visualizer3d._collect_voxel_geometry()</b><br>l'UNIQUE passe de géométrie, vectorisée<br>sur _keys / _off / _zs / _ze / _cl sans<br>boucle par colonne - boîte de région<br>métrique et liste blanche de classes<br>en option, et estimate_thin_stride()<br>tenant le nombre de boîtes sous<br>max_boxes (défaut 5 000 000, plafond<br>absolu 200 000 000)"]
+
+    H["export_html()<br>_encode_grid_payload :<br>grid-u16-soa-v1,<br>8 octets par boîte, zlib<br>puis base64, un .html<br>(export_grid : mêmes<br>octets qu'un cache .vxg)"]
+    P["export_ply()<br>binaire little-endian,<br>8 sommets et 12<br>triangles par boîte,<br>RVB par sommet,<br>repère centré"]
+    V["show_pyvista()<br>fenêtre VTK<br>interactive,<br>dépendance<br>optionnelle"]
+
+    BR["navigateur, ouvert depuis file:// -<br>Three.js InstancedMesh, un maillage<br>par classe. render_store_3d() écrit<br>les deux variantes : label_full.html<br>(aminci automatiquement) et<br>label_roi.html (200 m, max_boxes None)"]
+    CC["CloudCompare, MeshLab<br>Blender, ParaView"]
+
+    Store --> CG
+    CG --> H
+    CG --> P
+    CG --> V
+    H --> BR
+    P --> CC
+
+    style Store fill:#1a5276,color:#fff,stroke:#fff
+    style CG fill:#0e6655,color:#fff,stroke:#fff
+    style H fill:#7d3c98,color:#fff,stroke:#fff
+    style P fill:#7d3c98,color:#fff,stroke:#fff
+    style V fill:#7d3c98,color:#fff,stroke:#fff
+    style BR fill:#1e8449,color:#fff,stroke:#fff
+    style CC fill:#1e8449,color:#fff,stroke:#fff

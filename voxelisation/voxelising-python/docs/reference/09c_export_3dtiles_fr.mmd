@@ -1,0 +1,34 @@
+%%{init: {'flowchart': {'wrappingWidth': 250, 'nodeSpacing': 26, 'rankSpacing': 30}}}%%
+%% GENERATED - do not edit by hand.
+%% Chaque nom et chaque valeur ci-dessous sont vérifiés sur le code source.
+flowchart TD
+    In["<b>tileset_cli</b> : from-store ou<br>from-payload - le .bin + .idx.json<br>de tiled_exporter, feuille 100 m"]
+
+    subgraph Cas ["tileset_exporter.convert_to_3d_tiles_lod() - la pyramide de LOD, en flux"]
+        direction LR
+        M["feuilles parcourues dans<br>l'ordre de _morton_key(i, j),<br>21 bits par axe : l'ordre en Z<br>garde les descendants de tout<br>nœud contigus à CHAQUE niveau"]
+        CO["_coarsen_records() : espacement<br>et pas doublés par niveau,<br>avec une union des intervalles<br>z sensible aux classes - les<br>nœuds internes portent une vraie<br>géométrie sous-échantillonnée"]
+        FL["une clé changée au niveau lv<br>signifie que ce nœud a vu son<br>dernier enfant : _flush_node()<br>écrit node_lv_i_j.glb, le libère<br>et alimente le niveau du dessus<br>- un nœud ouvert par niveau"]
+    end
+
+    GLB["<b>tile_ti.glb</b> (feuilles) et<br><b>node_lv_i_j.glb</b> (internes)<br>EXT_mesh_gpu_instancing : un<br>maillage de boîte unitaire par<br>classe, avec TRANSLATION et<br>SCALE par instance"]
+    TS["<b>tileset.json</b> - quadtree,<br>refine REPLACE, geometricError<br>8 x cell_xy x 2^niveau (feuilles 0)<br>root.transform : grille EPSG:3946<br>vers ECEF, géoïde via EPSG:5720,<br>convergence des méridiens<br>corrigée"]
+    CL["Cesium, iTowns, Unreal, Unity<br>tout client 3D Tiles 1.1"]
+
+    In --> M --> CO --> FL
+    FL -.-> CO
+    FL --> GLB
+    FL --> TS
+    GLB --> CL
+    TS --> CL
+
+    %% edges 1,2,3 run inside the dark subgraph - draw them light
+    linkStyle 1,2,3 stroke:#ffffff,stroke-width:2px
+    style In fill:#1a5276,color:#fff,stroke:#fff
+    style Cas fill:#0b5345,color:#fff
+    style M fill:#117864,color:#fff,stroke:#fff
+    style CO fill:#117864,color:#fff,stroke:#fff
+    style FL fill:#117864,color:#fff,stroke:#fff
+    style GLB fill:#b9770e,color:#fff,stroke:#fff
+    style TS fill:#7d3c98,color:#fff,stroke:#fff
+    style CL fill:#1e8449,color:#fff,stroke:#fff

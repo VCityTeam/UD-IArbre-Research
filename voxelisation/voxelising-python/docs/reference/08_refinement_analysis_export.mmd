@@ -1,0 +1,59 @@
+flowchart TD
+    Raw["raw ColumnStore<br>(area_raw.npz - measurement of record)"]
+
+    subgraph Refine ["Refinement chain (composable; postprocess_cli is its CLI)"]
+        R1["denoise: min_points_filter<br>+ morphological_filter"]
+        R2["absorb_interior()<br>vegetation -> building envelope<br>(z-range 8-neighbour + cardinal escape)"]
+        R3["resolve()<br>collapse cross-class overlaps<br>-> one label per voxel (majority)"]
+    end
+
+    subgraph Analyse ["Ground index + emptiness analysis"]
+        G1["ground_index<br>compute_ground_indices / fill_ground_holes<br>(cached on store as _gi)"]
+        D1["decoder<br>classify_voxel / classify_gap:<br>class | MEASURED_AIR -1 |<br>OPAQUE_INTERIOR -2 | SUBSURFACE -3"]
+        RT["ray_trace / ray_columns<br>ColumnGridDDA + CeilingDDA<br>full 3-D Amanatides-Woo"]
+        TR["transmittance<br>Beer-Lambert walk, opaque or<br>per-class extinction"]
+        SH["sun_hours<br>direct-sun sampling over solar<br>positions (solar.py)"]
+    end
+
+    subgraph Export ["Terminal consumers"]
+        RC["reconstruct<br>store_to_points / store_to_las / store_to_laz<br>store_from_laz (the inverse direction)<br>modes: density | one_per_voxel | exact"]
+        AR["archive_cli pack/unpack<br>raw shards/*.npz &lt;-&gt; shards_laz/*.laz<br>(exact, verified per shard)"]
+        TE["tiled_exporter.export_tiled_from_store()<br>-> .bin + .idx.json (band-at-a-time)"]
+        TS["tileset_exporter<br>convert_to_3d_tiles_lod() (default)<br>-> tileset.json + tile_*.glb<br>(EXT_mesh_gpu_instancing)<br>streamed LOD build (Morton order)"]
+    end
+
+    subgraph Viewers ["Multi-viewer targets"]
+        VC["Cesium (Cesium3DTileset)"]
+        VI["iTowns (C3DTilesLayer) - native Lambert"]
+        VU["Unreal (Cesium for Unreal)"]
+        VN["Unity (Cesium for Unity)"]
+        VP["Unreal LiDAR plugin / Unity Pcx<br>(point cloud, from LAZ)"]
+    end
+
+    Raw --> R1 --> R2 --> R3
+    R3 --> G1
+    Raw -. "also usable directly" .-> G1
+    G1 --> D1
+    D1 --> RT
+    RT --> TR
+    TR --> SH
+    R3 --> RC
+    R3 --> TE
+    TE --> TS
+    RC -->|"LAS/LAZ"| VP
+    RC -->|"store_from_laz: re-voxelize an export on the<br>grid read back from its IARBRE VLR<br>(bit-identical only for mode=exact)"| Raw
+    Raw -->|"RAW store only<br>(refined stores and area.npz are NOT archivable)"| AR
+    AR -->|"unpack -> bit-identical .npz"| Raw
+
+    TS -->|"IMPLEMENTED: ECEF root.transform<br>(EPSG:3946 -> ECEF, RAF geoid applied;<br>--no-geoid opts out) + quadtree LOD<br>(2x coarsening/level, REPLACE refine)"| Hub{{"georeferenced<br>3D Tiles hub"}}
+    Hub --> VI
+    Hub --> VC
+    Hub --> VU
+    Hub --> VN
+
+    style Raw fill:#1a5276,color:#fff
+    style Refine fill:#0e6655,color:#fff
+    style Analyse fill:#6c3483,color:#fff
+    style Export fill:#7d3c98,color:#fff
+    style Viewers fill:#1e8449,color:#fff
+    style Hub fill:#b9770e,color:#fff

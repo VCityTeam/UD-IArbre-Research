@@ -1,0 +1,12 @@
+# Root gitignore (2026-09-14). voxelising-python/ has its own nested gitignore.
+.venv/
+
+# Editor and OS droppings
+.vs/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Doxygen: the generated site is built locally with docs/make_docs.cmd or .sh and never versioned
+voxelising-python/docs/doxygen_warnings.log
+voxelising-python/docs/doxygen/

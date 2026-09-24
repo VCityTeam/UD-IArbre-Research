@@ -1,0 +1,102 @@
+# ===================================================================
+#  Docker Compose for the IA.rbre voxeliser
+#
+#  Lives in docker/; run it from the package root with
+#  `docker compose -f docker/docker-compose.yml ...` (the build context
+#  and the bind-mount host paths below are relative to this file's
+#  directory, hence the `..` prefixes).
+#
+#  Two services:
+#    voxelisation     - CLI-only (headless, no GUI)
+#    voxelisation-gui - GUI via noVNC (browser-based Tkinter)
+#
+#  Build:  docker compose -f docker/docker-compose.yml build
+#  CLI:    docker compose -f docker/docker-compose.yml run --rm voxelisation python -m voxelizer --help
+#  Crash-resilient metropolis run (resume + per-tile isolation; shards
+#  persist on the host via the ../outputs or ../entire-lyon-outputs mounts, so
+#  an interrupted run continues where it stopped - even across containers):
+#    docker compose -f docker/docker-compose.yml run --rm voxelisation python -m voxelizer.area_cli area \
+#      --xmin ... --laz-dir inputs/laz --output-dir entire-lyon-outputs/Run1/area_output \
+#      --shard --resume-shards --isolate-tiles
+#  (--retry-lazrs's single-thread second-opinion retry uses the lazrs
+#  package, included in requirements.txt; Laszip remains the pinned default.)
+#  GUI:    docker compose -f docker/docker-compose.yml up voxelisation-gui
+#          Open http://localhost:6080 in your browser
+#
+#  The voxelizer is pure numpy/matplotlib/laspy (no PyTorch, no CUDA),
+#  so there is only a CPU service here.
+# ===================================================================
+
+name: voxelisation
+
+services:
+  # ----------------------------------------------------------------
+  #  CLI-only service (headless, for batch processing)
+  # ----------------------------------------------------------------
+  voxelisation:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: ud-iarbre-voxelisation:cpu
+    working_dir: /workspace
+    mem_limit: "8g"
+    memswap_limit: "8g"
+    environment:
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
+    # Bind-mount only the necessary directories.
+    # Code changes are reflected immediately without rebuilding.
+    volumes:
+      - ../voxelizer:/workspace/voxelizer
+      - ../inputs/quickhelpers:/workspace/inputs/quickhelpers
+      - ../inputs/laz:/workspace/inputs/laz
+      - ../inputs/ortho:/workspace/inputs/ortho
+      - ../outputs:/workspace/outputs
+      - ../entire-lyon-outputs:/workspace/entire-lyon-outputs
+      # For full-metropolis runs from a local tile mirror, also mount it.
+      # During development that mirror was a local scratch directory on fast
+      # storage holding the full Grand Lyon 2023 inventory (2,842 tiles,
+      # 51,912,212,206 points - the count matches the Genstats corpus record
+      # (LAZ_STATS.md, kept with the private workspace's corpus census) exactly), with a second archival copy on slower storage.
+      # Complete in count but not proven clean byte for byte: one tile in
+      # that mirror was later found bit-corrupted and had to be re-fetched
+      # (docs/problem-solving.md sections 1.4 and 6.4, at the delivery
+      # root). Point the mount at your own
+      # LAZ archive location.
+      # Docker Desktop on Windows accepts the drive-letter form:
+      # - C:/path/to/your/laz/archive:/workspace/inputs/laztemp
+      # (inside WSL/git-bash the same mount is written
+      #  /mnt/c/path/to/your/laz/archive or /c/path/to/... respectively)
+
+  # ----------------------------------------------------------------
+  #  GUI service (Tkinter via noVNC, browser-based)
+  # ----------------------------------------------------------------
+  voxelisation-gui:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: ud-iarbre-voxelisation:cpu
+    working_dir: /workspace
+    mem_limit: "8g"
+    memswap_limit: "8g"
+    environment:
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
+    ports:
+      - "6080:6080"   # noVNC web interface (open http://localhost:6080)
+      - "8770:8770"   # diagnostics dashboard (--serve)
+      - "8000:8000"   # static file server (serve_voxel_html.py)
+    # Same bind mounts as the CLI service
+    volumes:
+      - ../voxelizer:/workspace/voxelizer
+      - ../inputs/quickhelpers:/workspace/inputs/quickhelpers
+      - ../inputs/laz:/workspace/inputs/laz
+      - ../inputs/ortho:/workspace/inputs/ortho
+      - ../outputs:/workspace/outputs
+      - ../entire-lyon-outputs:/workspace/entire-lyon-outputs
+    # Auto-start the GUI via the entrypoint script
+    entrypoint: ["/entrypoint.sh"]

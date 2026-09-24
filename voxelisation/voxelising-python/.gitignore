@@ -1,0 +1,34 @@
+# Nested gitignore for voxelising-python/.
+# Run outputs and recorded experiment result artifacts are never committed.
+__pycache__/
+*.pyc
+.pytest_cache/
+outputs/*
+!outputs/.gitkeep
+Area_pre_split/
+
+# Recorded experiment result artifacts: not committed.
+Experiments/Sweep2026-07-22Exp/
+
+# Input corpus: the LAZ tiles and the orthophotos that download_laz and
+# download_orthos fetch are data, never committed. The rules ignore the
+# CONTENTS of each directory rather than the directory itself, so the two
+# .gitkeep files that keep inputs/laz/ and inputs/ortho/ in the tree stay
+# tracked and a clone gets both destinations.
+inputs/laz/*
+inputs/ortho/*
+!inputs/laz/.gitkeep
+!inputs/ortho/.gitkeep
+
+# Whole-Lyon shard builds. entire-lyon-outputs/ is a destination, not content:
+# execution-steps.md documents it as the Docker bind-mount target, so it has to
+# exist in a clone and has to be empty. Same contents form as inputs/ above.
+entire-lyon-outputs/*
+!entire-lyon-outputs/.gitkeep
+
+# Diagram generators: kept on disk, not published
+docs/reference/gen_export_paths.py
+docs/reference/gen_module_tiers.py
+docs/reference/gen_module_diagram.py
+Experiments/make_figure_ray_cost.py
+Experiments/make_figure_extinction_hist.py

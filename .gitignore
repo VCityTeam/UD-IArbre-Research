@@ -22,3 +22,7 @@ tileset.json
 sunpath.csv
 output.csv
 desealing/output/
+# Local editor and operating-system metadata
+.DS_Store
+.idea/
+.vs/

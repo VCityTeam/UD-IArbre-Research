@@ -1,0 +1,43 @@
+%%{init: {'flowchart': {'wrappingWidth': 250, 'nodeSpacing': 26, 'rankSpacing': 30}}}%%
+%% GENERATED - do not edit by hand.
+%% Chaque nom et chaque valeur ci-dessous sont vérifiés sur le code source.
+flowchart TD
+    Store["<b>ColumnStore</b>, projeté en<br>mémoire, clés empaquetées<br>à biais décalé, donc l'ordre<br>canonique EST (ix, iy)<br>croissant - une rangée de<br>tuiles est une tranche"]
+
+    subgraph Exp ["tiled_exporter.write_tiled_payload() - une bande en mémoire, sans amincir ni plafonner"]
+        direction LR
+        B1["par rangée de tuiles,<br>searchsorted sur _keys donne<br>une tranche de colonnes<br>contiguë, donc une tranche<br>d'intervalles contiguë"]
+        B2["répartir la bande par tile_iy<br>avec un tri stable, puis<br>empaqueter des enregistrements<br>de 32 octets : f32 xyz, f32<br>tailles, u8 rgb, u8 classe"]
+        B3["ajouter tuile par tuile et<br>noter, pour chaque tuile, sa<br>boîte englobante métrique, son<br>décalage en octets et son<br>nombre d'enregistrements"]
+    end
+
+    BIN["<b>.bin</b> - tous les intervalles,<br>octets rangés spatialement.<br>Sous 64 MB il est intégré en<br>base64 dans le .html ; au-dessus,<br>serve_voxel_html répond aux<br>requêtes Range par un 206"]
+    IDX["<b>.idx.json</b> - par tuile la<br>boîte englobante, le décalage en<br>octets, le nombre<br>d'enregistrements et la table<br>des classes"]
+
+    subgraph Vw ["page du visualiseur - max_instances est un JEU DE TRAVAIL GPU, pas un plafond"]
+        direction LR
+        S1["noter chaque tuile d'après le<br>PLUS PROCHE de la caméra et de<br>la sonde (caméra poussée le long<br>de la direction de visée), hors<br>du tronc de vue rétrogradée<br>x3,0, mais conservée"]
+        S2["remplir max_instances (défaut<br>4 000 000) par meilleur score,<br>l'ensemble conservé élargi x1,30<br>contre l'oscillation, au plus 6<br>requêtes de tuiles en vol"]
+        S3["une tuile résidente est son<br>propre InstancedMesh, une vraie<br>unité d'élimination - une tuile<br>évincée devient une boîte<br>d'imposteur tracée depuis la<br>plage z de l'index"]
+    end
+
+    Store --> B1 --> B2 --> B3
+    B3 --> BIN
+    B3 --> IDX
+    BIN --> S1
+    IDX --> S1
+    S1 --> S2 --> S3
+
+    %% edges 1,2 and 7,8 run inside the dark subgraphs - draw them light
+    linkStyle 1,2,7,8 stroke:#ffffff,stroke-width:2px
+    style Store fill:#1a5276,color:#fff,stroke:#fff
+    style Exp fill:#0b5345,color:#fff
+    style B1 fill:#117864,color:#fff,stroke:#fff
+    style B2 fill:#117864,color:#fff,stroke:#fff
+    style B3 fill:#117864,color:#fff,stroke:#fff
+    style BIN fill:#7d3c98,color:#fff,stroke:#fff
+    style IDX fill:#7d3c98,color:#fff,stroke:#fff
+    style Vw fill:#145a32,color:#fff
+    style S1 fill:#1e8449,color:#fff,stroke:#fff
+    style S2 fill:#1e8449,color:#fff,stroke:#fff
+    style S3 fill:#1e8449,color:#fff,stroke:#fff
