@@ -32,15 +32,14 @@ This repository gathers:
 - [Task 3.4](deliverables/T3.4/README.md)
 - [Task 4.6](deliverables/T4.6/README.md)
 
-## Current Internships
-- [Voxel-Based Representation for Volumetric Modeling of Territories](voxelisation/README.md)
-- [3D Urban Shadow Modeling from LiDAR Point Clouds](shadow-modeling/README.md)
-- [Urban Change Detection from Orthophotographs](./urbanchangedetection/README.md)
 
 ## Past Internships
 
 - [Data Science for Urban Desealing](desealing/README.md)
 - [Data Science for Sunlight and Shadow Analyses](sunlight-shadow/README.md)
+- [Voxel-Based Representation for Volumetric Modeling of Territories](voxelisation/README.md)
+- [3D Urban Shadow Modeling from LiDAR Point Clouds](shadow-modeling/README.md)
+- [Urban Change Detection from Orthophotographs](./urbanchangedetection/README.md)
 
 ## Publications
 - **Towards a Reproducible Workflow for Urban Vegetation Stratification in Lyon using Aerial Imagery and LiDAR**,  Arthur Villarroya-Palau, John Samuel, Ludovic Darmet, Gilles Gesquière, The 10th International Smart Data and Smart Cities  Conference, September 29-October 1 2026, Sofia, Bulgaria ([Link](https://doi.org/10.5194/isprs-annals-XII-4-W2-2026-203-2026))
