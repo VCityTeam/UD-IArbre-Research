@@ -43,7 +43,7 @@ This repository gathers:
 - [Data Science for Sunlight and Shadow Analyses](sunlight-shadow/README.md)
 
 ## Publications
-- **Towards a Reproducible Workflow for Urban Vegetation Stratification in Lyon using Aerial Imagery and LiDAR**,  Arthur Villarroya-Palau, John Samuel, Ludovic Darmet, Gilles Gesquière, The 10th International Smart Data and Smart Cities  Conference, September 29-October 1 2026, Sofia, Bulgaria
+- **Towards a Reproducible Workflow for Urban Vegetation Stratification in Lyon using Aerial Imagery and LiDAR**,  Arthur Villarroya-Palau, John Samuel, Ludovic Darmet, Gilles Gesquière, The 10th International Smart Data and Smart Cities  Conference, September 29-October 1 2026, Sofia, Bulgaria ([Link](https://doi.org/10.5194/isprs-annals-XII-4-W2-2026-203-2026))
 
 
 ## Presentations
