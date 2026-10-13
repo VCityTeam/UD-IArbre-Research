@@ -10,6 +10,8 @@
 [submodule "sunlight-shadow/UD-Demo-Sunlight"]
 	path = sunlight-shadow/UD-Demo-Sunlight
 	url = https://github.com/VCityTeam/UD-Demo-Sunlight
+	branch = master
 [submodule "IArbre-urbanchangedetection"]
 	path = IArbre-urbanchangedetection
 	url = https://github.com/VCityTeam/IArbre-urbanchangedetection
+	branch = master
