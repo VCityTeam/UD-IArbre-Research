@@ -1,7 +1,0 @@
-.git
-__pycache__
-.ruff_cache
-workdir
-*.pyc
-*.pyo
-*.pyd
