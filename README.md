@@ -18,7 +18,7 @@ This repository gathers:
 - [data-pipelines/](data-pipelines/synthese.md): notes and references on data-pipeline topics.
 - [desealing/](desealing/README.md): internship work on urban desealing.
 - [sunlight-shadow/](sunlight-shadow/README.md): internship work on sunlight and shadow analysis.
-- [urbanchangedetection/](./IArbre-urbanchangedetection/README.md): Urban Change Detection from Orthophotographs
+- [urbanchangedetection/](https://github.com/VCityTeam/IArbre-urbanchangedetection): Urban Change Detection from Orthophotographs
 
 ## Ongoing Work
 
@@ -37,9 +37,9 @@ This repository gathers:
 
 - [Data Science for Urban Desealing](desealing/README.md)
 - [Data Science for Sunlight and Shadow Analyses](sunlight-shadow/README.md)
-- [Voxel-Based Representation for Volumetric Modeling of Territories](./IArbre-voxelisation/README.md)
-- [3D Urban Shadow Modeling from LiDAR Point Clouds](./IArbre-shadowmodeling/README.md)
-- [Urban Change Detection from Orthophotographs](./IArbre-urbanchangedetection/README.md)
+- [Voxel-Based Representation for Volumetric Modeling of Territories](https://github.com/VCityTeam/IArbre-voxelisation)
+- [3D Urban Shadow Modeling from LiDAR Point Clouds](https://github.com/VCityTeam/IArbre-shadowmodeling)
+- [Urban Change Detection from Orthophotographs](https://github.com/VCityTeam/IArbre-urbanchangedetection)
 
 ## Publications
 - **Towards a Reproducible Workflow for Urban Vegetation Stratification in Lyon using Aerial Imagery and LiDAR**,  Arthur Villarroya-Palau, John Samuel, Ludovic Darmet, Gilles Gesquière, The 10th International Smart Data and Smart Cities  Conference, September 29-October 1 2026, Sofia, Bulgaria ([Link](https://doi.org/10.5194/isprs-annals-XII-4-W2-2026-203-2026))
