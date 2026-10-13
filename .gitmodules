@@ -15,3 +15,6 @@
 	path = IArbre-urbanchangedetection
 	url = https://github.com/VCityTeam/IArbre-urbanchangedetection
 	branch = master
+[submodule "IArbre-shadowmodeling"]
+	path = IArbre-shadowmodeling
+	url = https://github.com/VCityTeam/IArbre-shadowmodeling.git

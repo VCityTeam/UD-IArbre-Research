@@ -38,7 +38,7 @@ This repository gathers:
 - [Data Science for Urban Desealing](desealing/README.md)
 - [Data Science for Sunlight and Shadow Analyses](sunlight-shadow/README.md)
 - [Voxel-Based Representation for Volumetric Modeling of Territories](voxelisation/README.md)
-- [3D Urban Shadow Modeling from LiDAR Point Clouds](shadow-modeling/README.md)
+- [3D Urban Shadow Modeling from LiDAR Point Clouds](./IArbre-shadowmodeling/README.md)
 - [Urban Change Detection from Orthophotographs](./IArbre-urbanchangedetection/README.md)
 
 ## Publications
