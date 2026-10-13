@@ -9,7 +9,7 @@
 	url = https://github.com/VCityTeam/pySunlight-docker
 [submodule "sunlight-shadow/UD-Demo-Sunlight"]
 	path = sunlight-shadow/UD-Demo-Sunlight
-	url = https://github.com/VCityTeam/UD-Demo-Sunlight.git
+	url = https://github.com/VCityTeam/UD-Demo-Sunlight
 [submodule "IArbre-urbanchangedetection"]
 	path = IArbre-urbanchangedetection
 	url = https://github.com/VCityTeam/IArbre-urbanchangedetection
