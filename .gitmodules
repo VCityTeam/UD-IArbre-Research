@@ -18,3 +18,6 @@
 [submodule "IArbre-shadowmodeling"]
 	path = IArbre-shadowmodeling
 	url = https://github.com/VCityTeam/IArbre-shadowmodeling.git
+[submodule "IArbre-voxelisation"]
+	path = IArbre-voxelisation
+	url = https://github.com/VCityTeam/IArbre-voxelisation.git
